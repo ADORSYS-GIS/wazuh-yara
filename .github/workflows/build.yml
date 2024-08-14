@@ -1,0 +1,61 @@
+name: Build YARA
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        arch:
+          - x86_64
+          - arm64
+        version:
+          - 4.5.1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y automake libtool make gcc pkg-config
+
+      - name: Install dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        run: choco install mingw
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install automake libtool pkg-config
+
+      - name: Download YARA
+        run: |
+          wget https://github.com/VirusTotal/yara/archive/refs/tags/v${{ matrix.version }}.tar.gz
+          tar -xzf v${{ matrix.version }}.tar.gz
+
+      - name: Build YARA
+        working-directory: yara-${{ matrix.version }}
+        run: |
+          ./bootstrap.sh
+          ./configure --host=${{ matrix.arch }}
+          make
+
+      - name: Package YARA
+        working-directory: yara-${{ matrix.version }}
+        run: |
+          mkdir -p artifacts/${{ matrix.os }}-${{ matrix.arch }}/yara-${{ matrix.version }}
+          cp yara artifacts/${{ matrix.os }}-${{ matrix.arch }}/yara-${{ matrix.version }}/
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yara-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.version }}
+          path: artifacts/${{ matrix.os }}-${{ matrix.arch }}/yara-${{ matrix.version }}
