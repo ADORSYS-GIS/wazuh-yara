@@ -30,6 +30,23 @@ print_step() {
     log INFO "------ Step $step : $message ------"
 }
 
+custom_sed() {
+    local pattern="$1"
+    local file="$2"
+    local tmp_file="$TMP_DIR/$(basename "$file")"
+
+    if [ "$(uname)" = "Linux" ]; then
+        maybe_sudo sed -e -i "$pattern" "$file" > "$tmp_file"
+    elif [ "$(uname)" = "Darwin" ]; then
+        maybe_sudo sed -e -i '' "$pattern" "$file" > "$tmp_file"
+    else
+        log ERROR "Unsupported OS for sed."
+        exit 1
+    fi
+
+    mv "$tmp_file" "$file"
+}
+
 # Create a temporary directory and ensure it's cleaned up on exit
 TMP_DIR=$(mktemp -d)
 cleanup() {
@@ -232,7 +249,7 @@ log INFO "yara.sh script downloaded and installed successfully."
 
 # Step 4: Update Wazuh agent configuration file
 print_step 4 "Updating Wazuh agent configuration file..."
-maybe_sudo sed -i -e '/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\
+custom_sed '/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\
     <directories realtime="yes">/tmp/yara/malware</directories>' "$OSSEC_CONF_PATH" || {
         log ERROR "Error occurred during Wazuh agent configuration file update."
         exit 1
@@ -241,17 +258,10 @@ log INFO "Wazuh agent configuration file updated successfully."
 
 # Step 5: Update frequency in Wazuh agent configuration file
 print_step 5 "Updating frequency in Wazuh agent configuration file..."
-if [ "$(uname)" = "Linux" ]; then
-    maybe_sudo sed -i 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
-        log ERROR "Error occurred during frequency update in Wazuh agent configuration file."
-        exit 1
-    }
-elif [ "$(uname)" = "Darwin" ]; then
-    maybe_sudo sed -i '' 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
-        log ERROR "Error occurred during frequency update in Wazuh agent configuration file."
-        exit 1
-    }
-fi
+custom_sed 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
+    log ERROR "Error occurred during frequency update in Wazuh agent configuration file."
+    exit 1
+}
 log INFO "Frequency in Wazuh agent configuration file updated successfully."
 
 # Step 6: Restart Wazuh agent
