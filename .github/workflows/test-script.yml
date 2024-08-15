@@ -1,15 +1,13 @@
-name: YARA Installation and Testing
+name: Test YARA Script
 
 on: [ push, pull_request ]
 
 jobs:
   test_yara:
     runs-on: ubuntu-latest
-    #name: Test YARA on ${{ matrix.os }} ${{ matrix.arch }}
     strategy:
       matrix:
         os: [ubuntu, debian, alpine]
-        #arch: [amd64, arm64, armhf]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,5 +28,4 @@ jobs:
           context: ./
           file: ./tests/${{ matrix.os }}/Dockerfile
           push: false
-          #platforms: ${{ steps.buildx.outputs.platforms }}
           platforms: linux/amd64,linux/arm64,linux/arm/v7
