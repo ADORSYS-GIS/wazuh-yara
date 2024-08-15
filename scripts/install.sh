@@ -105,6 +105,40 @@ change_owner() {
     maybe_sudo chown "$USER:$GROUP" "$path"
 }
 
+restart_wazuh_agent() {
+    case "$(uname)" in
+        Linux)
+            if maybe_sudo /var/ossec/bin/wazuh-control restart >/dev/null 2>&1; then
+                log INFO "Wazuh agent restarted successfully."
+            else
+                log ERROR "Error occurred during Wazuh agent restart."
+            fi
+            ;;
+        Darwin)
+            maybe_sudo launchctl unload /Library/LaunchDaemons/com.wazuh.agent.plist
+            maybe_sudo launchctl load /Library/LaunchDaemons/com.wazuh.agent.plist
+            ;;
+        *)
+            log ERROR "Unsupported operating system for restarting Wazuh agent."
+            exit 1
+            ;;
+    esac
+}
+
+check_file_limit() {
+    if ! sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
+        FILE_LIMIT_BLOCK="<!-- Maximum number of files to be monitored -->\n <file_limit>\n  <enabled>no</enabled>\n</file_limit>\n"
+        # Add the file_limit block after the <disabled>no</disabled> line
+        maybe_sudo sed -i "/<syscheck>/a $FILE_LIMIT_BLOCK" "$OSSEC_CONF_PATH" || {
+            error_message "Error occurred during the addition of the file_limit block."
+            exit 1
+        }
+        log INFO "The file limit block was added successfully"
+    fi
+}
+
+#--------------------------------------------#
+
 # Step 1: Install YARA and necessary tools
 print_step 1 "Installing YARA and necessary tools..."
 
@@ -264,28 +298,10 @@ custom_sed 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSS
 }
 log INFO "Frequency in Wazuh agent configuration file updated successfully."
 
+check_file_limit
+
 # Step 6: Restart Wazuh agent
 print_step 6 "Restarting Wazuh agent..."
-
-restart_wazuh_agent() {
-    case "$(uname)" in
-        Linux)
-            if maybe_sudo /var/ossec/bin/wazuh-control restart >/dev/null 2>&1; then
-                log INFO "Wazuh agent restarted successfully."
-            else
-                log ERROR "Error occurred during Wazuh agent restart."
-            fi
-            ;;
-        Darwin)
-            maybe_sudo launchctl unload /Library/LaunchDaemons/com.wazuh.agent.plist
-            maybe_sudo launchctl load /Library/LaunchDaemons/com.wazuh.agent.plist
-            ;;
-        *)
-            log ERROR "Unsupported operating system for restarting Wazuh agent."
-            exit 1
-            ;;
-    esac
-}
 
 restart_wazuh_agent || {
     log ERROR "Error occurred during Wazuh agent restart."
