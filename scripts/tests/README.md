@@ -1,9 +1,10 @@
 # Script testing
 
-This folder is to run IT test for the scrips written above.
-Tests are written using docker
+## Bash Automated Testing System (BATS)
+
+The BATS framework is used to test the scripts in this project. The tests are written in the BATS language and are
+located in the `scripts/tests` directory.
 
 ```bash
-TARGET_OS=ubuntu
-docker build -f tests/$TARGET_OS/Dockerfile .
+docker run --rm -it -v "$PWD:/app" bats/bats:latest /app/scripts/tests/test-script.bats
 ```
