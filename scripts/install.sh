@@ -137,6 +137,61 @@ check_file_limit() {
     fi
 }
 
+download_yara_script() {
+  YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh" #TODO: Update URL
+  if [ "$(uname)" = "Linux" ]; then
+      YARA_SH_PATH="/var/ossec/active-response/bin/yara.sh"
+  elif [ "$(uname)" = "Darwin" ]; then
+      YARA_SH_PATH="/Library/Ossec/active-response/bin/yara.sh"
+  else
+      log ERROR "Unsupported OS. Exiting..."
+      exit 1
+  fi
+
+  # Ensure the parent directory for YARA_SH_PATH exists
+  maybe_sudo mkdir -p "$(dirname "$YARA_SH_PATH")"
+
+  maybe_sudo curl -SL --progress-bar "$YARA_SH_URL" -o "$TMP_DIR/yara.sh" || {
+      log ERROR "Failed to download yara.sh script."
+      exit 1
+  }
+
+  maybe_sudo mv "$TMP_DIR/yara.sh" "$YARA_SH_PATH"
+  (change_owner "$YARA_SH_PATH" && maybe_sudo chmod 750 "$YARA_SH_PATH") || {
+      log ERROR "Error occurred during yara.sh file permissions change."
+      exit 1
+  }
+  log INFO "yara.sh script downloaded and installed successfully."
+}
+
+update_ossec_conf() {
+    if [ "$(uname)" = "Linux" ]; then
+        OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
+    elif [ "$(uname)" = "Darwin" ]; then
+        OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
+    else
+        log ERROR "Unsupported OS. Exiting..."
+        exit 1
+    fi
+
+    custom_sed '/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\
+        <directories realtime="yes">/tmp/yara/malware</directories>' "$OSSEC_CONF_PATH" || {
+            log ERROR "Error occurred during Wazuh agent configuration file update."
+            exit 1
+        }
+    log INFO "Wazuh agent configuration file updated successfully."
+
+    # Step 5: Update frequency in Wazuh agent configuration file
+    print_step 5 "Updating frequency in Wazuh agent configuration file..."
+    custom_sed 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
+        log ERROR "Error occurred during frequency update in Wazuh agent configuration file."
+        exit 1
+    }
+    log INFO "Frequency in Wazuh agent configuration file updated successfully."
+
+    check_file_limit
+}
+
 #--------------------------------------------#
 
 # Step 1: Install YARA and necessary tools
@@ -253,52 +308,11 @@ download_yara_rules
 
 # Step 3: Download yara.sh script
 print_step 3 "Downloading yara.sh script..."
-
-YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh" #TODO: Update URL
-if [ "$(uname)" = "Linux" ]; then
-    YARA_SH_PATH="/var/ossec/active-response/bin/yara.sh"
-    OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
-elif [ "$(uname)" = "Darwin" ]; then
-    YARA_SH_PATH="/Library/Ossec/active-response/bin/yara.sh"
-    OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
-else
-    log ERROR "Unsupported OS. Exiting..."
-    exit 1
-fi
-
-# Ensure the parent directory for YARA_SH_PATH exists
-maybe_sudo mkdir -p "$(dirname "$YARA_SH_PATH")"
-
-maybe_sudo curl -SL --progress-bar "$YARA_SH_URL" -o "$TMP_DIR/yara.sh" || {
-    log ERROR "Failed to download yara.sh script."
-    exit 1
-}
-
-maybe_sudo mv "$TMP_DIR/yara.sh" "$YARA_SH_PATH"
-(change_owner "$YARA_SH_PATH" && maybe_sudo chmod 750 "$YARA_SH_PATH") || {
-    log ERROR "Error occurred during yara.sh file permissions change."
-    exit 1
-}
-log INFO "yara.sh script downloaded and installed successfully."
+download_yara_script
 
 # Step 4: Update Wazuh agent configuration file
 print_step 4 "Updating Wazuh agent configuration file..."
-custom_sed '/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\
-    <directories realtime="yes">/tmp/yara/malware</directories>' "$OSSEC_CONF_PATH" || {
-        log ERROR "Error occurred during Wazuh agent configuration file update."
-        exit 1
-    }
-log INFO "Wazuh agent configuration file updated successfully."
-
-# Step 5: Update frequency in Wazuh agent configuration file
-print_step 5 "Updating frequency in Wazuh agent configuration file..."
-custom_sed 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
-    log ERROR "Error occurred during frequency update in Wazuh agent configuration file."
-    exit 1
-}
-log INFO "Frequency in Wazuh agent configuration file updated successfully."
-
-check_file_limit
+update_ossec_conf
 
 # Step 6: Restart Wazuh agent
 print_step 6 "Restarting Wazuh agent..."
