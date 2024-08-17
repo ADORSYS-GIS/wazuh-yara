@@ -16,7 +16,6 @@ elif [ "$(which apk)" = "/sbin/apk" ]; then
     apk update
     apk add wazuh-agent
     sed -i "s|MANAGER_IP|$WAZUH_MANAGER|g" /var/ossec/etc/ossec.conf
-    /var/ossec/bin/wazuh-control start
 else
     log ERROR "Unsupported OS for creating user."
     exit 1
