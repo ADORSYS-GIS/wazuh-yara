@@ -11,6 +11,15 @@ LOG_LEVEL=${LOG_LEVEL:-INFO}
 USER="root"
 GROUP="wazuh"
 
+if [ "$(uname)" = "Linux" ]; then
+    OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
+elif [ "$(uname)" = "Darwin" ]; then
+    OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
+else
+    error_message "Unsupported OS. Exiting..."
+    exit 1
+fi
+
 # Define text formatting
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -62,23 +71,6 @@ maybe_sudo() {
     else
         "$@"
     fi
-}
-
-custom_sed() {
-    local pattern="$1"
-    local file="$2"
-    local tmp_file="$TMP_DIR/$(basename "$file")"
-
-    if [ "$(uname)" = "Linux" ]; then
-        maybe_sudo sed -e -i "$pattern" "$file" > "$tmp_file"
-    elif [ "$(uname)" = "Darwin" ]; then
-        maybe_sudo sed -e -i '' "$pattern" "$file" > "$tmp_file"
-    else
-        error_message "Unsupported OS for sed."
-        exit 1
-    fi
-
-    mv "$tmp_file" "$file"
 }
 
 # Create a temporary directory and ensure it's cleaned up on exit
@@ -146,7 +138,7 @@ restart_wazuh_agent() {
 }
 
 check_file_limit() {
-    if ! sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
+    if ! maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
         FILE_LIMIT_BLOCK="<!-- Maximum number of files to be monitored -->\n <file_limit>\n  <enabled>no</enabled>\n</file_limit>\n"
         # Add the file_limit block after the <disabled>no</disabled> line
         maybe_sudo sed -i "/<syscheck>/a $FILE_LIMIT_BLOCK" "$OSSEC_CONF_PATH" || {
@@ -185,17 +177,8 @@ download_yara_script() {
 }
 
 update_ossec_conf() {
-    if [ "$(uname)" = "Linux" ]; then
-        OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
-    elif [ "$(uname)" = "Darwin" ]; then
-        OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
-    else
-        error_message "Unsupported OS. Exiting..."
-        exit 1
-    fi
-
-    if ! sudo grep -q '<directories realtime="yes">\/home, \/root, \/bin, \/sbin</directories>' "$OSSEC_CONF_PATH"; then
-      custom_sed '/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\
+    if ! maybe_sudo grep -q '<directories realtime="yes">\/home, \/root, \/bin, \/sbin</directories>' "$OSSEC_CONF_PATH"; then
+      maybe_sudo sed -i '/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\
         <directories realtime="yes">\/home, \/root, \/bin, \/sbin</directories>' "$OSSEC_CONF_PATH" || {
             error_message "Error occurred during configuration of directories to monitor."
             exit 1
@@ -204,7 +187,7 @@ update_ossec_conf() {
 
     info_message "Wazuh agent configuration file updated successfully."
 
-    custom_sed 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
+    maybe_sudo sed -i 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
         error_message "Error occurred during frequency update in Wazuh agent configuration file."
         exit 1
     }
