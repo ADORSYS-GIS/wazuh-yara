@@ -6,5 +6,5 @@ The BATS framework is used to test the scripts in this project. The tests are wr
 located in the `scripts/tests` directory.
 
 ```bash
-docker run --rm -it -v "$PWD:/app" bats/bats:latest /app/scripts/tests/test-script.bats
+docker run --rm -it -v "$PWD:/app" ghcr.io/stephane-segning/bats-docker:alpine-latest bats /app/scripts/tests/test-script.bats
 ```
