@@ -95,25 +95,25 @@ function Download-YaraRules {
 
 Download-YaraRules
 
-# Step 3: Download yara.ps1 script
-Print-Step -step 3 -message "Downloading yara.ps1 script..."
+# Step 3: Download yara.bat script
+Print-Step -step 3 -message "Downloading yara.bat script..."
 
-$yaraScriptUrl = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.ps1" #TODO: Update URL
-$yaraScriptPath = "C:\ProgramData\ossec\active-response\bin\yara.ps1"
+$yaraScriptUrl = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.bat" #TODO: Update URL
+$yaraScriptPath = "C:\ProgramData\ossec\active-response\bin\yara.bat"
 
 function Download-YaraScript {
-    Log "INFO" "Downloading yara.ps1 script..."
+    Log "INFO" "Downloading yara.bat script..."
 
     New-Item -ItemType Directory -Force -Path (Split-Path $yaraScriptPath -Parent)
 
-    Invoke-WebRequest -Uri $yaraScriptUrl -OutFile "$tempDir\yara.ps1" -UseBasicParsing
-    Move-Item -Path "$tempDir\yara.ps1" -Destination $yaraScriptPath -Force
+    Invoke-WebRequest -Uri $yaraScriptUrl -OutFile "$tempDir\yara.bat" -UseBasicParsing
+    Move-Item -Path "$tempDir\yara.bat" -Destination $yaraScriptPath -Force
 
     # Set permissions
     $acl = Get-Acl $yaraScriptPath
     $acl.SetOwner([System.Security.Principal.NTAccount] "$user")
     Set-Acl -Path $yaraScriptPath -AclObject $acl
-    Log "INFO" "yara.ps1 script downloaded and installed successfully."
+    Log "INFO" "yara.bat script downloaded and installed successfully."
 }
 
 Download-YaraScript
