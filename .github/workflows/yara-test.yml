@@ -1,0 +1,37 @@
+name: Run Pytest
+
+on: [push, pull_request]
+
+jobs:
+  run-pytest:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl gnupg2 
+        pip install pytest pytest-testinfra
+
+    - name: Install wazuh-agent
+      run: |
+        curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo apt-key add -
+        echo "deb https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee /etc/apt/sources.list.d/wazuh.list
+        sudo apt-get update
+        sudo apt-get install -y wazuh-agent
+
+    - name: Run Snort install script
+      run: |
+        sudo bash scripts/install.sh
+
+    - name: Run tests 
+      run: |
+        sudo $(which pytest) -vv  scripts/tests/test_install.py
