@@ -23,10 +23,12 @@ jobs:
 
     - name: Install wazuh-agent
       run: |
-        curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo apt-key add -
-        echo "deb https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee /etc/apt/sources.list.d/wazuh.list
-        sudo apt-get update
-        sudo apt-get install -y wazuh-agent
+        wget https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.8.1-1_amd64.deb && sudo WAZUH_MANAGER='10.0.0.2' WAZUH_AGENT_NAME='test' dpkg -i ./wazuh-agent_4.8.1-1_amd64.deb
+        sudo systemctl daemon-reload
+        sudo systemctl enable wazuh-agent
+        sudo systemctl start wazuh-agent
+        
+
 
     - name: Run Snort install script
       run: |
@@ -34,4 +36,4 @@ jobs:
 
     - name: Run tests 
       run: |
-        sudo $(which pytest) -vv  scripts/tests/test_install.py
+        sudo $(which pytest) -vv  scripts/tests/yara.py
