@@ -58,7 +58,8 @@ def test_yara_rules_downloaded(host):
     
     file = host.file(yara_rules_file)
     
-    assert file.exists(), f"{yara_rules_file} does not exist"
+    assert file.exists, f"{yara_rules_file} does not exist"
     assert file.user == "root", f"File is not owned by 'root', but by {file.user}"
     assert file.group == "wazuh", f"File group is not 'wazuh', but {file.group}"
+
 
