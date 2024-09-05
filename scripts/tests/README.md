@@ -27,7 +27,7 @@ To install Wazuh and YARA, follow the steps outlined in the GitHub Action provid
 Run the tests with the following command:
 
 ```bash
-pytest -vv
+pytest -vv yara.py
 ```
 
 ### Explanation of Each Test
