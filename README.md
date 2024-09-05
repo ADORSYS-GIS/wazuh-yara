@@ -1,6 +1,5 @@
 # Wazuh Yara
-
-[![Test YARA Script](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/test-script.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/test-script.yml)
+[![Run Pytest](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/yara-test.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/yara-test.yml)
 
 
 ## Overview
