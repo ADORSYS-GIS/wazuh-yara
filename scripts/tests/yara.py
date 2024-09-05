@@ -51,15 +51,15 @@ def test_wazuh_agent_restarted(host):
     assert service.is_running
     assert service.is_enabled
 
+def test_yara_rules_file_exists(host):
+    yara_rules_file = host.file("/var/ossec/ruleset/yara/rules/yara_rules.yar")
+    assert yara_rules_file.exists, "YARA rules file does not exist"
+    assert yara_rules_file.is_file, "YARA rules file is not a regular file"
 
-def test_yara_rules_downloaded(host):
-    yara_rules_dir = "/var/ossec/ruleset/yara/rules"
-    yara_rules_file = os.path.join(yara_rules_dir, "yara_rules.yar")
-    
-    file = host.file(yara_rules_file)
-    
-    assert file.exists, f"{yara_rules_file} does not exist"
-    assert file.user == "root", f"File is not owned by 'root', but by {file.user}"
-    assert file.group == "wazuh", f"File group is not 'wazuh', but {file.group}"
+def test_yara_rules_directory_permissions(host):
+    yara_rules_dir = host.file("/var/ossec/ruleset/yara/rules")
+    assert yara_rules_dir.is_directory, "YARA rules directory does not exist"
+    assert yara_rules_dir.user == "root", "YARA rules directory is not owned by root"
+    assert yara_rules_dir.group == "wazuh", "YARA rules directory is not owned by the wazuh group"
 
 
