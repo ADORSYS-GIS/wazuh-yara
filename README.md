@@ -1,6 +1,5 @@
 # Wazuh Yara
-
-[![Test YARA Script](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/test-script.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/test-script.yml)
+[![Run Pytest](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/yara-test.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/yara-test.yml)
 
 
 ## Overview
@@ -30,3 +29,15 @@ Install using this command:
    ```bash
    curl -SL --progress-bar https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/install.sh | sh
    ```
+
+## YARA Tests
+
+To ensure the correct installation and configuration of YARA and Wazuh, we have implemented a set of automated tests. These tests verify the presence and proper configuration of essential components such as users, groups, configuration files, and installed packages.
+
+For a detailed description of these tests and how to execute them, please refer to the [YARA Tests README](scripts/tests/README.md).
+
+## GitHub Actions
+
+The repository includes a GitHub Actions workflow that automatically runs the tests on every push or pull request. This helps maintain the integrity of the system by validating the setup continuously.
+
+For more information on the test workflow, see the [GitHub Actions Workflow](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/yara-test.yml).

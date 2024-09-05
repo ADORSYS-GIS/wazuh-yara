@@ -1,0 +1,38 @@
+name: Run Pytest
+
+on: [push, pull_request]
+
+jobs:
+  run-pytest:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies and Wazuh agent
+      run: |
+        # Install dependencies
+        sudo apt-get update
+        sudo apt-get install -y curl gnupg2 
+        pip install pytest pytest-testinfra
+
+        # Install wazuh-agent
+        wget https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.8.1-1_amd64.deb 
+        sudo WAZUH_MANAGER='10.0.0.2' WAZUH_AGENT_NAME='test' dpkg -i ./wazuh-agent_4.8.1-1_amd64.deb
+        sudo systemctl daemon-reload
+        sudo systemctl enable wazuh-agent
+        sudo systemctl start wazuh-agent
+
+    - name: Run yara install script
+      run: |
+        sudo bash scripts/install.sh
+
+    - name: Run tests 
+      run: |
+        sudo $(which pytest) -vv scripts/tests/yara.py
