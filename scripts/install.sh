@@ -359,9 +359,10 @@ if [ -f "$OSSEC_CONF_PATH" ]; then
 else
     # Notify the user that the file is missing
     warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
-    # Exit the function to avoid further actions
-    return 1
+    # Exit the script with a non-zero status
+    exit 1
 fi
+
 
 
 # Step 5: Restart Wazuh agent
