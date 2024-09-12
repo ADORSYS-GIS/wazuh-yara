@@ -151,16 +151,27 @@ restart_wazuh_agent() {
 }
 
 check_file_limit() {
+    # Determine the OS type
+    if [[ "$(uname)" == "Darwin" ]]; then
+        # macOS
+        SED_CMD="sed -i ''"
+    else
+        # Linux
+        SED_CMD="sed -i"
+    fi
+
     if ! maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
         FILE_LIMIT_BLOCK="<!-- Maximum number of files to be monitored -->\n <file_limit>\n  <enabled>no</enabled>\n</file_limit>\n"
-        # Add the file_limit block after the <disabled>no</disabled> line
-        maybe_sudo sed -i "/<syscheck>/a $FILE_LIMIT_BLOCK" "$OSSEC_CONF_PATH" || {
+        # Add the file_limit block after the <syscheck> line
+        maybe_sudo $SED_CMD "/<syscheck>/a\\
+$FILE_LIMIT_BLOCK" "$OSSEC_CONF_PATH" || {
             error_message "Error occurred during the addition of the file_limit block."
             exit 1
         }
-        info_message "The file limit block was added successfully"
+        info_message "The file limit block was added successfully."
     fi
 }
+
 
 download_yara_script() {
   YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh" #TODO: Update URL
