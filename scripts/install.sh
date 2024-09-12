@@ -87,10 +87,16 @@ ensure_user_group() {
 
     if ! id -u "$USER" >/dev/null 2>&1; then
         info_message "Creating user $USER..."
-        if [ "$(uname -o)" = "GNU/Linux" ] && command -v groupadd >/dev/null 2>&1; then
+        if [ "$(uname -s)" = "Linux" ] && command -v groupadd >/dev/null 2>&1; then
             maybe_sudo useradd -m "$USER"
         elif [ "$(which apk)" = "/sbin/apk" ]; then
             maybe_sudo adduser -D "$USER"
+        elif [ "$(uname -s)" = "Darwin" ]; then
+            # macOS
+            if ! dscl . -list /Users | grep -q "^$USER$"; then
+                info_message "Creating user $USER on macOS..."
+                maybe_sudo sysadminctl -addUser "$USER" -fullName "$USER"
+            fi
         else
             error_message "Unsupported OS for creating user."
             exit 1
@@ -99,16 +105,23 @@ ensure_user_group() {
 
     if ! getent group "$GROUP" >/dev/null 2>&1; then
         info_message "Creating group $GROUP..."
-        if [ "$(uname -o)" = "GNU/Linux" ] && command -v groupadd >/dev/null 2>&1; then
+        if [ "$(uname -s)" = "Linux" ] && command -v groupadd >/dev/null 2>&1; then
             maybe_sudo groupadd "$GROUP"
         elif [ "$(which apk)" = "/sbin/apk" ]; then
             maybe_sudo addgroup "$GROUP"
+        elif [ "$(uname -s)" = "Darwin" ]; then
+            # macOS
+            if ! dscl . -list /Groups | grep -q "^$GROUP$"; then
+                info_message "Creating group $GROUP on macOS..."
+                maybe_sudo dscl . -create /Groups/"$GROUP"
+            fi
         else
             error_message "Unsupported OS for creating group."
             exit 1
         fi
     fi
 }
+
 
 # Function to change ownership of a file or directory
 change_owner() {
