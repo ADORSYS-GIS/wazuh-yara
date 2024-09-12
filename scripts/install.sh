@@ -206,7 +206,7 @@ update_ossec_conf() {
         # Notify the user that the file is missing
         warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
         # Exit the function to avoid further actions
-        exit 1
+        return 1
     fi
     
     # Determine the OS type
