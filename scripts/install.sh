@@ -353,7 +353,7 @@ download_yara_script
 print_step 4 "Updating Wazuh agent configuration file..."
 
 # Check if the OSSEC configuration file exists
-if [ -f "$OSSEC_CONF_PATH" ]; then
+if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
     # Call the function to update OSSEC configuration
     update_ossec_conf
 else
