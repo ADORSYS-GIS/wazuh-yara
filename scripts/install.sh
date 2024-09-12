@@ -363,8 +363,6 @@ else
     exit 1
 fi
 
-
-
 # Step 5: Restart Wazuh agent
 print_step 5 "Restarting Wazuh agent..."
 
