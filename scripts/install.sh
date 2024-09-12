@@ -201,14 +201,6 @@ download_yara_script() {
 }
 
 update_ossec_conf() {
-    # Check if the OSSEC configuration file exists
-    if [ ! -f "$OSSEC_CONF_PATH" ]; then
-        # Notify the user that the file is missing
-        warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
-        # Exit the function to avoid further actions
-        return 1
-    fi
-    
     # Determine the OS type
     if [[ "$(uname)" == "Darwin" ]]; then
         # macOS
@@ -359,7 +351,18 @@ download_yara_script
 
 # Step 4: Update Wazuh agent configuration file
 print_step 4 "Updating Wazuh agent configuration file..."
-update_ossec_conf
+
+# Check if the OSSEC configuration file exists
+if [ -f "$OSSEC_CONF_PATH" ]; then
+    # Call the function to update OSSEC configuration
+    update_ossec_conf
+else
+    # Notify the user that the file is missing
+    warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
+    # Exit the function to avoid further actions
+    return 1
+fi
+
 
 # Step 5: Restart Wazuh agent
 print_step 5 "Restarting Wazuh agent..."
