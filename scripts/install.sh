@@ -184,7 +184,7 @@ download_yara_script() {
       exit 1
   fi
 
-  # Ensure the parent directory for YARA_SH_PATH exists
+  # Ensure the pare"$OSSEC_CONF_PATH"nt directory for YARA_SH_PATH exists
   maybe_sudo mkdir -p "$(dirname "$YARA_SH_PATH")"
 
   maybe_sudo curl -SL --progress-bar "$YARA_SH_URL" -o "$TMP_DIR/yara.sh" || {
@@ -201,6 +201,14 @@ download_yara_script() {
 }
 
 update_ossec_conf() {
+    # Check if the OSSEC configuration file exists
+    if [ ! -f "$OSSEC_CONF_PATH" ]; then
+        # Notify the user that the file is missing
+        error_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
+        # Exit the function to avoid further actions
+        exit 1
+    fi
+    
     # Determine the OS type
     if [[ "$(uname)" == "Darwin" ]]; then
         # macOS
