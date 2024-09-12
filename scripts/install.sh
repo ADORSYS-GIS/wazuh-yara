@@ -87,10 +87,16 @@ ensure_user_group() {
 
     if ! id -u "$USER" >/dev/null 2>&1; then
         info_message "Creating user $USER..."
-        if [ "$(uname -o)" = "GNU/Linux" ] && command -v groupadd >/dev/null 2>&1; then
+        if [ "$(uname -s)" = "Linux" ] && command -v groupadd >/dev/null 2>&1; then
             maybe_sudo useradd -m "$USER"
         elif [ "$(which apk)" = "/sbin/apk" ]; then
             maybe_sudo adduser -D "$USER"
+        elif [ "$(uname -s)" = "Darwin" ]; then
+            # macOS
+            if ! dscl . -list /Users | grep -q "^$USER$"; then
+                info_message "Creating user $USER on macOS..."
+                maybe_sudo sysadminctl -addUser "$USER" -fullName "$USER"
+            fi
         else
             error_message "Unsupported OS for creating user."
             exit 1
@@ -99,16 +105,23 @@ ensure_user_group() {
 
     if ! getent group "$GROUP" >/dev/null 2>&1; then
         info_message "Creating group $GROUP..."
-        if [ "$(uname -o)" = "GNU/Linux" ] && command -v groupadd >/dev/null 2>&1; then
+        if [ "$(uname -s)" = "Linux" ] && command -v groupadd >/dev/null 2>&1; then
             maybe_sudo groupadd "$GROUP"
         elif [ "$(which apk)" = "/sbin/apk" ]; then
             maybe_sudo addgroup "$GROUP"
+        elif [ "$(uname -s)" = "Darwin" ]; then
+            # macOS
+            if ! dscl . -list /Groups | grep -q "^$GROUP$"; then
+                info_message "Creating group $GROUP on macOS..."
+                maybe_sudo dscl . -create /Groups/"$GROUP"
+            fi
         else
             error_message "Unsupported OS for creating group."
             exit 1
         fi
     fi
 }
+
 
 # Function to change ownership of a file or directory
 change_owner() {
@@ -138,16 +151,27 @@ restart_wazuh_agent() {
 }
 
 check_file_limit() {
+    # Determine the OS type
+    if [[ "$(uname)" == "Darwin" ]]; then
+        # macOS
+        SED_CMD="sed -i ''"
+    else
+        # Linux
+        SED_CMD="sed -i"
+    fi
+
     if ! maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
         FILE_LIMIT_BLOCK="<!-- Maximum number of files to be monitored -->\n <file_limit>\n  <enabled>no</enabled>\n</file_limit>\n"
-        # Add the file_limit block after the <disabled>no</disabled> line
-        maybe_sudo sed -i "/<syscheck>/a $FILE_LIMIT_BLOCK" "$OSSEC_CONF_PATH" || {
+        # Add the file_limit block after the <syscheck> line
+        maybe_sudo $SED_CMD "/<syscheck>/a\\
+$FILE_LIMIT_BLOCK" "$OSSEC_CONF_PATH" || {
             error_message "Error occurred during the addition of the file_limit block."
             exit 1
         }
-        info_message "The file limit block was added successfully"
+        info_message "The file limit block was added successfully."
     fi
 }
+
 
 download_yara_script() {
   YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh" #TODO: Update URL
@@ -160,7 +184,7 @@ download_yara_script() {
       exit 1
   fi
 
-  # Ensure the parent directory for YARA_SH_PATH exists
+  # # Ensure the parent directory for YARA_SH_PATH exists
   maybe_sudo mkdir -p "$(dirname "$YARA_SH_PATH")"
 
   maybe_sudo curl -SL --progress-bar "$YARA_SH_URL" -o "$TMP_DIR/yara.sh" || {
@@ -177,8 +201,18 @@ download_yara_script() {
 }
 
 update_ossec_conf() {
+    # Determine the OS type
+    if [[ "$(uname)" == "Darwin" ]]; then
+        # macOS
+        SED_CMD="sed -i ''"
+    else
+        # Linux
+        SED_CMD="sed -i"
+    fi
+
+    # Check and update configuration file
     if ! maybe_sudo grep -q '<directories realtime="yes">\/home, \/root, \/bin, \/sbin</directories>' "$OSSEC_CONF_PATH"; then
-      maybe_sudo sed -i '/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\
+      maybe_sudo $SED_CMD '/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\
         <directories realtime="yes">\/home, \/root, \/bin, \/sbin</directories>' "$OSSEC_CONF_PATH" || {
             error_message "Error occurred during configuration of directories to monitor."
             exit 1
@@ -187,7 +221,7 @@ update_ossec_conf() {
 
     info_message "Wazuh agent configuration file updated successfully."
 
-    maybe_sudo sed -i 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
+    maybe_sudo $SED_CMD 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
         error_message "Error occurred during frequency update in Wazuh agent configuration file."
         exit 1
     }
@@ -195,6 +229,7 @@ update_ossec_conf() {
 
     check_file_limit
 }
+
 
 #--------------------------------------------#
 
@@ -316,7 +351,17 @@ download_yara_script
 
 # Step 4: Update Wazuh agent configuration file
 print_step 4 "Updating Wazuh agent configuration file..."
-update_ossec_conf
+
+# Check if the OSSEC configuration file exists
+if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
+    # Call the function to update OSSEC configuration
+    update_ossec_conf
+else
+    # Notify the user that the file is missing
+    warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
+    # Exit the script with a non-zero status
+    exit 1
+fi
 
 # Step 5: Restart Wazuh agent
 print_step 5 "Restarting Wazuh agent..."
