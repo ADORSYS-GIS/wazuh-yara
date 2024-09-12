@@ -190,8 +190,18 @@ download_yara_script() {
 }
 
 update_ossec_conf() {
+    # Determine the OS type
+    if [[ "$(uname)" == "Darwin" ]]; then
+        # macOS
+        SED_CMD="sed -i ''"
+    else
+        # Linux
+        SED_CMD="sed -i"
+    fi
+
+    # Check and update configuration file
     if ! maybe_sudo grep -q '<directories realtime="yes">\/home, \/root, \/bin, \/sbin</directories>' "$OSSEC_CONF_PATH"; then
-      maybe_sudo sed -i '/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\
+      maybe_sudo $SED_CMD '/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\
         <directories realtime="yes">\/home, \/root, \/bin, \/sbin</directories>' "$OSSEC_CONF_PATH" || {
             error_message "Error occurred during configuration of directories to monitor."
             exit 1
@@ -200,7 +210,7 @@ update_ossec_conf() {
 
     info_message "Wazuh agent configuration file updated successfully."
 
-    maybe_sudo sed -i 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
+    maybe_sudo $SED_CMD 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
         error_message "Error occurred during frequency update in Wazuh agent configuration file."
         exit 1
     }
@@ -208,6 +218,7 @@ update_ossec_conf() {
 
     check_file_limit
 }
+
 
 #--------------------------------------------#
 
