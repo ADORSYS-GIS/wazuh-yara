@@ -131,11 +131,18 @@ function Install-YARA {
     New-Item -ItemType Directory -Path $yaraDir -Force
     Copy-Item -Path "$env:TEMP\yara64.exe" -Destination $yaraDir
 
-    # Install valhallaAPI module
-    pip install valhallaAPI
+    
 
-    # Create and save the Python script to download YARA rules
-    $pythonScript = @"
+    # Ensure valhallaAPI module is installed
+try {
+    pip show valhallaAPI -q
+} catch {
+    Write-Host "valhallaAPI module not found. Installing..." -ForegroundColor Yellow
+    pip install valhallaAPI
+}
+
+# Create and save the Python script to download YARA rules
+$pythonScript = @"
 from valhallaAPI.valhalla import ValhallaAPI
 
 v = ValhallaAPI(api_key='1111111111111111111111111111111111111111111111111111111111111111')
@@ -144,22 +151,28 @@ response = v.get_rules_text()
 with open('yara_rules.yar', 'w') as fh:
     fh.write(response)
 "@
-    $pythonScript | Out-File -FilePath "$env:TEMP\download_yara_rules.py" -Encoding utf8
+$pythonScript | Out-File -FilePath "$env:TEMP\download_yara_rules.py" -Encoding utf8
 
-    # Run the Python script to download YARA rules
-    python.exe "$env:TEMP\download_yara_rules.py"
+# Run the Python script to download YARA rules
+try {
+    Start-Process python.exe -ArgumentList "$env:TEMP\download_yara_rules.py" -Wait -NoNewWindow
+} catch {
+    Write-Host "Failed to run the Python script to download YARA rules: $_" -ForegroundColor Red
+    exit 1
+}
 
-    # Verify if the yara_rules.yar file exists
-    $yaraRulesPath = "$env:TEMP\yara_rules.yar"
-    if (Test-Path -Path $yaraRulesPath) {
-        # Create YARA rules directory and copy the rules
-        $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"
-        New-Item -ItemType Directory -Path $rulesDir -Force
-        Copy-Item -Path $yaraRulesPath -Destination $rulesDir
-    } else {
-        Write-Host "Failed to download YARA rules. The file $yaraRulesPath does not exist." -ForegroundColor Red
-        exit 1
-    }
+# Verify if the yara_rules.yar file exists
+$yaraRulesPath = "$env:TEMP\yara_rules.yar"
+if (Test-Path -Path $yaraRulesPath) {
+    # Create YARA rules directory and copy the rules
+    $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"
+    New-Item -ItemType Directory -Path $rulesDir -Force
+    Copy-Item -Path $yaraRulesPath -Destination $rulesDir -Force
+    Write-Host "YARA rules downloaded and copied to $rulesDir." -ForegroundColor Green
+} else {
+    Write-Host "Failed to download YARA rules. The file $yaraRulesPath does not exist." -ForegroundColor Red
+    exit 1
+}
 
     # Create the yara.bat script
     $yaraBatContent = @"
