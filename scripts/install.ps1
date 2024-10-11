@@ -6,7 +6,6 @@ $ErrorActionPreference = "Stop"
 $logLevel = "INFO"
 $tempDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ([System.IO.Path]::GetRandomFileName())
 
-
 # Function to handle logging
 function Log {
     param(
@@ -94,16 +93,16 @@ function Check-VCppInstalled {
         }
     }
     Write-Host "Visual C++ Redistributable is not installed. Installing Visual C++ Redistributable..." -ForegroundColor Yellow
-    Invoke-WebRequest -Uri "https://aka.ms/vs/16/release/vc_redist.x64.exe" -OutFile "$env:TEMP\vc_redist.x64.exe"
-    Start-Process -FilePath "$env:TEMP\vc_redist.x64.exe" -ArgumentList "/quiet /install" -Wait
-    Remove-Item -Path "$env:TEMP\vc_redist.x64.exe"
+    Invoke-WebRequest -Uri "https://aka.ms/vs/16/release/vc_redist.x64.exe" -OutFile "$tempDir\vc_redist.x64.exe"
+    Start-Process -FilePath "$tempDir\vc_redist.x64.exe" -ArgumentList "/quiet /install" -Wait
+    Remove-Item -Path "$tempDir\vc_redist.x64.exe"
 }
 
 # Function to download and extract YARA
 function Download-YARA {
-    Invoke-WebRequest -Uri "https://github.com/VirusTotal/yara/releases/download/v4.2.3/yara-4.2.3-2029-win64.zip" -OutFile "$env:TEMP\yara-4.2.3-2029-win64.zip"
-    Expand-Archive -Path "$env:TEMP\yara-4.2.3-2029-win64.zip" -DestinationPath "$env:TEMP" -Force
-    Remove-Item -Path "$env:TEMP\yara-4.2.3-2029-win64.zip"
+    Invoke-WebRequest -Uri "https://github.com/VirusTotal/yara/releases/download/v4.2.3/yara-4.2.3-2029-win64.zip" -OutFile "$tempDir\yara-4.2.3-2029-win64.zip"
+    Expand-Archive -Path "$tempDir\yara-4.2.3-2029-win64.zip" -DestinationPath $tempDir -Force
+    Remove-Item -Path "$tempDir\yara-4.2.3-2029-win64.zip"
 }
 
 # Function to install YARA
@@ -120,7 +119,7 @@ function Install-YARA {
     # Create YARA directory and copy executable
     $yaraDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara"
     New-Item -ItemType Directory -Path $yaraDir -Force
-    Copy-Item -Path "$env:TEMP\yara64.exe" -Destination $yaraDir
+    Copy-Item -Path "$tempDir\yara64.exe" -Destination $yaraDir
 
     # Install valhallaAPI module
     pip install valhallaAPI
@@ -135,15 +134,15 @@ response = v.get_rules_text()
 with open('yara_rules.yar', 'w') as fh:
     fh.write(response)
 "@
-    $pythonScript | Out-File -FilePath "$env:TEMP\download_yara_rules.py" -Encoding utf8
+    $pythonScript | Out-File -FilePath "$tempDir\download_yara_rules.py" -Encoding utf8
 
     # Run the Python script to download YARA rules
-    python.exe "$env:TEMP\download_yara_rules.py"
+    python.exe "$tempDir\download_yara_rules.py"
 
     # Create YARA rules directory and copy the rules
     $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"
     New-Item -ItemType Directory -Path $rulesDir -Force
-    Copy-Item -Path "$env:TEMP\yara_rules.yar" -Destination $rulesDir
+    Copy-Item -Path "$tempDir\yara_rules.yar" -Destination $rulesDir
 
     # Create the yara.bat script
     $yaraBatContent = @"
