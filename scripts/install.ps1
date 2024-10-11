@@ -149,10 +149,17 @@ with open('yara_rules.yar', 'w') as fh:
     # Run the Python script to download YARA rules
     python.exe "$env:TEMP\download_yara_rules.py"
 
-    # Create YARA rules directory and copy the rules
-    $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"
-    New-Item -ItemType Directory -Path $rulesDir -Force
-    Copy-Item -Path "$env:TEMP\yara_rules.yar" -Destination $rulesDir
+    # Verify if the yara_rules.yar file exists
+    $yaraRulesPath = "$env:TEMP\yara_rules.yar"
+    if (Test-Path -Path $yaraRulesPath) {
+        # Create YARA rules directory and copy the rules
+        $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"
+        New-Item -ItemType Directory -Path $rulesDir -Force
+        Copy-Item -Path $yaraRulesPath -Destination $rulesDir
+    } else {
+        Write-Host "Failed to download YARA rules. The file $yaraRulesPath does not exist." -ForegroundColor Red
+        exit 1
+    }
 
     # Create the yara.bat script
     $yaraBatContent = @"
