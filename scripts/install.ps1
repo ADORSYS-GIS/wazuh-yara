@@ -6,6 +6,7 @@ $ErrorActionPreference = "Stop"
 $logLevel = "INFO"
 $tempDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ([System.IO.Path]::GetRandomFileName())
 
+
 # Function to handle logging
 function Log {
     param(
@@ -64,9 +65,10 @@ function Check-PythonInstalled {
         }
     } catch {
         Write-Host "Python is not installed or not properly configured. Installing Python..." -ForegroundColor Yellow
-        Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.9.0/python-3.9.0-amd64.exe" -OutFile "$env:TEMP\python-3.9.0-amd64.exe"
-        Start-Process -FilePath "$env:TEMP\python-3.9.0-amd64.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
-        Remove-Item -Path "$env:TEMP\python-3.9.0-amd64.exe"
+        $pythonInstallerPath = Join-Path -Path $tempDir -ChildPath "python-3.9.0-amd64.exe"
+        Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.9.0/python-3.9.0-amd64.exe" -OutFile $pythonInstallerPath
+        Start-Process -FilePath $pythonInstallerPath -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
+        Remove-Item -Path $pythonInstallerPath
 
         # Update environment variables
         [System.Environment]::SetEnvironmentVariable("Path", [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";C:\Program Files\Python39", "Process")
