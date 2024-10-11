@@ -100,9 +100,19 @@ function Check-VCppInstalled {
 
 # Function to download and extract YARA
 function Download-YARA {
-    Invoke-WebRequest -Uri "https://github.com/VirusTotal/yara/releases/download/v4.2.3/yara-4.2.3-2029-win64.zip" -OutFile "$env:TEMP\yara-4.2.3-2029-win64.zip"
-    Expand-Archive -Path "$env:TEMP\yara-4.2.3-2029-win64.zip" -DestinationPath "$env:TEMP" -Force
-    Remove-Item -Path "$env:TEMP\yara-4.2.3-2029-win64.zip"
+    # Determine the architecture
+    $arch = if ([Environment]::Is64BitOperatingSystem) { "win64" } else { "win32" }
+    $yaraVersion = "v4.5.2-2326"
+    $yaraUrl = "https://github.com/VirusTotal/yara/releases/download/v4.5.2/yara-$yaraVersion-$arch.zip"
+    
+    # Download the appropriate YARA version
+    Invoke-WebRequest -Uri $yaraUrl -OutFile "$env:TEMP\yara-$yaraVersion-$arch.zip"
+    
+    # Extract the downloaded archive
+    Expand-Archive -Path "$env:TEMP\yara-$yaraVersion-$arch.zip" -DestinationPath "$env:TEMP" -Force
+    
+    # Remove the downloaded archive
+    Remove-Item -Path "$env:TEMP\yara-$yaraVersion-$arch.zip"
 }
 
 # Function to install YARA
@@ -199,6 +209,16 @@ exit /b
 
     # Update Wazuh agent configuration
     Update-WazuhConfig
+
+    # Add YARA to the environment variables if not already present
+    $yaraPath = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara"
+    $currentPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    if ($currentPath -notcontains $yaraPath) {
+        [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$yaraPath", "Machine")
+        Write-Host "YARA path added to environment variables." -ForegroundColor Green
+    } else {
+        Write-Host "YARA path already exists in environment variables." -ForegroundColor Yellow
+    }
 }
 
 # Function to update Wazuh agent configuration
