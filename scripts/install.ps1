@@ -5,6 +5,7 @@ $ErrorActionPreference = "Stop"
 # Variables
 $logLevel = "INFO"
 $tempDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ([System.IO.Path]::GetRandomFileName())
+$TEMP_DIR = $env:TEMP
 
 # Function to handle logging
 function Log {
@@ -64,10 +65,9 @@ function Check-PythonInstalled {
         }
     } catch {
         Write-Host "Python is not installed or not properly configured. Installing Python..." -ForegroundColor Yellow
-        $pythonInstallerPath = Join-Path -Path $tempDir -ChildPath "python-3.9.0-amd64.exe"
-        Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.9.0/python-3.9.0-amd64.exe" -OutFile $pythonInstallerPath
-        Start-Process -FilePath $pythonInstallerPath -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
-        Remove-Item -Path $pythonInstallerPath
+        Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.9.0/python-3.9.0-amd64.exe" -OutFile "$env:TEMP\python-3.9.0-amd64.exe"
+        Start-Process -FilePath "$env:TEMP\python-3.9.0-amd64.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
+        Remove-Item -Path "$env:TEMP\python-3.9.0-amd64.exe"
 
         # Update environment variables
         [System.Environment]::SetEnvironmentVariable("Path", [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";C:\Program Files\Python39", "Process")
@@ -93,16 +93,16 @@ function Check-VCppInstalled {
         }
     }
     Write-Host "Visual C++ Redistributable is not installed. Installing Visual C++ Redistributable..." -ForegroundColor Yellow
-    Invoke-WebRequest -Uri "https://aka.ms/vs/16/release/vc_redist.x64.exe" -OutFile "$tempDir\vc_redist.x64.exe"
-    Start-Process -FilePath "$tempDir\vc_redist.x64.exe" -ArgumentList "/quiet /install" -Wait
-    Remove-Item -Path "$tempDir\vc_redist.x64.exe"
+    Invoke-WebRequest -Uri "https://aka.ms/vs/16/release/vc_redist.x64.exe" -OutFile "$env:TEMP\vc_redist.x64.exe"
+    Start-Process -FilePath "$env:TEMP\vc_redist.x64.exe" -ArgumentList "/quiet /install" -Wait
+    Remove-Item -Path "$env:TEMP\vc_redist.x64.exe"
 }
 
 # Function to download and extract YARA
 function Download-YARA {
-    Invoke-WebRequest -Uri "https://github.com/VirusTotal/yara/releases/download/v4.2.3/yara-4.2.3-2029-win64.zip" -OutFile "$tempDir\yara-4.2.3-2029-win64.zip"
-    Expand-Archive -Path "$tempDir\yara-4.2.3-2029-win64.zip" -DestinationPath $tempDir -Force
-    Remove-Item -Path "$tempDir\yara-4.2.3-2029-win64.zip"
+    Invoke-WebRequest -Uri "https://github.com/VirusTotal/yara/releases/download/v4.2.3/yara-4.2.3-2029-win64.zip" -OutFile "$env:TEMP\yara-4.2.3-2029-win64.zip"
+    Expand-Archive -Path "$env:TEMP\yara-4.2.3-2029-win64.zip" -DestinationPath "$env:TEMP" -Force
+    Remove-Item -Path "$env:TEMP\yara-4.2.3-2029-win64.zip"
 }
 
 # Function to install YARA
@@ -119,7 +119,7 @@ function Install-YARA {
     # Create YARA directory and copy executable
     $yaraDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara"
     New-Item -ItemType Directory -Path $yaraDir -Force
-    Copy-Item -Path "$tempDir\yara64.exe" -Destination $yaraDir
+    Copy-Item -Path "$env:TEMP\yara64.exe" -Destination $yaraDir
 
     # Install valhallaAPI module
     pip install valhallaAPI
@@ -134,15 +134,15 @@ response = v.get_rules_text()
 with open('yara_rules.yar', 'w') as fh:
     fh.write(response)
 "@
-    $pythonScript | Out-File -FilePath "$tempDir\download_yara_rules.py" -Encoding utf8
+    $pythonScript | Out-File -FilePath "$env:TEMP\download_yara_rules.py" -Encoding utf8
 
     # Run the Python script to download YARA rules
-    python.exe "$tempDir\download_yara_rules.py"
+    python.exe "$env:TEMP\download_yara_rules.py"
 
     # Create YARA rules directory and copy the rules
     $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"
     New-Item -ItemType Directory -Path $rulesDir -Force
-    Copy-Item -Path "$tempDir\yara_rules.yar" -Destination $rulesDir
+    Copy-Item -Path "$env:TEMP\yara_rules.yar" -Destination $rulesDir
 
     # Create the yara.bat script
     $yaraBatContent = @"
