@@ -45,11 +45,40 @@ try {
 
     function Install-Yara {
         Log "INFO" "Installing YARA on Windows..."
-        # Example using Chocolatey for YARA and other tools installation
-        if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-            throw "Chocolatey is required to install YARA and dependencies. Please install Chocolatey first."
+
+        # Determine if the system is 64-bit or 32-bit
+        $is64Bit = [Environment]::Is64BitOperatingSystem
+
+        # Set the download URL based on the system architecture
+        if ($is64Bit) {
+            $yaraUrl = "https://github.com/VirusTotal/yara/releases/download/v4.5.2/yara-v4.5.2-2326-win64.zip"
+        } else {
+            $yaraUrl = "https://github.com/VirusTotal/yara/releases/download/v4.5.2/yara-v4.5.2-2326-win32.zip"
         }
-        choco install yara jq curl git -y
+
+        # Define the paths
+        $yaraZipPath = Join-Path -Path $tempDir.FullName -ChildPath "yara.zip"
+        $yaraExtractPath = Join-Path -Path $tempDir.FullName -ChildPath "yara"
+
+        # Download the YARA zip file
+        Log "INFO" "Downloading YARA from $yaraUrl..."
+        Invoke-WebRequest -Uri $yaraUrl -OutFile $yaraZipPath -UseBasicParsing
+
+        # Extract the zip file
+        Log "INFO" "Extracting YARA..."
+        Expand-Archive -Path $yaraZipPath -DestinationPath $yaraExtractPath
+
+        # Move the extracted files to the appropriate directory
+        $yaraInstallPath = "C:\Program Files\YARA"
+        New-Item -ItemType Directory -Force -Path $yaraInstallPath
+        Copy-Item -Path (Join-Path -Path $yaraExtractPath -ChildPath "*") -Destination $yaraInstallPath -Recurse -Force
+
+        # Clean up the downloaded and extracted files
+        Log "INFO" "Cleaning up downloaded and extracted files..."
+        Remove-Item -Path $yaraZipPath -Force
+        Remove-Item -Path $yaraExtractPath -Recurse -Force
+
+        Log "INFO" "YARA installed successfully at $yaraInstallPath."
     }
 
     Install-Yara
