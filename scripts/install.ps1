@@ -73,6 +73,15 @@ try {
         New-Item -ItemType Directory -Force -Path $yaraInstallPath
         Copy-Item -Path (Join-Path -Path $yaraExtractPath -ChildPath "*") -Destination $yaraInstallPath -Recurse -Force
 
+        # Add YARA to the system PATH
+        $envPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+        if ($envPath -notcontains $yaraInstallPath) {
+            [System.Environment]::SetEnvironmentVariable("Path", "$envPath;$yaraInstallPath", [System.EnvironmentVariableTarget]::Machine)
+            Log "INFO" "YARA added to the system PATH."
+        } else {
+            Log "INFO" "YARA is already in the system PATH."
+        }
+
         # Clean up the downloaded and extracted files
         Log "INFO" "Cleaning up downloaded and extracted files..."
         Remove-Item -Path $yaraZipPath -Force
