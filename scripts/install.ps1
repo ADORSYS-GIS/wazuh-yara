@@ -44,6 +44,19 @@ function Ensure-Admin {
     }
 }
 
+#Function to check if pip module is installed
+function Is-ModuleInstalled {
+    param (
+        [string]$ModuleName
+    )
+    $result = pip show $ModuleName 2>&1
+    if ($result -match "Name:") {
+        return $true
+    } else {
+        return $false
+    }
+}
+
 
 # Function to download and extract YARA
 function Download-YARA {
@@ -76,16 +89,14 @@ function Install-YARA {
 
     
 
-# Ensure valhallaAPI module is installed
-$packageCheck = python -m pip show valhallaAPI -q
-
-# If the output is empty, the package is not installed
-if ($packageCheck) {
-    Write-Host "valhallaAPI module not found. Installing..." -ForegroundColor Yellow
-    python -m pip install valhallaAPI
-} else {
-    Write-Host "valhallaAPI is already installed."
-}
+    # Ensure valhallaAPI module is installed
+    $moduleName = "valhallaAPI"
+    if (Is-ModuleInstalled -ModuleName $moduleName) {
+        Write-Host "$moduleName is installed."
+    } else {
+        Write-Host "$moduleName is not installed."
+        pip install $moduleName
+    }
 
 # Create and save the Python script to download YARA rules
 $pythonScript = @"
