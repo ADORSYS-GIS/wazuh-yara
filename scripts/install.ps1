@@ -125,7 +125,7 @@ if (Test-Path -Path $yaraRulesPath) {
     # Download yara.bat script
     $yaraBatURL = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/3-Windows-Agent-Install-Script/scripts/yara.bat"
 
-    Invoke-WebRequest -Uri $yaraBatUrl -FilePath "C:\Program Files (x86)\ossec-agent\active-response\bin\yara.bat" 
+    Invoke-WebRequest -Uri $yaraBatUrl -FilePath "C:\Program Files (x86)\ossec-agent\active-response\bin\yara.bat" -Encoding utf8
     
 
     # Update Wazuh agent configuration
