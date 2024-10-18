@@ -66,10 +66,6 @@ function Download-YARA {
 function Install-YARA {
     Ensure-Admin
 
-    # Check for Python and Visual C++ Redistributable
-    Check-PythonInstalled
-    Check-VCppInstalled
-
     # Download and extract YARA
     Download-YARA
 
