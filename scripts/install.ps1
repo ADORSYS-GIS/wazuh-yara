@@ -76,12 +76,15 @@ function Install-YARA {
 
     
 
-    # Ensure valhallaAPI module is installed
-try {
-    pip show valhallaAPI -q
-} catch {
+# Ensure valhallaAPI module is installed
+$packageCheck = python -m pip show valhallaAPI -q
+
+# If the output is empty, the package is not installed
+if ($packageCheck) {
     Write-Host "valhallaAPI module not found. Installing..." -ForegroundColor Yellow
-    pip install valhallaAPI
+    python -m pip install valhallaAPI
+} else {
+    Write-Host "valhallaAPI is already installed."
 }
 
 # Create and save the Python script to download YARA rules
