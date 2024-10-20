@@ -44,18 +44,6 @@ function Ensure-Admin {
     }
 }
 
-#Function to check if pip module is installed
-function Is-ModuleInstalled {
-    param (
-        [string]$ModuleName
-    )
-    $result = pip show $ModuleName 2>&1
-    if ($result -match "Name:") {
-        return $true
-    } else {
-        return $false
-    }
-}
 
 
 # Function to download and extract YARA
@@ -89,24 +77,28 @@ function Install-YARA {
 
     
 
-    # Ensure valhallaAPI module is installed
-    $moduleName = "valhallaAPI"
-    if (Is-ModuleInstalled -ModuleName $moduleName) {
-        Write-Host "$moduleName is installed."
-    } else {
-        Write-Host "$moduleName is not installed."
-        pip install $moduleName
-    }
 
 # Create and save the Python script to download YARA rules
 $pythonScript = @"
+import os
 from valhallaAPI.valhalla import ValhallaAPI
+import tempfile
 
+# Initialize Valhalla API
 v = ValhallaAPI(api_key='1111111111111111111111111111111111111111111111111111111111111111')
 response = v.get_rules_text()
 
-with open('yara_rules.yar', 'w') as fh:
+# Get the Windows temp directory
+temp_dir = tempfile.gettempdir()
+
+# Define the full path to the yara_rules.yar file in the temp directory
+file_path = os.path.join(temp_dir, 'yara_rules.yar')
+
+# Write the Yara rules to the file in the temp directory
+with open(file_path, 'w') as fh:
     fh.write(response)
+
+print(f"Yara rules saved to {file_path}")
 "@
 $pythonScript | Out-File -FilePath "$env:TEMP\download_yara_rules.py" -Encoding utf8
 
