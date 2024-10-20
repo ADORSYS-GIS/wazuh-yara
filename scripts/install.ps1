@@ -129,7 +129,7 @@ if (Test-Path -Path $yaraRulesPath) {
     
     
     # Download the appropriate YARA version
-    Invoke-WebRequest -Uri $yaraUrl -OutFile $yaraBatDir
+    Invoke-WebRequest -Uri $yaraBatUrl -OutFile $yaraBatDir
     Write-Host "Yara Bat Script Downloaded and copied into $yaraBatDir "
 
     # Update Wazuh agent configuration
