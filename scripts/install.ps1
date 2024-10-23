@@ -169,9 +169,9 @@ function Update-WazuhConfig {
             Write-Output "Directory C:\Users\$userName\Downloads is already in the syscheck configuration."
         }
 
-        $existingNode = $syscheckNode.file_limit
+        $existingFileLimitNode = $syscheckNode.file_limit
 
-        if ($existingNode -eq $null) {
+        if ($existingFileLimitNode -eq $null) {
             Write-Host "Adding file_limit to Wazuh agent configuration..." -ForegroundColor Yellow
             try {
                 $fileLimitNode = $configXml.CreateElement("file_limit")
