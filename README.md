@@ -3,21 +3,29 @@
 
 
 ## Overview
-**Wazuh Yara** is a project aimed at integrating YARA rules with Wazuh for enhanced malware detection and file integrity monitoring.
+**Wazuh Yara** integrates YARA rules with Wazuh to improve malware detection and file integrity monitoring. This integration empowers Wazuh to detect, classify, and respond to malware threats and file integrity changes across endpoints.
+
+By leveraging YARA’s rule-based detection capabilities, Wazuh Yara allows for real-time, targeted malware detection and response. It automates threat mitigation by actively monitoring for suspicious file changes and applying YARA rules, which can identify malware artifacts and, when necessary, remove them to safeguard endpoint integrity.
 
 ## Features
-- **File Integrity Monitoring (FIM)**: Monitors directories and files for changes and triggers YARA scans.
-- **Malware Detection**: Uses YARA rules to detect and classify malware artifacts on endpoints.
-- **Active Response**: Automatically deletes detected threats based on YARA rule matches.
+- **File Integrity Monitoring (FIM)**: Constantly monitors specified directories and files for modifications, automatically triggering YARA scans when changes are detected.
+
+- **Malware Detection**: Detects and classifies malware by applying YARA rules to assess files and directories, identifying potential threats based on known malware signatures.
+
+- **Active Response**:  Automatically responds to detected threats based on YARA rule matches, including the ability to delete flagged files to prevent further spread or damage.
 
 ## Supported Operating Systems
 - **Ubuntu**
 - **macOS**
+- **Windows**
 
-## Usage
-1. Configures the YARA rules in the wazuh agent `rules` directory.
-2. Set up the Wazuh FIM module to monitor desired directories.
-3. Deploy the `yara.sh` script for active response.
+## Usage Guide
+- **Configure YARA Rules:** Place your YARA rules in the Wazuh agent’s designated rules directory to activate them during scans.
+
+- **Set Up File Integrity Monitoring:** Configure the Wazuh FIM module to monitor directories you want to secure. Each change within these directories will trigger a YARA scan.
+
+- **Deploy Active Response:** Use the provided `yara.sh` script to automatically initiate responses upon threat detection.
+
 
 ## Getting Started
 ### Prerequisites
