@@ -75,40 +75,22 @@ function Install-YARA {
     New-Item -ItemType Directory -Path $yaraDir -Force
     Copy-Item -Path "$env:TEMP\yara64.exe" -Destination $yaraDir
 
+    # Download Yara Rules
+    $yaraRulesUrl = "https://raw.githubusercontent.com/<username>/<repository>/<branch>/path/to/yara_rules.yar"
     
-
-
-# Create and save the Python script to download YARA rules
-$pythonScript = @"
-import os
-from valhallaAPI.valhalla import ValhallaAPI
-import tempfile
-
-# Initialize Valhalla API
-v = ValhallaAPI(api_key='1111111111111111111111111111111111111111111111111111111111111111')
-response = v.get_rules_text()
-
-# Get the Windows temp directory
-temp_dir = tempfile.gettempdir()
-
-# Define the full path to the yara_rules.yar file in the temp directory
-file_path = os.path.join(temp_dir, 'yara_rules.yar')
-
-# Write the Yara rules to the file in the temp directory
-with open(file_path, 'w') as fh:
-    fh.write(response)
-
-print(f"Yara rules saved to {file_path}")
-"@
-$pythonScript | Out-File -FilePath "$env:TEMP\download_yara_rules.py" -Encoding utf8
-
-# Run the Python script to download YARA rules
-try {
-    Start-Process python.exe -ArgumentList "$env:TEMP\download_yara_rules.py" -Wait -NoNewWindow
-} catch {
-    Write-Host "Failed to run the Python script to download YARA rules: $_" -ForegroundColor Red
-    exit 1
-}
+    # Define the file path to save the YARA rules
+    $tempDir = [System.IO.Path]::GetTempPath()
+    $yaraRulesFile = Join-Path -Path $tempDir -ChildPath "yara_rules.yar"
+    
+    # Download the YARA rules file
+    try {
+        Write-Host "Downloading YARA rules from GitHub..."
+        Invoke-WebRequest -Uri $yaraRulesUrl -OutFile $yaraRulesFile -UseBasicParsing
+        Write-Host "YARA rules saved to $yaraRulesFile" -ForegroundColor Green
+    } catch {
+        Write-Host "Failed to download YARA rules: $_" -ForegroundColor Red
+        exit 1
+    }
 
 # Verify if the yara_rules.yar file exists
 $yaraRulesPath = "$env:TEMP\yara_rules.yar"
