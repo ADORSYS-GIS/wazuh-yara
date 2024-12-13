@@ -315,26 +315,18 @@ install_yara_tools
 # Step 2: Download YARA rules
 print_step 2 "Downloading YARA rules..."
 
-YARA_RULES_URL="https://valhalla.nextron-systems.com/api/v1/get"
-YARA_RULES_FILE="$TMP_DIR/yara_rules.yar"
-API_KEY="1111111111111111111111111111111111111111111111111111111111111111"
+# Update the URL to the raw file on GitHub
+YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/enhance/Issue-8/rules/malware_rules.yar"
+YARA_RULES_FILE="$TMP_DIR/malware_rules.yar"
 YARA_RULES_DEST_DIR="/var/ossec/ruleset/yara/rules"
 
 download_yara_rules() {
     info_message "Downloading YARA rules..."
-    maybe_sudo curl -SL --progress-bar "$YARA_RULES_URL" \
-        -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
-        -H 'Accept-Language: en-US,en;q=0.5' \
-        --compressed \
-        -H 'Referer: https://valhalla.nextron-systems.com/' \
-        -H 'Content-Type: application/x-www-form-urlencoded' \
-        -H 'DNT: 1' -H 'Connection: keep-alive' -H 'Upgrade-Insecure-Requests: 1' \
-        --data "demo=demo&apikey=$API_KEY&format=text" \
-        -o "$YARA_RULES_FILE"
+    maybe_sudo curl -SL --progress-bar "$YARA_RULES_URL" -o "$YARA_RULES_FILE"
 
     if [ -s "$YARA_RULES_FILE" ]; then
         maybe_sudo mkdir -p "$YARA_RULES_DEST_DIR"
-        maybe_sudo mv "$YARA_RULES_FILE" "$YARA_RULES_DEST_DIR/yara_rules.yar"
+        maybe_sudo mv "$YARA_RULES_FILE" "$YARA_RULES_DEST_DIR/malware_rules.yar"
         change_owner "$YARA_RULES_DEST_DIR"
         info_message "YARA rules moved to $YARA_RULES_DEST_DIR."
     else
@@ -342,6 +334,7 @@ download_yara_rules() {
         exit 1
     fi
 }
+
 
 download_yara_rules
 
