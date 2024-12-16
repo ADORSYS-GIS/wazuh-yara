@@ -324,9 +324,9 @@ download_yara_rules() {
     info_message "Downloading YARA rules..."
     maybe_sudo curl -SL --progress-bar "$YARA_RULES_URL" -o "$YARA_RULES_FILE"
     if [ "$(uname)" = "Linux" ]; then
-      YARA_RULES_DEST_DIR="/var/ossec/ruleset/yara/yara_rules.yar"
+      YARA_RULES_DEST_DIR="/var/ossec/ruleset/yara"
     elif [ "$(uname)" = "Darwin" ]; then
-      YARA_RULES_DEST_DIR="/Library/Ossec/ruleset/yara/yara_rules.yar"
+      YARA_RULES_DEST_DIR="/Library/Ossec/ruleset/yara"
     else
       error_message "Unsupported OS. Exiting..."
       exit 1
