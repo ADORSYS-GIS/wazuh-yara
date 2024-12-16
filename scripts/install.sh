@@ -319,7 +319,7 @@ YARA_RULES_FILE="$TMP_DIR/yara_rules.yar"
 
 download_yara_rules() {
 
-    YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/enhance/Issue-8/rules/yara_rules.yar"
+    YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/main/rules/yara_rules.yar"
 
     info_message "Downloading YARA rules..."
     maybe_sudo curl -SL --progress-bar "$YARA_RULES_URL" -o "$YARA_RULES_FILE"
