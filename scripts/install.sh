@@ -313,16 +313,24 @@ install_yara_tools() {
 install_yara_tools
 
 # Step 2: Download YARA rules
-print_step 2 "Downloading YARA rules..."
 
 # Update the URL to the raw file on GitHub
-YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/enhance/Issue-8/rules/yara_rules.yar"
 YARA_RULES_FILE="$TMP_DIR/yara_rules.yar"
-YARA_RULES_DEST_DIR="/var/ossec/ruleset/yara/rules"
 
 download_yara_rules() {
+
+    YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/enhance/Issue-8/rules/yara_rules.yar"
+
     info_message "Downloading YARA rules..."
     maybe_sudo curl -SL --progress-bar "$YARA_RULES_URL" -o "$YARA_RULES_FILE"
+    if [ "$(uname)" = "Linux" ]; then
+      YARA_RULES_DEST_DIR="/var/ossec/ruleset/yara/yara_rules.yar"
+    elif [ "$(uname)" = "Darwin" ]; then
+      YARA_RULES_DEST_DIR="/Library/Ossec/ruleset/yara/yara_rules.yar"
+    else
+      error_message "Unsupported OS. Exiting..."
+      exit 1
+    fi
 
     if [ -s "$YARA_RULES_FILE" ]; then
         maybe_sudo mkdir -p "$YARA_RULES_DEST_DIR"
