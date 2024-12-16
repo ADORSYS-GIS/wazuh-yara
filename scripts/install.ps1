@@ -76,11 +76,11 @@ function Install-YARA {
     Copy-Item -Path "$env:TEMP\yara64.exe" -Destination $yaraDir
 
     # Download Yara Rules
-    $yaraRulesUrl = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/enhance/Issue-8/rules/malware_rules.yar"
+    $yaraRulesUrl = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/enhance/Issue-8/rules/yara_rules.yar"
     
     # Define the file path to save the YARA rules
     $tempDir = [System.IO.Path]::GetTempPath()
-    $yaraRulesFile = Join-Path -Path $tempDir -ChildPath "malware_rules.yar"
+    $yaraRulesFile = Join-Path -Path $tempDir -ChildPath "yara_rules.yar"
     
     # Download the YARA rules file
     try {
@@ -93,7 +93,7 @@ function Install-YARA {
     }
 
 # Verify if the yara_rules.yar file exists
-$yaraRulesPath = "$env:TEMP\malware_rules.yar"
+$yaraRulesPath = "$env:TEMP\yara_rules.yar"
 if (Test-Path -Path $yaraRulesPath) {
     # Create YARA rules directory and copy the rules
     $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"

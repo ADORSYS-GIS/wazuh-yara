@@ -28,7 +28,7 @@ for /F "tokens=* USEBACKQ" %%F in (`Powershell -Nop -C "(Get-Content 'C:\Program
 
 del /f %json_file_path%
 set yara_exe_path="C:\Program Files (x86)\ossec-agent\active-response\bin\yara\yara64.exe"
-set yara_rules_path="C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules\malware_rules.yar"
+set yara_rules_path="C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules\yara_rules.yar"
 echo !syscheck_file_path! >> %log_file_path%
 
 set malware_detected=false

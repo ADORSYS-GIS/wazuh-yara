@@ -316,8 +316,8 @@ install_yara_tools
 print_step 2 "Downloading YARA rules..."
 
 # Update the URL to the raw file on GitHub
-YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/enhance/Issue-8/rules/malware_rules.yar"
-YARA_RULES_FILE="$TMP_DIR/malware_rules.yar"
+YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/enhance/Issue-8/rules/yara_rules.yar"
+YARA_RULES_FILE="$TMP_DIR/yara_rules.yar"
 YARA_RULES_DEST_DIR="/var/ossec/ruleset/yara/rules"
 
 download_yara_rules() {
@@ -326,7 +326,7 @@ download_yara_rules() {
 
     if [ -s "$YARA_RULES_FILE" ]; then
         maybe_sudo mkdir -p "$YARA_RULES_DEST_DIR"
-        maybe_sudo mv "$YARA_RULES_FILE" "$YARA_RULES_DEST_DIR/malware_rules.yar"
+        maybe_sudo mv "$YARA_RULES_FILE" "$YARA_RULES_DEST_DIR/yara_rules.yar"
         change_owner "$YARA_RULES_DEST_DIR"
         info_message "YARA rules moved to $YARA_RULES_DEST_DIR."
     else
