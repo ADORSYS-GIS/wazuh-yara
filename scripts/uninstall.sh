@@ -58,6 +58,7 @@ maybe_sudo() {
 
 # Stop wazuh agent
 stop_wazuh_agent() {
+    info_message "Stopping wazuh agent..."
     case "$(uname)" in
         Linux)
             if maybe_sudo /var/ossec/bin/wazuh-control stop >/dev/null 2>&1; then
@@ -82,6 +83,7 @@ stop_wazuh_agent() {
 
 # Restart wazuh agent
 restart_wazuh_agent() {
+    info_message "Restarting wazuh agent..."
     case "$(uname)" in
         Linux)
             if maybe_sudo /var/ossec/bin/wazuh-control restart >/dev/null 2>&1; then
@@ -107,43 +109,37 @@ restart_wazuh_agent() {
 
 # Remove YARA and dependencies based on the package manager
 uninstall_yara_ubuntu() {
-    info_message "Removing YARA and tools on Ubuntu/Debian..."
     maybe_sudo apt remove -y yara
     maybe_sudo apt autoremove -y
 }
 
 uninstall_yara_alpine() {
-    info_message "Removing YARA and tools on Alpine Linux..."
     maybe_sudo apk del yara
 }
 
 uninstall_yara_centos() {
-    info_message "Removing YARA and tools on CentOS/RHEL..."
     maybe_sudo yum remove -y yara
 }
 
 uninstall_yara_fedora() {
-    info_message "Removing YARA and tools on Fedora..."
     maybe_sudo dnf remove -y yara
 }
 
 uninstall_yara_suse() {
-    info_message "Removing YARA and tools on SUSE..."
     maybe_sudo zypper remove -y yara
 }
 
 uninstall_yara_arch() {
-    info_message "Removing YARA and tools on Arch Linux..."
     maybe_sudo pacman -Rns --noconfirm yara
 }
 
 uninstall_yara_macos() {
-    info_message "Removing YARA and tools on macOS..."
     brew uninstall yara || info_message "Some components may already be uninstalled."
 }
 
 # Remove YARA based on the operating system
 uninstall_yara() {
+    info_message "Removing YARA..."
     case "$(uname)" in
         Linux)
             if command -v apt >/dev/null 2>&1; then
@@ -171,6 +167,7 @@ uninstall_yara() {
             exit 1
             ;;
     esac
+    info_message "Yara successfully removed."
 }
 
 # Remove YARA rules and scripts
