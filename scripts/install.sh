@@ -140,8 +140,11 @@ restart_wazuh_agent() {
             fi
             ;;
         Darwin)
-            maybe_sudo launchctl unload /Library/LaunchDaemons/com.wazuh.agent.plist
-            maybe_sudo launchctl load /Library/LaunchDaemons/com.wazuh.agent.plist
+            if maybe_sudo /Library/Ossec/bin/wazuh-control restart >/dev/null 2>&1; then
+                info_message "Wazuh agent restarted successfully."
+            else
+                error_message "Error occurred during Wazuh agent restart."
+            fi
             ;;
         *)
             error_message "Unsupported operating system for restarting Wazuh agent."
