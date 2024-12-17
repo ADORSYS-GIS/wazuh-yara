@@ -7,6 +7,8 @@ else
     set -eu
 fi
 
+LOG_LEVEL=${LOG_LEVEL:-INFO}
+
 # Define text formatting
 RED='\033[0;31m'
 GREEN='\033[0;32m'
