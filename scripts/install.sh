@@ -375,7 +375,38 @@ restart_wazuh_agent || {
 }
 info_message "Wazuh agent restarted successfully."
 
+# Validate yara installation
+validate_installation() {
+    # Check if the Wazuh agent service is running
+    if command -v yara >/dev/null 2>&1; then
+        success_message "Yara is running."
+    else
+        error_message "Yara is not installed."
+        exit 1
+    fi
+
+    # Check if the yara files exists where they should be
+    if [ ! -f "$YARA_RULES_DEST_DIR/yara_rules.yar" ]; then
+        warn_message "Yara rules files not present at $YARA_RULES_DEST_DIR/yara_rules.yar."
+        exit 1
+    else
+        success_message "Yara rules files exists at $YARA_RULES_DEST_DIR/yara_rules.yar."
+    fi
+
+    if [ ! -f "$YARA_SH_PATH" ]; then
+        warn_message "Yara active response script not present at $YARA_SH_PATH."
+        exit 1
+    else
+        success_message "Yara active response script exists at $YARA_SH_PATH."
+    fi
+
+    success_message "Installation and configuration validated successfully."
+}
+
+print_step 6 "Validating installation and configuration..."
+validate_installation
+
 # Clean up temporary files
-print_step 6 "Cleaning up temporary files..."
+print_step 7 "Cleaning up temporary files..."
 # The cleanup will be automatically done due to the trap
 info_message "Temporary files cleaned up."
