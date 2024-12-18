@@ -385,13 +385,13 @@ validate_installation() {
     fi
 
     # Check if the yara files exists where they should be
-    if [[ ! -f "$YARA_RULES_DEST_DIR/yara_rules.yar" ]]; then
+    if maybe_sudo [ ! -f "$YARA_RULES_DEST_DIR/yara_rules.yar" ]; then
         warn_message "Yara rules files not present at $YARA_RULES_DEST_DIR/yara_rules.yar."
     else
         success_message "Yara rules files exists at $YARA_RULES_DEST_DIR/yara_rules.yar."
     fi
 
-    if [[ ! -f "$YARA_SH_PATH" ]]; then
+    if maybe_sudo [ ! -f "$YARA_SH_PATH" ]; then
         warn_message "Yara active response script not present at $YARA_SH_PATH."
     else
         success_message "Yara active response script exists at $YARA_SH_PATH."

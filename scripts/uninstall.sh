@@ -204,7 +204,11 @@ remove_yara_components() {
 
 # Main uninstallation steps
 stop_wazuh_agent
-uninstall_yara
+if command -v apt >/dev/null 2>&1; then
+    uninstall_yara
+else
+    info_message "Yara is not installed."
+fi
 remove_yara_components
 restart_wazuh_agent
 
