@@ -382,20 +382,17 @@ validate_installation() {
         success_message "Yara is running."
     else
         error_message "Yara is not installed."
-        exit 1
     fi
 
     # Check if the yara files exists where they should be
-    if [ ! -f "$YARA_RULES_DEST_DIR/yara_rules.yar" ]; then
+    if [[ ! -f "$YARA_RULES_DEST_DIR/yara_rules.yar" ]]; then
         warn_message "Yara rules files not present at $YARA_RULES_DEST_DIR/yara_rules.yar."
-        exit 1
     else
         success_message "Yara rules files exists at $YARA_RULES_DEST_DIR/yara_rules.yar."
     fi
 
-    if [ ! -f "$YARA_SH_PATH" ]; then
+    if [[ ! -f "$YARA_SH_PATH" ]]; then
         warn_message "Yara active response script not present at $YARA_SH_PATH."
-        exit 1
     else
         success_message "Yara active response script exists at $YARA_SH_PATH."
     fi

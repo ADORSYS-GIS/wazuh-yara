@@ -187,14 +187,14 @@ remove_yara_components() {
         exit 1
     fi
 
-    if [ -d "$YARA_DIR" ]; then
+    if [[ -d "$YARA_DIR" ]]; then
         maybe_sudo rm -rf "$YARA_DIR"
         info_message "Removed YARA directory: $YARA_DIR"
     else
         warn_message "YARA directory not found: $YARA_DIR"
     fi
 
-    if [ -f "$YARA_SCRIPT" ]; then
+    if [[ -f "$YARA_SCRIPT" ]]; then
         maybe_sudo rm -f "$YARA_SCRIPT"
         info_message "Removed YARA script: $YARA_SCRIPT"
     else
