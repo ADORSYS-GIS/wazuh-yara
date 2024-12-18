@@ -207,7 +207,7 @@ update_ossec_conf() {
     # Determine the OS type
     if [[ "$(uname)" == "Darwin" ]]; then
         # macOS
-        SED_CMD="sed -i ''"
+        SED_CMD="sed -i     ''"
         NEWLINE=$'\n'  # macOS requires literal newlines
     else
         # Linux
@@ -383,3 +383,5 @@ info_message "Wazuh agent restarted successfully."
 print_step 6 "Cleaning up temporary files..."
 # The cleanup will be automatically done due to the trap
 info_message "Temporary files cleaned up."
+
+success_message "Yara installed succesfully"
