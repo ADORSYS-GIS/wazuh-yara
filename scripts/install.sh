@@ -164,16 +164,22 @@ check_file_limit() {
     fi
 
     if ! maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
-        FILE_LIMIT_BLOCK="<!-- Maximum number of files to be monitored -->\n <file_limit>\n  <enabled>no</enabled>\n</file_limit>\n"
         # Add the file_limit block after the <syscheck> line
         maybe_sudo $SED_CMD "/<syscheck>/a\\
-$FILE_LIMIT_BLOCK" "$OSSEC_CONF_PATH" || {
+<!-- Maximum number of files to be monitored -->\\
+<file_limit>\\
+  <enabled>no</enabled>\\
+</file_limit>" "$OSSEC_CONF_PATH" || {
             error_message "Error occurred during the addition of the file_limit block."
             exit 1
         }
         info_message "The file limit block was added successfully."
+    else
+        info_message "The file limit block already exists. No changes were made."
     fi
 }
+
+
 
 
 download_yara_script() {
@@ -207,31 +213,35 @@ update_ossec_conf() {
     # Determine the OS type
     if [[ "$(uname)" == "Darwin" ]]; then
         # macOS
-        SED_CMD="sed -i ''"
+        SED_CMD="sed -i     ''"
+        NEWLINE=$'\n'  # macOS requires literal newlines
     else
         # Linux
         SED_CMD="sed -i"
+        NEWLINE=$'\n'
     fi
 
     # Check and update configuration file
-    if ! maybe_sudo grep -q '<directories realtime="yes">\/home, \/root, \/bin, \/sbin</directories>' "$OSSEC_CONF_PATH"; then
-      maybe_sudo $SED_CMD '/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\
-        <directories realtime="yes">\/home, \/root, \/bin, \/sbin</directories>' "$OSSEC_CONF_PATH" || {
+    if ! maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
+        maybe_sudo $SED_CMD "/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\\
+<directories realtime=\"yes\">/home, /root, /bin, /sbin</directories>$NEWLINE" "$OSSEC_CONF_PATH" || {
             error_message "Error occurred during configuration of directories to monitor."
             exit 1
         }
+        info_message "Directories configuration in Wazuh agent file updated successfully."
     fi
 
-    info_message "Wazuh agent configuration file updated successfully."
-
-    maybe_sudo $SED_CMD 's/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g' "$OSSEC_CONF_PATH" || {
+    # Update frequency value
+    maybe_sudo $SED_CMD "s/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g" "$OSSEC_CONF_PATH" || {
         error_message "Error occurred during frequency update in Wazuh agent configuration file."
         exit 1
     }
     info_message "Frequency in Wazuh agent configuration file updated successfully."
 
+    # Call to check file limit
     check_file_limit
 }
+
 
 
 #--------------------------------------------#
