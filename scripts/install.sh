@@ -155,24 +155,27 @@ check_file_limit() {
     if [[ "$(uname)" == "Darwin" ]]; then
         # macOS
         SED_CMD="sed -i ''"
-        NEWLINE=$'\n'  # macOS requires literal newline handling
     else
         # Linux
         SED_CMD="sed -i"
-        NEWLINE=$'\n'
     fi
 
     if ! maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
-        FILE_LIMIT_BLOCK="<!-- Maximum number of files to be monitored -->${NEWLINE} <file_limit>${NEWLINE}  <enabled>no</enabled>${NEWLINE}</file_limit>${NEWLINE}"
         # Add the file_limit block after the <syscheck> line
         maybe_sudo $SED_CMD "/<syscheck>/a\\
-$FILE_LIMIT_BLOCK" "$OSSEC_CONF_PATH" || {
+<!-- Maximum number of files to be monitored -->\\
+<file_limit>\\
+  <enabled>no</enabled>\\
+</file_limit>" "$OSSEC_CONF_PATH" || {
             error_message "Error occurred during the addition of the file_limit block."
             exit 1
         }
         info_message "The file limit block was added successfully."
+    else
+        info_message "The file limit block already exists. No changes were made."
     fi
 }
+
 
 
 
