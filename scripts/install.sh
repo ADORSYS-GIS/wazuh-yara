@@ -140,8 +140,11 @@ restart_wazuh_agent() {
             fi
             ;;
         Darwin)
-            maybe_sudo launchctl unload /Library/LaunchDaemons/com.wazuh.agent.plist
-            maybe_sudo launchctl load /Library/LaunchDaemons/com.wazuh.agent.plist
+            if maybe_sudo /Library/Ossec/bin/wazuh-control restart >/dev/null 2>&1; then
+                info_message "Wazuh agent restarted successfully."
+            else
+                error_message "Error occurred during Wazuh agent restart."
+            fi
             ;;
         *)
             error_message "Unsupported operating system for restarting Wazuh agent."
@@ -382,9 +385,35 @@ restart_wazuh_agent || {
 }
 info_message "Wazuh agent restarted successfully."
 
+# Validate yara installation
+validate_installation() {
+    # Check if the Wazuh agent service is running
+    if command -v yara >/dev/null 2>&1; then
+        success_message "Yara is running."
+    else
+        error_message "Yara is not installed."
+    fi
+
+    # Check if the yara files exists where they should be
+    if maybe_sudo [ ! -f "$YARA_RULES_DEST_DIR/yara_rules.yar" ]; then
+        warn_message "Yara rules files not present at $YARA_RULES_DEST_DIR/yara_rules.yar."
+    else
+        success_message "Yara rules files exists at $YARA_RULES_DEST_DIR/yara_rules.yar."
+    fi
+
+    if maybe_sudo [ ! -f "$YARA_SH_PATH" ]; then
+        warn_message "Yara active response script not present at $YARA_SH_PATH."
+    else
+        success_message "Yara active response script exists at $YARA_SH_PATH."
+    fi
+
+    success_message "Installation and configuration validated successfully."
+}
+
+print_step 6 "Validating installation and configuration..."
+validate_installation
+
 # Clean up temporary files
-print_step 6 "Cleaning up temporary files..."
+print_step 7 "Cleaning up temporary files..."
 # The cleanup will be automatically done due to the trap
 info_message "Temporary files cleaned up."
-
-success_message "Yara installed succesfully"
