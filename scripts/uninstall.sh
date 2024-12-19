@@ -58,47 +58,30 @@ maybe_sudo() {
     fi
 }
 
-# Stop wazuh agent
-stop_wazuh_agent() {
-    info_message "Stopping wazuh agent..."
-    case "$(uname)" in
-        Linux)
-            if maybe_sudo /var/ossec/bin/wazuh-control stop >/dev/null 2>&1; then
-                info_message "Wazuh agent stopped successfully."
-            else
-                error_message "Error occurred during Wazuh agent stop."
-            fi
-            ;;
-        Darwin)
-            if maybe_sudo /Library/Ossec/bin/wazuh-control stop >/dev/null 2>&1; then
-                info_message "Wazuh agent stopped successfully."
-            else
-                error_message "Error occurred during Wazuh agent stop."
-            fi
-            ;;
-        *)
-            error_message "Unsupported operating system for restarting Wazuh agent."
-            exit 1
-            ;;
-    esac
-}
-
 # Restart wazuh agent
 restart_wazuh_agent() {
     info_message "Restarting wazuh agent..."
     case "$(uname)" in
         Linux)
-            if maybe_sudo /var/ossec/bin/wazuh-control restart >/dev/null 2>&1; then
-                info_message "Wazuh agent restarted successfully."
+            if maybe_sudo [ -f "/var/ossec/bin/wazuh-control" ]; then
+                if maybe_sudo /var/ossec/bin/wazuh-control restart >/dev/null 2>&1; then
+                    info_message "Wazuh agent restarted successfully."
+                else
+                    warn_message "Error occurred during Wazuh agent restart."
+                fi
             else
-                error_message "Error occurred during Wazuh agent restart."
+                info_message "Bin to restart Wazuh agent doesn't exist."
             fi
             ;;
         Darwin)
-            if maybe_sudo /Library/Ossec/bin/wazuh-control restart >/dev/null 2>&1; then
-                info_message "Wazuh agent restarted successfully."
+            if maybe_sudo [ -f "/Library/Ossec/bin/wazuh-control" ]; then
+                if maybe_sudo /Library/Ossec/bin/wazuh-control restart >/dev/null 2>&1; then
+                    info_message "Wazuh agent restarted successfully."
+                else
+                    warn_message "Error occurred during Wazuh agent restart."
+                fi
             else
-                error_message "Error occurred during Wazuh agent restart."
+                info_message "Bin to restart Wazuh agent doesn't exist."
             fi
             ;;
         *)
@@ -203,7 +186,6 @@ remove_yara_components() {
 }
 
 # Main uninstallation steps
-stop_wazuh_agent
 if command -v apt >/dev/null 2>&1; then
     uninstall_yara
 else
