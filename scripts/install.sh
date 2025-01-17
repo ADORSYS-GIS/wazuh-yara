@@ -59,6 +59,11 @@ print_step() {
     log "${BLUE}${BOLD}[STEP]${NORMAL}" "$1: $2"
 }
 
+# Check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
 # Check if sudo is available or if the script is run as root
 maybe_sudo() {
     if [ "$(id -u)" -ne 0 ]; then
@@ -70,6 +75,14 @@ maybe_sudo() {
         fi
     else
         "$@"
+    fi
+}
+
+sed_alternative() {
+    if command_exists gsed; then
+        maybe_sudo gsed "$@"
+    else
+        maybe_sudo sed "$@"
     fi
 }
 
@@ -154,18 +167,10 @@ restart_wazuh_agent() {
 }
 
 check_file_limit() {
-    # Determine the OS type
-    if [[ "$(uname)" == "Darwin" ]]; then
-        # macOS
-        SED_CMD="sed -i ''"
-    else
-        # Linux
-        SED_CMD="sed -i"
-    fi
 
     if ! maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
         # Add the file_limit block after the <syscheck> line
-        maybe_sudo $SED_CMD "/<syscheck>/a\\
+        sed_alternative -i "/<syscheck>/a\\
 <!-- Maximum number of files to be monitored -->\\
 <file_limit>\\
   <enabled>no</enabled>\\
@@ -213,17 +218,15 @@ update_ossec_conf() {
     # Determine the OS type
     if [[ "$(uname)" == "Darwin" ]]; then
         # macOS
-        SED_CMD="sed -i     ''"
         NEWLINE=$'\n'  # macOS requires literal newlines
     else
         # Linux
-        SED_CMD="sed -i"
         NEWLINE=$'\n'
     fi
 
     # Check and update configuration file
     if ! maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
-        maybe_sudo $SED_CMD "/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\\
+        sed_alternative -i "/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\\
 <directories realtime=\"yes\">/home, /root, /bin, /sbin</directories>$NEWLINE" "$OSSEC_CONF_PATH" || {
             error_message "Error occurred during configuration of directories to monitor."
             exit 1
@@ -232,7 +235,7 @@ update_ossec_conf() {
     fi
 
     # Update frequency value
-    maybe_sudo $SED_CMD "s/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g" "$OSSEC_CONF_PATH" || {
+    sed_alternative -i "s/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g" "$OSSEC_CONF_PATH" || {
         error_message "Error occurred during frequency update in Wazuh agent configuration file."
         exit 1
     }
