@@ -255,34 +255,34 @@ print_step 1 "Installing YARA and necessary tools..."
 install_yara_ubuntu() {
     info_message "Installing YARA on Ubuntu/Debian..."
     maybe_sudo apt update
-    maybe_sudo apt install -y yara jq curl git
+    maybe_sudo apt install -y yara
 }
 
 install_yara_alpine() {
     info_message "Installing YARA on Alpine Linux..."
     maybe_sudo apk update
-    maybe_sudo apk add yara jq curl git
+    maybe_sudo apk add yara
 }
 
 install_yara_centos() {
     info_message "Installing YARA on CentOS/RHEL..."
     maybe_sudo yum install -y epel-release
-    maybe_sudo yum install -y yara jq curl git
+    maybe_sudo yum install -y yara
 }
 
 install_yara_fedora() {
     info_message "Installing YARA on Fedora..."
-    maybe_sudo dnf install -y yara jq curl git
+    maybe_sudo dnf install -y yara
 }
 
 install_yara_suse() {
     info_message "Installing YARA on SUSE..."
-    maybe_sudo zypper install -y yara jq curl git
+    maybe_sudo zypper install -y yara
 }
 
 install_yara_arch() {
     info_message "Installing YARA on Arch Linux..."
-    maybe_sudo pacman -Syu --noconfirm yara jq curl git
+    maybe_sudo pacman -Syu --noconfirm yara
 }
 
 install_yara_busybox() {
@@ -293,7 +293,7 @@ install_yara_busybox() {
 
 install_yara_macos() {
     info_message "Installing YARA on macOS..."
-    brew install yara jq curl git
+    brew install yara
 }
 
 install_yara_tools() {

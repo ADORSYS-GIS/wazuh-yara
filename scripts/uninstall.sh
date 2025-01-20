@@ -94,7 +94,7 @@ restart_wazuh_agent() {
 
 # Remove YARA and dependencies based on the package manager
 uninstall_yara_ubuntu() {
-    maybe_sudo apt remove -y yara
+    maybe_sudo apt purge -y yara
     maybe_sudo apt autoremove -y
 }
 
