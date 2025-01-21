@@ -28,21 +28,10 @@ log() {
 }
 
 # Logging helpers
-info_message() {
-    log "${BLUE}${BOLD}[INFO]${NORMAL}" "$*"
-}
-
-warn_message() {
-    log "${YELLOW}${BOLD}[WARNING]${NORMAL}" "$*"
-}
-
-error_message() {
-    log "${RED}${BOLD}[ERROR]${NORMAL}" "$*"
-}
-
-success_message() {
-    log "${GREEN}${BOLD}[SUCCESS]${NORMAL}" "$*"
-}
+info_message() { log "${BLUE}${BOLD}[INFO]${NORMAL}" "$*"; }
+warn_message() { log "${YELLOW}${BOLD}[WARNING]${NORMAL}" "$*"; }
+error_message() { log "${RED}${BOLD}[ERROR]${NORMAL}" "$*"; }
+success_message() { log "${GREEN}${BOLD}[SUCCESS]${NORMAL}" "$*"; }
 
 # Check if sudo is available or if the script is run as root
 maybe_sudo() {
@@ -58,30 +47,30 @@ maybe_sudo() {
     fi
 }
 
+sed_alternative() {
+    if command -v gsed >/dev/null 2>&1; then
+        maybe_sudo gsed "$@"
+    else
+        maybe_sudo sed "$@"
+    fi
+}
+
 # Restart wazuh agent
 restart_wazuh_agent() {
     info_message "Restarting wazuh agent..."
     case "$(uname)" in
         Linux)
             if maybe_sudo [ -f "/var/ossec/bin/wazuh-control" ]; then
-                if maybe_sudo /var/ossec/bin/wazuh-control restart >/dev/null 2>&1; then
-                    info_message "Wazuh agent restarted successfully."
-                else
-                    warn_message "Error occurred during Wazuh agent restart."
-                fi
+                maybe_sudo /var/ossec/bin/wazuh-control restart && info_message "Wazuh agent restarted successfully." || warn_message "Error occurred during Wazuh agent restart."
             else
-                info_message "Bin to restart Wazuh agent doesn't exist."
+                info_message "Wazuh agent control binary not found. Skipping restart."
             fi
             ;;
         Darwin)
             if maybe_sudo [ -f "/Library/Ossec/bin/wazuh-control" ]; then
-                if maybe_sudo /Library/Ossec/bin/wazuh-control restart >/dev/null 2>&1; then
-                    info_message "Wazuh agent restarted successfully."
-                else
-                    warn_message "Error occurred during Wazuh agent restart."
-                fi
+                maybe_sudo /Library/Ossec/bin/wazuh-control restart && info_message "Wazuh agent restarted successfully." || warn_message "Error occurred during Wazuh agent restart."
             else
-                info_message "Bin to restart Wazuh agent doesn't exist."
+                info_message "Wazuh agent control binary not found. Skipping restart."
             fi
             ;;
         *)
@@ -91,74 +80,36 @@ restart_wazuh_agent() {
     esac
 }
 
-
-# Remove YARA and dependencies based on the package manager
-uninstall_yara_ubuntu() {
-    maybe_sudo apt purge -y yara
-    maybe_sudo apt autoremove -y
-}
-
-uninstall_yara_alpine() {
-    maybe_sudo apk del yara
-}
-
-uninstall_yara_centos() {
-    maybe_sudo yum remove -y yara
-}
-
-uninstall_yara_fedora() {
-    maybe_sudo dnf remove -y yara
-}
-
-uninstall_yara_suse() {
-    maybe_sudo zypper remove -y yara
-}
-
-uninstall_yara_arch() {
-    maybe_sudo pacman -Rns --noconfirm yara
-}
-
-uninstall_yara_macos() {
-    brew uninstall yara || info_message "Some components may already be uninstalled."
-}
-
-# Remove YARA based on the operating system
+# Uninstall YARA based on package manager
 uninstall_yara() {
     info_message "Removing YARA..."
-    case "$(uname)" in
-        Linux)
-            if command -v apt >/dev/null 2>&1; then
-                uninstall_yara_ubuntu
-            elif command -v apk >/dev/null 2>&1; then
-                uninstall_yara_alpine
-            elif command -v yum >/dev/null 2>&1; then
-                uninstall_yara_centos
-            elif command -v dnf >/dev/null 2>&1; then
-                uninstall_yara_fedora
-            elif command -v zypper >/dev/null 2>&1; then
-                uninstall_yara_suse
-            elif command -v pacman >/dev/null 2>&1; then
-                uninstall_yara_arch
-            else
-                error_message "Unsupported Linux distribution. Exiting..."
-                exit 1
-            fi
-            ;;
-        Darwin)
-            uninstall_yara_macos
-            ;;
-        *)
-            error_message "Unsupported operating system. Exiting..."
-            exit 1
-            ;;
-    esac
-    info_message "Yara successfully removed."
+    if command -v yara >/dev/null 2>&1; then
+        case "$(uname)" in
+            Linux)
+                if command -v apt >/dev/null 2>&1; then
+                    maybe_sudo apt purge -y yara && maybe_sudo apt autoremove -y
+                elif command -v apk >/dev/null 2>&1; then
+                    maybe_sudo apk del yara
+                elif command -v yum >/dev/null 2>&1; then
+                    maybe_sudo yum remove -y yara
+                elif command -v dnf >/dev/null 2>&1; then
+                    maybe_sudo dnf remove -y yara
+                elif command -v zypper >/dev/null 2>&1; then
+                    maybe_sudo zypper remove -y yara
+                elif command -v pacman >/dev/null 2>&1; then
+                    maybe_sudo pacman -Rns --noconfirm yara
+                else
+                    error_message "Unsupported Linux distribution."
+                    exit 1
+                fiNo changes needed
+    else
+        warn_message "Yara is not installed. Skipping uninstallation."
+    fi
 }
 
 # Remove YARA rules and scripts
 remove_yara_components() {
     info_message "Removing YARA rules and scripts..."
-
     if [ "$(uname)" = "Linux" ]; then
         YARA_DIR="/var/ossec/ruleset/yara"
         YARA_SCRIPT="/var/ossec/active-response/bin/yara.sh"
@@ -170,28 +121,52 @@ remove_yara_components() {
         exit 1
     fi
 
-    if maybe_sudo [ -d "$YARA_DIR" ]; then
-        maybe_sudo rm -rf "$YARA_DIR"
-        info_message "Removed YARA directory: $YARA_DIR"
+    [ -d "$YARA_DIR" ] && maybe_sudo rm -rf "$YARA_DIR" && info_message "Removed YARA directory: $YARA_DIR" || warn_message "YARA directory not found."
+    [ -f "$YARA_SCRIPT" ] && maybe_sudo rm -f "$YARA_SCRIPT" && info_message "Removed YARA script: $YARA_SCRIPT" || warn_message "YARA script not found."
+}
+
+# Remove ossec configuration modifications
+remove_ossec_configuration() {
+    info_message "Removing OSSEC configuration modifications..."
+    
+    # Check and remove added file_limit block
+    if maybe_sudo grep -q '<file_limit>' "$OSSEC_CONF_PATH"; then
+        sed_alternative -i '/<!-- Maximum number of files to be monitored -->/,/<\/file_limit>/d' "$OSSEC_CONF_PATH" || {
+            error_message "Error occurred while removing the file_limit block."
+            exit 1
+        }
+        info_message "Removed file_limit block."
     else
-        warn_message "YARA directory not found: $YARA_DIR"
+        warn_message "file_limit block not found. Skipping."
     fi
 
-    if maybe_sudo [ -f "$YARA_SCRIPT" ]; then
-        maybe_sudo rm -f "$YARA_SCRIPT"
-        info_message "Removed YARA script: $YARA_SCRIPT"
+    # Check and remove added directories entry
+    if maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
+        sed_alternative -i '/<directories realtime="yes">\/home, \/root, \/bin, \/sbin<\/directories>/d' "$OSSEC_CONF_PATH" || {
+            error_message "Error occurred while removing directories configuration."
+            exit 1
+        }
+        info_message "Removed directories configuration."
     else
-        warn_message "YARA script not found: $YARA_SCRIPT"
+        warn_message "Directories configuration not found. Skipping."
+    fi
+
+    # Restore original frequency value if changed
+    if maybe_sudo grep -q '<frequency>300</frequency>' "$OSSEC_CONF_PATH"; then
+        sed_alternative -i 's/<frequency>300<\/frequency>/<frequency>43200<\/frequency>/g' "$OSSEC_CONF_PATH" || {
+            error_message "Error occurred while restoring frequency value."
+            exit 1
+        }
+        info_message "Restored frequency value to default."
+    else
+        warn_message "Frequency already set to default. Skipping."
     fi
 }
 
 # Main uninstallation steps
-if command -v apt >/dev/null 2>&1; then
-    uninstall_yara
-else
-    info_message "Yara is not installed."
-fi
+uninstall_yara
 remove_yara_components
+remove_ossec_configuration
 restart_wazuh_agent
 
 success_message "Uninstallation process completed successfully."
