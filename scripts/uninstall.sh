@@ -123,9 +123,11 @@ remove_yara_components() {
     if [ "$(uname)" = "Linux" ]; then
         YARA_DIR="/var/ossec/ruleset/yara"
         YARA_SCRIPT="/var/ossec/active-response/bin/yara.sh"
+        OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
     elif [ "$(uname)" = "Darwin" ]; then
         YARA_DIR="/Library/Ossec/ruleset/yara"
         YARA_SCRIPT="/Library/Ossec/active-response/bin/yara.sh"
+        OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
     else
         error_message "Unsupported OS. Exiting..."
         exit 1
