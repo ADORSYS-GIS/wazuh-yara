@@ -63,14 +63,14 @@ restart_wazuh_agent() {
             if maybe_sudo [ -f "/var/ossec/bin/wazuh-control" ]; then
                 maybe_sudo /var/ossec/bin/wazuh-control restart && info_message "Wazuh agent restarted successfully." || warn_message "Error occurred during Wazuh agent restart."
             else
-                info_message "Wazuh agent control binary not found. Skipping restart."
+                warn_message "Wazuh agent control binary not found. Skipping restart."
             fi
             ;;
         Darwin)
             if maybe_sudo [ -f "/Library/Ossec/bin/wazuh-control" ]; then
                 maybe_sudo /Library/Ossec/bin/wazuh-control restart && info_message "Wazuh agent restarted successfully." || warn_message "Error occurred during Wazuh agent restart."
             else
-                info_message "Wazuh agent control binary not found. Skipping restart."
+                warn_message "Wazuh agent control binary not found. Skipping restart."
             fi
             ;;
         *)
