@@ -101,7 +101,17 @@ uninstall_yara() {
                 else
                     error_message "Unsupported Linux distribution."
                     exit 1
-                fiNo changes needed
+                fi
+                ;;
+            Darwin)
+                brew list yara >/dev/null 2>&1 && brew uninstall yara || info_message "Yara is not installed."
+                ;;
+            *)
+                error_message "Unsupported operating system. Exiting..."
+                exit 1
+                ;;
+        esac
+        info_message "Yara successfully removed."
     else
         warn_message "Yara is not installed. Skipping uninstallation."
     fi
@@ -161,6 +171,8 @@ remove_ossec_configuration() {
     else
         warn_message "Frequency already set to default. Skipping."
     fi
+    
+    info_message "Ossec configuration settings removed."
 }
 
 # Main uninstallation steps
