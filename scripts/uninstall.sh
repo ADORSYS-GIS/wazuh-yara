@@ -139,42 +139,47 @@ remove_yara_components() {
 
 # Remove ossec configuration modifications
 remove_ossec_configuration() {
-    info_message "Removing OSSEC configuration modifications..."
+    if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
+        info_message "Removing OSSEC configuration modifications..."
     
-    # Check and remove added file_limit block
-    if maybe_sudo grep -q '<file_limit>' "$OSSEC_CONF_PATH"; then
-        sed_alternative -i '/<!-- Maximum number of files to be monitored -->/,/<\/file_limit>/d' "$OSSEC_CONF_PATH" || {
-            error_message "Error occurred while removing the file_limit block."
-            exit 1
-        }
-        info_message "Removed file_limit block."
+        # Check and remove added file_limit block
+        if maybe_sudo grep -q '<file_limit>' "$OSSEC_CONF_PATH"; then
+            sed_alternative -i '/<!-- Maximum number of files to be monitored -->/,/<\/file_limit>/d' "$OSSEC_CONF_PATH" || {
+                error_message "Error occurred while removing the file_limit block."
+                exit 1
+            }
+            info_message "Removed file_limit block."
+        else
+            warn_message "file_limit block not found. Skipping."
+        fi
+    
+        # Check and remove added directories entry
+        if maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
+            sed_alternative -i '/<directories realtime="yes">\/home, \/root, \/bin, \/sbin<\/directories>/d' "$OSSEC_CONF_PATH" || {
+                error_message "Error occurred while removing directories configuration."
+                exit 1
+            }
+            info_message "Removed directories configuration."
+        else
+            warn_message "Directories configuration not found. Skipping."
+        fi
+    
+        # Restore original frequency value if changed
+        if maybe_sudo grep -q '<frequency>300</frequency>' "$OSSEC_CONF_PATH"; then
+            sed_alternative -i 's/<frequency>300<\/frequency>/<frequency>43200<\/frequency>/g' "$OSSEC_CONF_PATH" || {
+                error_message "Error occurred while restoring frequency value."
+                exit 1
+            }
+            info_message "Restored frequency value to default."
+        else
+            warn_message "Frequency already set to default. Skipping."
+        fi
+        
+        info_message "Ossec configuration settings removed."
     else
-        warn_message "file_limit block not found. Skipping."
-    fi
-
-    # Check and remove added directories entry
-    if maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
-        sed_alternative -i '/<directories realtime="yes">\/home, \/root, \/bin, \/sbin<\/directories>/d' "$OSSEC_CONF_PATH" || {
-            error_message "Error occurred while removing directories configuration."
-            exit 1
-        }
-        info_message "Removed directories configuration."
-    else
-        warn_message "Directories configuration not found. Skipping."
-    fi
-
-    # Restore original frequency value if changed
-    if maybe_sudo grep -q '<frequency>300</frequency>' "$OSSEC_CONF_PATH"; then
-        sed_alternative -i 's/<frequency>300<\/frequency>/<frequency>43200<\/frequency>/g' "$OSSEC_CONF_PATH" || {
-            error_message "Error occurred while restoring frequency value."
-            exit 1
-        }
-        info_message "Restored frequency value to default."
-    else
-        warn_message "Frequency already set to default. Skipping."
+        warn_message "File $OSSEC_CONF_PATH not found. Skipping."
     fi
     
-    info_message "Ossec configuration settings removed."
 }
 
 # Main uninstallation steps
