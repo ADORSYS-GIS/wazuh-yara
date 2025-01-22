@@ -326,7 +326,12 @@ install_yara_tools() {
     esac
 }
 
-install_yara_tools
+if command_exists yara; then
+    info_message "YARA is already installed. Skipping installation."
+else
+    info_message "Installing YARA..."
+    install_yara_tools
+fi
 
 # Step 2: Download YARA rules
 
