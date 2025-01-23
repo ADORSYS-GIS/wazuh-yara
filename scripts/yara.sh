@@ -12,9 +12,16 @@
 
 # Extra arguments
 read INPUT_JSON
-YARA_PATH=$(echo $INPUT_JSON | jq -r .parameters.extra_args[1])
-YARA_RULES=$(echo $INPUT_JSON | jq -r .parameters.extra_args[3])
 FILENAME=$(echo $INPUT_JSON | jq -r .parameters.alert.syscheck.path)
+
+YARA_PATH=$(which yara)
+if [ "$(uname)" = "Darwin" ]; then
+    YARA_RULES="/Library/Ossec/ruleset/yara/rules/yara_rules.yar"
+else
+    YARA_RULES="/var/ossec/ruleset/yara/rules/yara_rules.yar"
+fi
+
+
 
 # Set LOG_FILE path
 LOG_FILE="logs/active-responses.log"
@@ -38,7 +45,7 @@ fi
 #------------------------- Main workflow --------------------------#
 
 # Execute Yara scan on the specified filename
-yara_output="$("${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME")"
+yara_output="$("${YARA_PATH}" -w -r "$YARA_RULES" "$FILENAME")"
 
 if [[ $yara_output != "" ]]
 then
