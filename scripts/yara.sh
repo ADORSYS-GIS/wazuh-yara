@@ -7,6 +7,49 @@
 # License (version 2) as published by the FSF - Free Software
 # Foundation.
 
+# Check if we're running in bash; if not, adjust behavior
+if [ -n "$BASH_VERSION" ]; then
+    set -euo pipefail
+else
+    set -eu
+fi
+
+LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+# Define text formatting
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[1;34m'
+BOLD='\033[1m'
+NORMAL='\033[0m'
+
+# Function for logging with timestamp
+log() {
+    local LEVEL="$1"
+    shift
+    local MESSAGE="$*"
+    local TIMESTAMP
+    TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
+    echo -e "${TIMESTAMP} ${LEVEL} ${MESSAGE}"
+}
+
+# Logging helpers
+info_message() {
+    log "${BLUE}${BOLD}[INFO]${NORMAL}" "$*"
+}
+
+warn_message() {
+    log "${YELLOW}${BOLD}[WARNING]${NORMAL}" "$*"
+}
+
+error_message() {
+    log "${RED}${BOLD}[ERROR]${NORMAL}" "$*"
+}
+
+success_message() {
+    log "${GREEN}${BOLD}[SUCCESS]${NORMAL}" "$*"
+}
 
 #------------------------- Gather parameters -------------------------#
 
@@ -38,7 +81,7 @@ done
 
 if [[ ! $YARA_PATH ]] || [[ ! $YARA_RULES ]]
 then
-    echo "wazuh-yara: ERROR - Yara active response error. Yara path and rules parameters are mandatory." >> ${LOG_FILE}
+    error_message "wazuh-yara: ERROR - Yara active response error. Yara path and rules parameters are mandatory." >> ${LOG_FILE}
     exit 1
 fi
 
@@ -51,7 +94,7 @@ if [[ $yara_output != "" ]]
 then
     # Iterate every detected rule and append it to the LOG_FILE
     while read -r line; do
-        echo "wazuh-yara: INFO - Scan result: $line" >> ${LOG_FILE}
+        info_message "wazuh-yara: INFO - Scan result: $line" >> ${LOG_FILE}
     done <<< "$yara_output"
 fi
 
