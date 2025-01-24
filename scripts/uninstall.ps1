@@ -87,9 +87,9 @@ function Uninstall-Yara {
     if ($currentPath -like "*$yaraDir*") {
         $newPath = $currentPath -replace [Regex]::Escape(";$yaraPath"), ""
         [System.Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
-        Log "INFO" "YARA path removed from environment variables"
+        InfoMessage "YARA path removed from environment variables"
     } else {
-        Log "INFO" "YARA path not found in environment variables"
+        WarnMessage "YARA path not found in environment variables"
     }
 }
 
