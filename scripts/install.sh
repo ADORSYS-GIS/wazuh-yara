@@ -219,19 +219,27 @@ update_ossec_conf() {
     if [[ "$(uname)" == "Darwin" ]]; then
         # macOS
         NEWLINE=$'\n'  # macOS requires literal newlines
+        # Check and update configuration file
+        if ! maybe_sudo grep -q '<directories realtime="yes">/Library, /Users, /usr, /Applications, /var, /System, /Volumes</directories>' "$OSSEC_CONF_PATH"; then
+            sed_alternative -i "/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\\
+    <directories realtime=\"yes\">/Library, /Users, /usr, /Applications, /var, /System, /Volumes</directories>$NEWLINE" "$OSSEC_CONF_PATH" || {
+                error_message "Error occurred during configuration of directories to monitor."
+                exit 1
+            }
+            info_message "Directories configuration in Wazuh agent file updated successfully."
+        fi
     else
         # Linux
         NEWLINE=$'\n'
-    fi
-
-    # Check and update configuration file
-    if ! maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
-        sed_alternative -i "/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\\
-<directories realtime=\"yes\">/home, /root, /bin, /sbin</directories>$NEWLINE" "$OSSEC_CONF_PATH" || {
-            error_message "Error occurred during configuration of directories to monitor."
-            exit 1
-        }
-        info_message "Directories configuration in Wazuh agent file updated successfully."
+        # Check and update configuration file
+        if ! maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
+            sed_alternative -i "/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\\
+    <directories realtime=\"yes\">/home, /root, /bin, /sbin</directories>$NEWLINE" "$OSSEC_CONF_PATH" || {
+                error_message "Error occurred during configuration of directories to monitor."
+                exit 1
+            }
+            info_message "Directories configuration in Wazuh agent file updated successfully."
+        fi
     fi
 
     # Update frequency value
