@@ -84,15 +84,39 @@ function Uninstall-Yara {
     }
 
     #Remove YARA path from environment variables
-    if ($currentPath -like "*$yaraDir*") {
-        $newPath = $currentPath -replace [Regex]::Escape(";$yaraPath"), ""
-        [System.Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
-        InfoMessage "YARA path removed from environment variables"
-    } else {
-        WarnMessage "YARA path not found in environment variables"
-    }
+    Remove-SystemPath $yaraDir
 }
 
+#Remove from Path
+function Remove-SystemPath {
+    param (
+        [string]$PathToRemove
+    )
+
+    # Get the current system Path
+    $currentPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+
+    # Split the Path into an array
+    $pathArray = $currentPath -split ';'
+
+    # Check if the specified path exists
+    if ($pathArray -contains $PathToRemove) {
+        InfoMessage "The path '$PathToRemove' exists in the system Path. Proceeding to remove it."
+
+        # Remove the specified path
+        $updatedPathArray = $pathArray | Where-Object { $_ -ne $PathToRemove }
+
+        # Join the array back into a single string
+        $updatedPath = ($updatedPathArray -join ';').TrimEnd(';')
+
+        # Update the system Path
+        [System.Environment]::SetEnvironmentVariable("Path", $updatedPath, [System.EnvironmentVariableTarget]::Machine)
+
+        InfoMessage "Successfully removed '$PathToRemove' from the system Path."
+    } else {
+        WarnMessage "The path '$PathToRemove' does not exist in the system Path. No changes were made."
+    }
+}
 
 
 #Remove ossec configuration modifications
@@ -105,18 +129,27 @@ function Remove-OssecConfigurations {
 
         $syscheckNode = $configXml.ossec_config.syscheck
         if ($null -ne $syscheckNode) {
+
             # Remove any added directories
+            InfoMessage "Removing syscheck directory: C:\Users\$([System.Environment]::UserName)\Downloads ..."
             $downloadDirNode = $syscheckNode.directories | Where-Object { $_.InnerText -eq "C:\Users\$([System.Environment]::UserName)\Downloads" }
             if ($null -ne $downloadDirNode) {
                 $syscheckNode.RemoveChild($downloadDirNode) | Out-Null
                 InfoMessage "Removed syscheck directory: C:\Users\$([System.Environment]::UserName)\Downloads"
             }
+            else {
+                WarnMessage "Syscheck directory: C:\Users\$([System.Environment]::UserName)\Downloads not found. Skipping..."
+            }
 
+            InfoMessage "Removing file_limit node from ossec configuration"
             # Remove <file_limit> if it exists
             $fileLimitNode = $syscheckNode.file_limit
             if ($null -ne $fileLimitNode) {
                 $syscheckNode.RemoveChild($fileLimitNode) | Out-Null
                 InfoMessage "Removed file_limit from syscheck configuration"
+            }
+            else {
+                WarnMessage "file_limit node not found in syscheck node. Skipping..."
             }
 
             $configXml.Save($configFilePath)
