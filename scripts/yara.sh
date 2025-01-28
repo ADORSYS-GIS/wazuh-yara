@@ -36,7 +36,7 @@ done
 
 if [[ ! $YARA_PATH ]] || [[ ! $YARA_RULES ]]
 then
-    echo "wazuh-yara: ERROR - Yara active response error. Yara path and rules parameters are mandatory." >> ${LOG_FILE}
+    echo "wazuh-yara: ERROR - Yara active response error. Yara path: ($YARA_PATH) and rules: ($YARA_RULES) parameters are mandatory." >> ${LOG_FILE}
     exit 1
 fi
 
