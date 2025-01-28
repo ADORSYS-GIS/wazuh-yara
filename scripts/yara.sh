@@ -14,11 +14,15 @@
 read INPUT_JSON
 FILENAME=$(echo $INPUT_JSON | jq -r .parameters.alert.syscheck.path)
 
-YARA_PATH=$(which yara)
+YARA_PATH="/usr/local/bin"
 if [ "$(uname)" = "Darwin" ]; then
     YARA_RULES="/Library/Ossec/ruleset/yara/rules/yara_rules.yar"
+    if [ "$(uname -m)" = "arm64" ]; then
+        YARA_PATH="/opt/homebrew/bin"
+    fi
 else
     YARA_RULES="/var/ossec/ruleset/yara/rules/yara_rules.yar"
+    
 fi
 
 # Set LOG_FILE path
@@ -43,7 +47,7 @@ fi
 #------------------------- Main workflow --------------------------#
 
 # Execute Yara scan on the specified filename
-yara_output="$("${YARA_PATH}" -w -r "$YARA_RULES" "$FILENAME")"
+yara_output="$("${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME")"
 
 if [[ $yara_output != "" ]]
 then
