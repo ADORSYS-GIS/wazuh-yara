@@ -22,7 +22,7 @@ if [ "$(uname)" = "Darwin" ]; then
     fi
 else
     YARA_RULES="/var/ossec/ruleset/yara/rules/yara_rules.yar"
-    
+    YARA_PATH="/usr/bin"
 fi
 
 # Set LOG_FILE path
