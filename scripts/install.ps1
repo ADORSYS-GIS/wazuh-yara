@@ -33,7 +33,9 @@ function Print-Step {
 # Function to clean up temporary files
 function Cleanup {
     Log "INFO" "Cleaning up temporary files..."
-    Remove-Item -Path $tempDir -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "$TEMP_DIR\yara64.exe" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "$TEMP_DIR\yarac64.exe" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "$TEMP_DIR\yara_rules.yar" -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 # Function to check if the script is running with administrator privileges
