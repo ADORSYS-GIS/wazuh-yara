@@ -1,7 +1,3 @@
-$agentVersion = "4.9.2-1"
-$ossecPath = "C:\Program Files (x86)\ossec-agent"
-$downloadUrl = "https://packages.wazuh.com/4.x/windows/wazuh-agent-$AgentVersion.msi"
-$tempFile = New-TemporaryFile
 
 
 function Log {
@@ -66,7 +62,6 @@ function Restart-WazuhAgent {
 function Uninstall-Yara {
     $yaraDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara"
     $yaraBatFile = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara.bat"
-    $currentPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
     InfoMessage "Removing YARA..."
     if (Test-Path -Path $yaraDir) {
         Remove-Item -Path $yaraDir -Force -Recurse -ErrorAction SilentlyContinue
