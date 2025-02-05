@@ -49,12 +49,18 @@ function ErrorExit {
 # Restart wazuh agent
 function Restart-WazuhAgent {
     InfoMessage "Restarting wazuh agent..."
-    try {
-        Restart-Service -Name WazuhSvc -ErrorAction Stop
-        InfoMessage "Wazuh Agent restarted succesfully"
+    $service = Get-Service -Name WazuhSvc -ErrorAction SilentlyContinue
+    if($service) {
+        try {
+            Restart-Service -Name WazuhSvc -ErrorAction Stop
+            InfoMessage "Wazuh Agent restarted succesfully"
+        }
+        catch {
+            ErrorMessage "Failed to restart Wazuh Agent: $($_.Exception.Message)"
+        }
     }
-    catch {
-        ErrorMessage "Failed to restart Wazuh Agent: $($_.Exception.Message)"
+    else {
+        InfoMessage "Wazuh Service does not exist"
     }
 }
 
@@ -70,7 +76,7 @@ function Uninstall-Yara {
         WarnMessage "YARA directory not found: $yaraDir. Skipping..."
     }
     
-
+    InfoMessage "Removing YARA batch file"
     if (Test-Path -Path $yaraBatFile) {
         Remove-Item -Path $yaraBatFile -Force -ErrorAction SilentlyContinue
         InfoMessage "YARA batch file removed: $yaraBatFile"
@@ -148,7 +154,7 @@ function Remove-OssecConfigurations {
             }
 
             $configXml.Save($configFilePath)
-            Restart-Service -Name WazuhSvc -ErrorAction SilentlyContinue
+            Restart-WazuhAgent
             InfoMessage "Wazuh configuration restored and service restarted"
         } else {
             WarnMessage "No <syscheck> node found in Wazuh configuration"
