@@ -29,15 +29,17 @@ def test_ossec_conf_exists(host):
 def test_ossec_conf_content(host):
     if host.system_info.type == "linux":
         ossec_conf_path = "/var/ossec/etc/ossec.conf"
+        fim_directories = '<directories realtime="yes">/home, /root, /bin, /sbin</directories>'
     elif host.system_info.type == "darwin":
         ossec_conf_path = "/Library/Ossec/etc/ossec.conf"
+        fim_directories = '<directories realtime="yes">/Users, /Applications</directories>'
     else:
         pytest.skip("Unsupported OS")
 
     file = host.file(ossec_conf_path)
-    assert file.contains('<directories realtime="yes">/home, /root, /bin, /sbin</directories>'), \
+    assert file.contains(fim_directories), \
         "Missing expected directories configuration"
-    assert file.contains('<frequency>300</frequency>'), "Missing expected frequency setting"
+    assert file.contains('<frequency>43200</frequency>'), "Missing expected frequency setting"
 
 
 def test_yara_installed(host):
