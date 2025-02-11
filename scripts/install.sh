@@ -217,19 +217,27 @@ download_yara_script() {
 update_ossec_conf() {
     # Determine the OS type
     if [[ "$(uname)" == "Darwin" ]]; then
-        # macOS
+        # First remove old config
+        if maybe_sudo grep -q '<directories realtime="yes">/Library, /Users, /usr, /Applications, /var, /System, /Volumes</directories>' "$OSSEC_CONF_PATH"; then
+            info_message "Removing old yara configuration..."
+            sed_alternative -i '/<directories realtime="yes">\/Library, \/Users, \/usr, \/Applications, \/var, \/System, \/Volumes<\/directories>/d' "$OSSEC_CONF_PATH" || {
+                error_message "Error occurred during manager address removal."
+                exit 1
+            }
+            info_message "Old yara configuration removed successfully"
+        fi
+
         NEWLINE=$'\n'  # macOS requires literal newlines
         # Check and update configuration file
-        if ! maybe_sudo grep -q '<directories realtime="yes">/Library, /Users, /usr, /Applications, /var, /System, /Volumes</directories>' "$OSSEC_CONF_PATH"; then
+        if ! maybe_sudo grep -q '<directories realtime="yes">/Users, /Applications</directories>' "$OSSEC_CONF_PATH"; then
             sed_alternative -i "/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\\
-    <directories realtime=\"yes\">/Library, /Users, /usr, /Applications, /var, /System, /Volumes</directories>$NEWLINE" "$OSSEC_CONF_PATH" || {
+    <directories realtime=\"yes\">/Users, /Applications</directories>$NEWLINE" "$OSSEC_CONF_PATH" || {
                 error_message "Error occurred during configuration of directories to monitor."
                 exit 1
             }
             info_message "Directories configuration in Wazuh agent file updated successfully."
         fi
     else
-        # Linux
         NEWLINE=$'\n'
         # Check and update configuration file
         if ! maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
@@ -243,7 +251,7 @@ update_ossec_conf() {
     fi
 
     # Update frequency value
-    sed_alternative -i "s/<frequency>43200<\/frequency>/<frequency>300<\/frequency>/g" "$OSSEC_CONF_PATH" || {
+    sed_alternative -i "s/<frequency>300<\/frequency>/<frequency>43200<\/frequency>/g" "$OSSEC_CONF_PATH" || {
         error_message "Error occurred during frequency update in Wazuh agent configuration file."
         exit 1
     }
