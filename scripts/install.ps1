@@ -175,20 +175,18 @@ function Update-WazuhConfig {
     }
     
      # Update frequency value in the configuration file
-    try {
-        $content = Get-Content -Path $configFilePath -Raw
-        $newContent = $content -replace "<frequency>300</frequency>", "<frequency>21600</frequency>"
-        $newContent = $newContent -replace "<frequency>43200</frequency>", "<frequency>21600</frequency>"
+    $configFilePath = "C:\Program Files (x86)\ossec-agent\ossec.conf"
+    if (-Not (Test-Path $configFilePath)) { Write-Host "Config file not found." -ForegroundColor Red; exit 1 }
 
-        if ($newContent -ne $content) {
-            $newContent | Set-Content -Path $configFilePath
-            Write-Host "Frequency updated successfully in Wazuh agent configuration file." -ForegroundColor Green
-        } else {
-            Write-Host "No frequency updates were necessary." -ForegroundColor Yellow
-        }
-    } catch {
-        Write-Host "Error occurred during frequency update: $_" -ForegroundColor Red
-        exit 1
+    [xml]$configXml = Get-Content -Path $configFilePath
+    $frequencyNode = $configXml.ossec_config.SelectSingleNode("//frequency")
+
+    if ($frequencyNode) {
+        if ($frequencyNode.InnerText -in "300", "43200") { $frequencyNode.InnerText = "21600" }
+    } else {
+        $newNode = $configXml.CreateElement("frequency")
+        $newNode.InnerText = "21600"
+        $configXml.ossec_config.AppendChild($newNode) | Out-Null
     }
 
     # Save the modified XML file
