@@ -173,6 +173,27 @@ function Update-WazuhConfig {
     } else {
         Write-Host "<syscheck> node not found in the configuration file." -ForegroundColor Red
     }
+    
+     # Update frequency value in the configuration file
+    try {
+        $content = Get-Content -Path $configFilePath -Raw
+        $newContent = $content -replace "<frequency>300</frequency>", "<frequency>21600</frequency>"
+        $newContent = $newContent -replace "<frequency>43200</frequency>", "<frequency>21600</frequency>"
+
+        if ($newContent -ne $content) {
+            $newContent | Set-Content -Path $configFilePath
+            Write-Host "Frequency updated successfully in Wazuh agent configuration file." -ForegroundColor Green
+        } else {
+            Write-Host "No frequency updates were necessary." -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "Error occurred during frequency update: $_" -ForegroundColor Red
+        exit 1
+    }
+
+    # Save the modified XML file
+    $configXml.Save($configFilePath)
+
 
     Restart-Service -Name WazuhSvc
     Write-Host "Configuration completed successfully." -ForegroundColor Green

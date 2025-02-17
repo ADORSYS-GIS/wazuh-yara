@@ -251,7 +251,8 @@ update_ossec_conf() {
     fi
 
     # Update frequency value
-    sed_alternative -i "s/<frequency>300<\/frequency>/<frequency>43200<\/frequency>/g" "$OSSEC_CONF_PATH" || {
+    sed_alternative -i "s/<frequency>300<\/frequency>/<frequency>21600<\/frequency>/g" "$OSSEC_CONF_PATH" ||
+    sed_alternative -i "s/<frequency>43200<\/frequency>/<frequency>21600<\/frequency>/g" "$OSSEC_CONF_PATH" || {
         error_message "Error occurred during frequency update in Wazuh agent configuration file."
         exit 1
     }
