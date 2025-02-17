@@ -3,7 +3,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 # Variables
-$tempDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ([System.IO.Path]::GetRandomFileName())
 $TEMP_DIR = $env:TEMP
 
 # Function to handle logging
@@ -105,8 +104,7 @@ function Install-YARA {
     $yaraRulesUrl = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/enhance/Issue-8/rules/yara_rules.yar"
     
     # Define the file path to save the YARA rules
-    $tempDir = [System.IO.Path]::GetTempPath()
-    $yaraRulesFile = Join-Path -Path $tempDir -ChildPath "yara_rules.yar"
+    $yaraRulesFile = "$env:TEMP\yara_rules.yar"
     
     # Download the YARA rules file
     try {
