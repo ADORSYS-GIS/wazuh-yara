@@ -56,6 +56,7 @@ function ErrorExit {
 # Function to clean up temporary files
 function Cleanup {
     InfoMessage "Cleaning up temporary files..."
+
     Remove-Item -Path "$TEMP_DIR\yara64.exe" -Force -Recurse -ErrorAction SilentlyContinue
     Remove-Item -Path "$TEMP_DIR\yarac64.exe" -Force -Recurse -ErrorAction SilentlyContinue
     Remove-Item -Path "$TEMP_DIR\yara_rules.yar" -Force -Recurse -ErrorAction SilentlyContinue
