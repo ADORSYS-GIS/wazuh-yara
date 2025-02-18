@@ -3,37 +3,62 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 # Variables
-$logLevel = "INFO"
-$tempDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ([System.IO.Path]::GetRandomFileName())
 $TEMP_DIR = $env:TEMP
 
 # Function to handle logging
-function Log {
-    param(
-        [string]$level,
-        [string]$message
-    )
 
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    if ($level -eq "ERROR" -or ($level -eq "WARNING" -and $logLevel -ne "ERROR") -or ($level -eq "INFO" -and $logLevel -eq "INFO")) {
-        Write-Host "$timestamp [$level] $message"
-    }
+function Log {
+    param (
+        [string]$Level,
+        [string]$Message,
+        [string]$Color = "White"  # Default color
+    )
+    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Write-Host "$Timestamp $Level $Message" -ForegroundColor $Color
 }
 
-# Function to print steps
-function Print-Step {
-    param(
-        [int]$step,
-        [string]$message
-    )
+# Logging helpers with colors
+function InfoMessage {
+    param ([string]$Message)
+    Log "[INFO]" $Message "White"
+}
 
-    Log "INFO" "------ Step $step : $message ------"
+function WarnMessage {
+    param ([string]$Message)
+    Log "[WARNING]" $Message "Yellow"
+}
+
+function ErrorMessage {
+    param ([string]$Message)
+    Log "[ERROR]" $Message "Red"
+}
+
+function SuccessMessage {
+    param ([string]$Message)
+    Log "[SUCCESS]" $Message "Green"
+}
+
+function PrintStep {
+    param (
+        [int]$StepNumber,
+        [string]$Message
+    )
+    Log "[STEP]" "Step ${StepNumber}: $Message" "White"
+}
+
+# Exit script with an error message
+function ErrorExit {
+    param ([string]$Message)
+    ErrorMessage $Message
+    exit 1
 }
 
 # Function to clean up temporary files
 function Cleanup {
-    Log "INFO" "Cleaning up temporary files..."
-    Remove-Item -Path $tempDir -Force -Recurse -ErrorAction SilentlyContinue
+    InfoMessage "Cleaning up temporary files..."
+    Remove-Item -Path "$TEMP_DIR\yara64.exe" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "$TEMP_DIR\yarac64.exe" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "$TEMP_DIR\yara_rules.yar" -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 # Function to check if the script is running with administrator privileges
@@ -79,16 +104,15 @@ function Install-YARA {
     $yaraRulesUrl = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/enhance/Issue-8/rules/yara_rules.yar"
     
     # Define the file path to save the YARA rules
-    $tempDir = [System.IO.Path]::GetTempPath()
-    $yaraRulesFile = Join-Path -Path $tempDir -ChildPath "yara_rules.yar"
+    $yaraRulesFile = "$env:TEMP\yara_rules.yar"
     
     # Download the YARA rules file
     try {
-        Write-Host "Downloading YARA rules from GitHub..."
+        InfoMessage "Downloading YARA rules from GitHub..."
         Invoke-WebRequest -Uri $yaraRulesUrl -OutFile $yaraRulesFile -UseBasicParsing
-        Write-Host "YARA rules saved to $yaraRulesFile" -ForegroundColor Green
+        InfoMessage "YARA rules saved to $yaraRulesFile" 
     } catch {
-        Write-Host "Failed to download YARA rules: $_" -ForegroundColor Red
+        ErrorMessage "Failed to download YARA rules: $_" 
         exit 1
     }
 
@@ -99,9 +123,9 @@ if (Test-Path -Path $yaraRulesPath) {
     $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"
     New-Item -ItemType Directory -Path $rulesDir -Force
     Copy-Item -Path $yaraRulesPath -Destination $rulesDir -Force
-    Write-Host "YARA rules downloaded and copied to $rulesDir." -ForegroundColor Green
+    InfoMessage "YARA rules downloaded and copied to $rulesDir." 
 } else {
-    Write-Host "Failed to download YARA rules. The file $yaraRulesPath does not exist." -ForegroundColor Red
+    ErrorMessage "Failed to download YARA rules. The file $yaraRulesPath does not exist." -ForegroundColor Red
     exit 1
 }
 
@@ -112,7 +136,7 @@ if (Test-Path -Path $yaraRulesPath) {
     
     # Download the appropriate YARA version
     Invoke-WebRequest -Uri $yaraBatURL -OutFile $yaraBatDir
-    Write-Host "Yara Bat Script Downloaded and copied into $yaraBatDir "
+    InfoMessage "Yara Bat Script Downloaded and copied into $yaraBatDir "
 
     # Update Wazuh agent configuration
     Update-WazuhConfig
@@ -122,9 +146,9 @@ if (Test-Path -Path $yaraRulesPath) {
     $currentPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
     if ($currentPath -notcontains $yaraPath) {
         [System.Environment]::SetEnvironmentVariable("Path", "$currentPath;$yaraPath", "Machine")
-        Write-Host "YARA path added to environment variables." -ForegroundColor Green
+        InfoMessage "YARA path added to environment variables." 
     } else {
-        Write-Host "YARA path already exists in environment variables." -ForegroundColor Yellow
+        WarnMessage "YARA path already exists in environment variables." 
     }
 }
 
@@ -137,24 +161,24 @@ function Update-WazuhConfig {
 
     $syscheckNode = $configXml.ossec_config.syscheck
 
-    if ($syscheckNode -ne $null) {
+    if ($null -ne $syscheckNode) {
         $existingNode = $syscheckNode.directories | Where-Object { $_.InnerText -eq "C:\Users\$userName\Downloads" }
 
-        if ($existingNode -eq $null) {
+        if ($null -eq $existingNode) {
             $newDirectoryNode = $configXml.CreateElement("directories")
             $newDirectoryNode.SetAttribute("realtime", "yes")
             $newDirectoryNode.InnerText = "C:\Users\$userName\Downloads"
             $syscheckNode.AppendChild($newDirectoryNode) | Out-Null
             $configXml.Save($configFilePath)
-            Write-Output "Directory C:\Users\$userName\Downloads added to syscheck configuration."
+            InfoMessage "Directory C:\Users\$userName\Downloads added to syscheck configuration."
         } else {
-            Write-Output "Directory C:\Users\$userName\Downloads is already in the syscheck configuration."
+            InfoMessage "Directory C:\Users\$userName\Downloads is already in the syscheck configuration."
         }
 
         $existingFileLimitNode = $syscheckNode.SelectSingleNode("file_limit") 
 
         if ($existingFileLimitNode -eq $null) {
-            Write-Host "Adding file_limit to Wazuh agent configuration..." -ForegroundColor Yellow
+            InfoMessage "Adding file_limit to Wazuh agent configuration..." 
             try {
                 $fileLimitNode = $configXml.CreateElement("file_limit")
                 $enabledNode = $configXml.CreateElement("enabled")
@@ -162,16 +186,16 @@ function Update-WazuhConfig {
                 $fileLimitNode.AppendChild($enabledNode) | Out-Null
                 $syscheckNode.AppendChild($fileLimitNode) | Out-Null
                 $configXml.Save($configFilePath)
-                Write-Host "file_limit added to syscheck configuration." -ForegroundColor Green
+                InfoMessage "file_limit added to syscheck configuration." 
             } catch {
-                Write-Host "Failed to add file_limit to syscheck configuration: $_" -ForegroundColor Red
+                WarnMessage "Failed to add file_limit to syscheck configuration: $_" 
                 exit 1
             }
         } else {
-            Write-Host "file_limit is already in the syscheck configuration." -ForegroundColor Green
+            InfoMessage "file_limit is already in the syscheck configuration." 
         }
     } else {
-        Write-Host "<syscheck> node not found in the configuration file." -ForegroundColor Red
+        ErrorMessage "<syscheck> node not found in the configuration file." 
     }
     
      # Update frequency value in the configuration file
@@ -194,12 +218,12 @@ function Update-WazuhConfig {
 
 
     Restart-Service -Name WazuhSvc
-    Write-Host "Configuration completed successfully." -ForegroundColor Green
+    SuccessMessage "Configuration completed successfully." 
 }
 
 try {
     Install-YARA
 } finally {
     Cleanup
-    Log "INFO" "Temporary files cleaned up."
+    InfoMessage "Temporary files cleaned up."
 }
