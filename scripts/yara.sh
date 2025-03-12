@@ -1,6 +1,6 @@
 #!/bin/bash
 # Wazuh - Yara active response
-# Copyright (C) 2015-2022, Wazuh Inc.
+# Copyright (C) 2025, ADORSYS GmbH & CO KG.
 #
 # This program is free software; you can redistribute it
 # and/or modify it under the terms of the GNU General Public
@@ -11,6 +11,9 @@
 #------------------------- Gather parameters -------------------------#
 
 # Extra arguments
+read INPUT_JSON
+FILENAME=$(echo $INPUT_JSON | jq -r .parameters.alert.syscheck.path)
+
 YARA_PATH="/usr/local/bin"
 if [ "$(uname)" = "Darwin" ]; then
     YARA_RULES="/Library/Ossec/ruleset/yara/rules/yara_rules.yar"

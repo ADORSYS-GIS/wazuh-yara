@@ -1,3 +1,11 @@
+@REM Wazuh - Yara active response
+@REM Copyright (C) 2025, ADORSYS GmbH & CO KG.
+@REM
+@REM This program is free software; you can redistribute it
+@REM and/or modify it under the terms of the GNU General Public
+@REM License (version 2) as published by the FSF - Free Software
+@REM Foundation.
+
 @echo off
 setlocal enableDelayedExpansion
 
