@@ -1,4 +1,4 @@
-#!/bin/bash
+!/bin/bash
 # Wazuh - Yara active response
 # Copyright (C) 2025, ADORSYS GmbH & CO KG.
 #
@@ -26,7 +26,7 @@ else
 fi
 
 # Set LOG_FILE path
-LOG_FILE="logs/active-responses.log"
+LOG_FILE="/var/ossec/logs/active-responses.log"
 
 size=0
 actual_size=$(stat -c %s ${FILENAME})
@@ -76,18 +76,26 @@ send_notification() {
     local message="$1"
     local title="Wazuh Alert"
     local iconPath="/usr/share/pixmaps/wazuh-logo.png"
+
     if [ "$(uname)" = "Darwin" ]; then
         osascript -e "display dialog \"$message\" buttons {\"Dismiss\"} default button \"Dismiss\" with title \"$title\""
     elif [ "$(uname)" = "Linux" ]; then
+        # Get the logged-in user
+        USER=$(who | awk '{print $1}' | head -n 1)
+        USER_UID=$(id -u "$USER")
+        DBUS_PATH="/run/user/$USER_UID/bus"
+
         if [ -f "$iconPath" ]; then
-            notify-send --app-name=Wazuh -u critical "$title" "$message" -i "$iconPath"
+             sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                notify-send --app-name=Wazuh -u critical "$title" "$message" -i "$iconPath"
         else
-            notify-send --app-name=Wazuh -u critical "$title" "$message"
+             sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                notify-send --app-name=Wazuh -u critical  "$title" "$message"
         fi
     else
         echo "Unsupported OS for notifications: $(uname)" >> ${LOG_FILE}
     fi
-    echo "Notification sent: $message"
+    echo "Notification sent: $message" >> ${LOG_FILE}
 }
 
 #------------------------- Main workflow --------------------------#
@@ -97,16 +105,12 @@ yara_output="$("${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME")"
 
 if [[ $yara_output != "" ]]
 then
+    message="Yara Scan result"
     # Log each detection
     while read -r line; do
         echo "wazuh-yara: INFO - Scan result: $line" >> ${LOG_FILE}
+        message="${message}\n$line"
     done <<< "$yara_output"
-
-    # Format notification message with scan results
-    message="Yara scan results:\n\n$(echo "$yara_output" | sed_alternative 's/^/- /')"
-    if [ "$(uname)" = "Darwin" ]; then
-        message=$(echo "$message" | tr '\n' '\r')
-    fi
 
     # Send notification
     send_notification "$message"
