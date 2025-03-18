@@ -105,11 +105,17 @@ yara_output="$("${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME")"
 
 if [[ $yara_output != "" ]]
 then
-    message="Yara Scan result"
+    message="Wazuh-Yara Scan results"
     # Log each detection
     while read -r line; do
         echo "wazuh-yara: INFO - Scan result: $line" >> ${LOG_FILE}
-        message="${message}\n$line"
+
+        # Extract the rule and file from the Yara output
+        rule=$(echo "$line" | awk '{print $1}')
+        detected_file=$(echo "$line" | awk '{print $2}')
+
+        # append extra information to the message
+        message="${message}\nMalware: $rule; File: $detected_file"
     done <<< "$yara_output"
 
     # Send notification
