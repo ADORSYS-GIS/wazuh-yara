@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 # Wazuh - Yara active response
 # Copyright (C) 2025, ADORSYS GmbH & CO KG.
 #
