@@ -1,98 +1,105 @@
-@REM Wazuh - Yara active response
-@REM Copyright (C) 2025, ADORSYS GmbH & CO KG.
-@REM
-@REM This program is free software; you can redistribute it
-@REM and/or modify it under the terms of the GNU General Public
-@REM License (version 2) as published by the FSF - Free Software
-@REM Foundation.
-
 @echo off
+
 setlocal enableDelayedExpansion
 
-::------------------------- Gather parameters -------------------------::
-
-:: Determine OS architecture (32-bit or 64-bit)
 reg Query "HKLM\Hardware\Description\System\CentralProcessor\0" | find /i "x86" > NUL && SET OS=32BIT || SET OS=64BIT
 
-:: Set log file path based on OS architecture
+
 if %OS%==32BIT (
     SET log_file_path="%programfiles%\ossec-agent\active-response\active-responses.log"
-) else (
+)
+
+if %OS%==64BIT (
     SET log_file_path="%programfiles(x86)%\ossec-agent\active-response\active-responses.log"
 )
 
-:: Read JSON input from stdin
 set input=
-for /f "delims=" %%a in ('PowerShell -command "$logInput = $input = $Host.UI.ReadLine(); Write-Output $input"') do (
+for /f "delims=" %%a in ('PowerShell -command "$logInput = Read-Host; Write-Output $logInput"') do (
     set input=%%a
 )
 
-:: Parse JSON to get the file path
-set json_file_path="%TEMP%\stdin.txt"
+
+set json_file_path="C:\Program Files (x86)\ossec-agent\active-response\stdin.txt"
+set syscheck_file_path=
 echo %input% > %json_file_path%
 
-set syscheck_file_path=
-for /F "tokens=* USEBACKQ" %%F in (`Powershell -Nop -C "(Get-Content '%json_file_path%' | ConvertFrom-Json).parameters.alert.syscheck.path"`) do (
-    set syscheck_file_path=%%F
-    echo DEBUG: syscheck_file_path=!syscheck_file_path! >> %log_file_path%
+for /F "tokens=* USEBACKQ" %%F in (`Powershell -Nop -C "(Get-Content 'C:\Program Files (x86)\ossec-agent\active-response\stdin.txt'|ConvertFrom-Json).parameters.alert.syscheck.path"`) do (
+set syscheck_file_path=%%F
 )
 
 del /f %json_file_path%
-
-:: Set Yara paths
 set yara_exe_path="C:\Program Files (x86)\ossec-agent\active-response\bin\yara\yara64.exe"
-set yara_rules_path="C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules\yara_rules.yar"
+set yara_rules_path="C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules\yara-rules-core.yar"
 
-:: Log the file being scanned
-echo Scanning file: !syscheck_file_path! >> %log_file_path%
-
-::------------------------- Execution Policy Handling -----------------------::
-
-:: Store the current execution policy
-for /f "tokens=*" %%P in ('powershell -command "Get-ExecutionPolicy -Scope CurrentUser"') do (
-    set original_policy=%%P
-)
-
-:: Set execution policy to RemoteSigned if more restrictive
-powershell -command "if ((Get-ExecutionPolicy -Scope CurrentUser) -eq 'Restricted') { Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force }"
-
-::------------------------- Notification Function -----------------------::
-
-:: Function to send a notification using PowerShell's BurntToast
-:send_notification
-setlocal
-set message=%~1
-set title=Wazuh Alert
-set appIconPath="C:\ProgramData\ossec-agent\wazuh-logo.png"
-
-:: Check if BurntToast module is available
-powershell -command "if (-not (Get-Module -ListAvailable -Name BurntToast)) { Write-Output 'WARNING: BurntToast module not found. Please install it using: Install-Module -Name BurntToast -Force -Scope CurrentUser' >> %log_file_path% } else { Import-Module BurntToast; New-BurntToastNotification -AppLogo %appIconPath% -Text '%title%', '%message%' }"
-endlocal
-goto :eof
-
-::------------------------- Main workflow --------------------------::
-
+::--------------------------Main Workflow------------------------------------::
 :: Execute Yara scan on the specified file
+set "message=Yara Scan Results:"
 set malware_detected=false
-set scan_results=
-for /f "delims=" %%a in ('powershell -command "& %yara_exe_path% %yara_rules_path% !syscheck_file_path!"') do (
-    echo wazuh-yara: INFO - Scan result: %%a >> %log_file_path%
-    set scan_results=!scan_results!%%a\n
+for /f "tokens=1,* delims= " %%a in ('powershell -command "& \"%yara_exe_path%\" \"%yara_rules_path%\" \"%syscheck_file_path%\""') do (
+    echo wazuh-yara: INFO - Scan result: %%a %%b >> %log_file_path%
+    set "message=%message%; Malware: %%a File: %%b"
     if "%%a" NEQ "" (
         set malware_detected=true
     )
 )
-
 :: If malware is detected, send a notification and log the results
 if !malware_detected! == true (
-    echo wazuh-yara: INFO - Malware detected in file: !syscheck_file_path! >> %log_file_path%
-    call :send_notification "Yara scan results:\n\n!scan_results!"
+    call :Notify-User "Wazuh Alert" "%message%"
 )
 
-::------------------------- Restore Execution Policy -----------------------::
+goto:eof
+::-------------------------------- Notification Function--------------------------::
 
-:: Restore the original execution policy
-powershell -command "Set-ExecutionPolicy -ExecutionPolicy !original_policy! -Scope CurrentUser -Force"
+:: Function to send a toast notification
+:Notify-User
+setlocal
+set "title=%~1"
+set "message=%~2"
+set "iconPath=C:\ProgramData\ossec-agent\wazuh-logo.png"
 
-:: Clean up and exit
-exit /b
+:: Use PowerShell to get the logged-in user's session ID and username
+for /f "tokens=*" %%a in ('powershell -Command "(Get-Process -IncludeUserName -Name explorer | Select-Object -First 1).SessionId"') do (
+    set "sessionId=%%a"
+)
+for /f "tokens=*" %%a in ('powershell -Command "(Get-Process -IncludeUserName -Name explorer | Select-Object -First 1).UserName"') do (
+    set "username=%%a"
+)
+
+:: Check if a session ID was found
+if "%sessionId%"=="" (
+    echo No logged-in user session found. Logging to Event Log.
+    goto:end
+)
+
+:: If a session ID and username were found, create a scheduled task to run the notification in the user's session
+echo Sending notification in user session (Username: %username%, Session ID: %sessionId%).
+
+:: Create a temporary PowerShell script to send the notification
+set "psScript=%TEMP%\send_notification.ps1"
+echo Import-Module BurntToast; > "%psScript%"
+echo if (Test-Path '%iconPath%') { >> "%psScript%"
+echo     New-BurntToastNotification -Text '%title%', '%message%' -AppLogo '%iconPath%'; >> "%psScript%"
+echo } else { >> "%psScript%"
+echo     New-BurntToastNotification -Text '%title%', '%message%'; >> "%psScript%"
+echo } >> "%psScript%"
+
+
+:: Create a scheduled task to run the PowerShell script in the user's context
+set "taskName=WazuhNotificationTask"
+schtasks /create /tn "%taskName%" /sc once /st 00:00 /ru "%username%" /rl highest /tr "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File \"%psScript%\"" /f
+
+:: Run the scheduled task immediately
+schtasks /run /tn "%taskName%"
+
+:: Delete the scheduled task after it runs
+schtasks /delete /tn "%taskName%" /f
+
+:: Delete the temporary PowerShell script
+:: del "%psScript%"
+
+echo Notification sent via BurntToast: %message% >> "%TEMP%\wazuh_notifications.log"
+
+:end
+endlocal
+
+goto:eof
