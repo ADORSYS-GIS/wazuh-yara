@@ -19,6 +19,9 @@ for /f "delims=" %%a in ('PowerShell -command "$logInput = Read-Host; Write-Outp
 )
 
 
+
+
+
 set json_file_path="C:\Program Files (x86)\ossec-agent\active-response\stdin.txt"
 set syscheck_file_path=
 echo %input% > %json_file_path%
@@ -48,8 +51,7 @@ if !malware_detected! == true (
 )
 
 goto:eof
-::-------------------------------- Notification Function--------------------------::
-
+::-------------------------------- Notification Function --------------------------::
 :: Function to send a toast notification
 :Notify-User
 setlocal
@@ -68,7 +70,7 @@ for /f "tokens=*" %%a in ('powershell -Command "(Get-Process -IncludeUserName -N
 :: Check if a session ID was found
 if "%sessionId%"=="" (
     echo No logged-in user session found. Logging to Event Log.
-    goto:end
+    goto :end
 )
 
 :: If a session ID and username were found, create a scheduled task to run the notification in the user's session
@@ -84,9 +86,15 @@ echo     New-BurntToastNotification -Text '%title%', '%message%'; >> "%psScript%
 echo } >> "%psScript%"
 
 
-:: Create a scheduled task to run the PowerShell script in the user's context
+:: Create a temporary VBScript to hide the PowerShell execution
+set "vbScript=%TEMP%\run_hidden.vbs"
+echo Set objShell = CreateObject("WScript.Shell") > "%vbScript%"
+echo objShell.Run "powershell.exe -ExecutionPolicy Bypass -File ""%psScript%""", 0, True >> "%vbScript%"
+
+
+:: Create a scheduled task to run the VBScript instead
 set "taskName=WazuhNotificationTask"
-schtasks /create /tn "%taskName%" /sc once /st 00:00 /ru "%username%" /rl highest /tr "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File \"%psScript%\"" /f
+schtasks /create /tn "%taskName%" /sc once /st 00:00 /ru "%username%" /rl highest /tr "wscript.exe \"%vbScript%\"" /f /IT
 
 :: Run the scheduled task immediately
 schtasks /run /tn "%taskName%"
@@ -94,8 +102,9 @@ schtasks /run /tn "%taskName%"
 :: Delete the scheduled task after it runs
 schtasks /delete /tn "%taskName%" /f
 
-:: Delete the temporary PowerShell script
+:: Clean up: Delete the temporary 
 :: del "%psScript%"
+:: del "%vbScript%"
 
 echo Notification sent via BurntToast: %message% >> "%TEMP%\wazuh_notifications.log"
 
