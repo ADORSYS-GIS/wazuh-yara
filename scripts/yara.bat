@@ -32,7 +32,7 @@ set syscheck_file_path=%%F
 
 del /f %json_file_path%
 set yara_exe_path="C:\Program Files (x86)\ossec-agent\active-response\bin\yara\yara64.exe"
-set yara_rules_path="C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules\yara-rules-core.yar"
+set yara_rules_path="C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules\yara_rules.yar"
 
 ::--------------------------Main Workflow------------------------------------::
 :: Execute Yara scan on the specified file
