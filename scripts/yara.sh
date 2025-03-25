@@ -45,33 +45,6 @@ then
 fi
 
 #------------------- Notification Function -----------------------#
-
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Check if sudo is available or if the script is run as root
-maybe_sudo() {
-    if [ "$(id -u)" -ne 0 ]; then
-        if command -v sudo >/dev/null 2>&1; then
-            sudo "$@"
-        else
-            echo "wazuh-yara: ERROR - This script requires root privileges. Please run with sudo or as root." >> ${LOG_FILE}
-            exit 1
-        fi
-    else
-        "$@"
-    fi
-}
-
-sed_alternative() {
-    if command_exists gsed; then
-        maybe_sudo gsed "$@"
-    else
-        maybe_sudo sed "$@"
-    fi
-}
-
 send_notification() {
     local message="$1"
     local title="Wazuh Alert"
