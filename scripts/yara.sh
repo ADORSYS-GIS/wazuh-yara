@@ -26,7 +26,7 @@ else
 fi
 
 # Set LOG_FILE path
-LOG_FILE="/var/ossec/logs/active-responses.log"
+LOG_FILE="logs/active-responses.log"
 
 size=0
 actual_size=$(stat -c %s ${FILENAME})
