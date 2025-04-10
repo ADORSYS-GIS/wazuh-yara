@@ -33,10 +33,9 @@ Provide a brief summary of the incident. Explain that this report documents a fa
 
 A chronological list of events to outline the flow of the incident:
 
-- **[Time & Date]**: Alert received by the affected user.
+- **[2025-04-02 10:38 AM GMT+2]**eived by the affected user.
 - **[Time & Date]**: User reported the incident to [IT/Security Team].
 - **[Time & Date]**: Initial assessment began.
-- **[Time & Date]**: Investigation escalated to [Specialized Team/Management].
 - **[Time & Date]**: Preliminary conclusion reached.
 - **[Time & Date]**: Notification of false positive communicated to the user.
 - **[Time & Date]**: Remediation/preventive measures implemented (if any).
