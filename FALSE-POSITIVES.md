@@ -1,3 +1,6 @@
+
+---
+
 # False Positive Incident Report
 
 **Incident Title:** False Positive Malware Alert  
@@ -9,8 +12,8 @@
 
 Provide a brief summary of the incident. Explain that this report documents a false positive malware notification that was triggered, the subsequent investigation that was conducted, and the final resolution.
 
-- **Purpose:** This document describes the event of a malware found notification for 
-- **Scope:** Identify the systems, user(s), and processes involved.
+- **Purpose:** This document describes the event of a malware found notification for a MacOS machine
+- **Scope:** MacOS 15.3.2
 
 ---
 
@@ -20,80 +23,100 @@ Provide a brief summary of the incident. Explain that this report documents a fa
 - **Initial Detection Date:** [2025-04-02]  
 - **Detected by:** [Mario Bender]  
 - **Alert/Notification:**  
-![Malware Notification](assets/image.png)
+![Malware Notification](assets/image.png)  
 ![Dashboard Logs](assets/malware-dashboard-log.png)
 
 ### 2.2 Affected User/Device
 - **User Name:** [Mario Bender]  
-- **Device ID/Hostname:** [ID 057]  
+- **Device ID/Hostname:** [ID 057]
 
 ---
 
-## 3. Timeline of Events
+## 3. Investigation Details
 
-A chronological list of events to outline the flow of the incident:
-
-- **[2025-04-02 10:38 AM GMT+2]**eived by the affected user.
-- **[Time & Date]**: User reported the incident to [IT/Security Team].
-- **[Time & Date]**: Initial assessment began.
-- **[Time & Date]**: Preliminary conclusion reached.
-- **[Time & Date]**: Notification of false positive communicated to the user.
-- **[Time & Date]**: Remediation/preventive measures implemented (if any).
-
----
-
-## 4. Investigation Details
-
-### 4.1 Investigation Process
+### 3.1 Malware file 
 - **Initial Assessment:**  
-  Describe the steps taken immediately after the alert. What quick checks or triage were performed?
-- **Detailed Analysis:**  
-  Outline the methods, tools, and data that were analyzed (e.g., logs, system scans, communication records).
-- **Stakeholders Involved:**  
-  List the teams or individuals who participated in the investigation (e.g., IT, Security, Incident Response).
+  The location of the file detected as malware is:
+  `/Users/mariobender/Library/Application Support/rancher-desktop/lima/0/diffdisk`
 
-### 4.2 Findings
+- **Purpose of the file:**  
+  According to @jandubois in this [issue conversation](https://github.com/rancher-sandbox/rancher-desktop/issues/2285#issuecomment-1139744770)
+  
+  This file is the persistent disk of a virtual machine.
+  
+- **Further Investigation:** 
+  Through further investigation, the yara rules were run against virtual machine (vmware) files found on @MarantosGeorge work laptop.
+  ![malware test](/assets/malware-test.png)
+  The above directories detected with malware are all persistent disks for the virtual machines.
+
+### 3.2 Findings
 - **False Positive Identification:**  
-  Provide evidence and analysis that led to the conclusion that the malware alert was a false positive.
+  From the investigation, the yara rules are picking up persistent volumes from virtual machines as malware.
 - **Root Cause Analysis:**  
   Explain the factors that contributed to the false positive (e.g., misconfigured security rules, signature errors, heuristic detection limitations).
 
-### 4.3 Remediation Actions
-- **User Notification:**  
-  Detail when and how the user was informed about the false positive.
-- **System/Software Adjustments:**  
-  Explain any modifications made (e.g., rule adjustments, signature updates, additional testing).
-- **Verification:**  
-  Summarize follow-up tests that confirmed the alert was indeed a false positive.
-
 ---
 
-## 5. Conclusion & Recommendations
+## 4. Conclusion & Recommendations
 
-### 5.1 Summary of the Incident
+### 4.1 Summary of the Incident
 - Summarize the overall incident and the key outcomes of the investigation.
 - Confirm that no actual malware was present on the user’s machine.
 
-### 5.2 Recommendations & Preventive Measures
-- **Short-term Actions:**  
-  List immediate steps to be taken to prevent a recurrence.
-- **Long-term Improvements:**  
-  Propose changes or improvements in systems, monitoring, or protocols.
-- **Policy/Procedure Updates:**  
-  Suggest updates for documentation, training, or incident response plans.
+---
+
+# Second False Positive Incident Report
+
+**Incident Title:** Malware Detected by Yara Scan
+**Document Date:** [2025-04-11]
 
 ---
 
-## 6. Appendices & References
+## 1. Overview
 
-- **Logs & Evidence:**  
-  Reference log files, screenshots, or other evidence (attach files or link to secure storage).
-- **Related Documents:**  
-  Link to internal policies, previous incident reports, or vendor documentation relevant to the investigation.
-- **Contact Information:**  
-  Provide contact details for further inquiries or follow-up discussions.
+This section provides a brief summary of the incident where an automated phishing alert erroneously flagged a legitimate email. The report details the alert, the subsequent review process, and verifies that no phishing activity occurred.
+
+- **Purpose:** This document records the incident of an email mistakenly flagged as suspicious, outlines the review process, and confirms that the notification was a false positive.  
+- **Scope:** Identify the affected email system, the user involved, and the corrective actions implemented.
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** [YYYY-MM-DD]
+## 2. Incident Details
+
+### 2.1 Incident Detection
+- **Initial Detection Date:** [2025-04-11]  
+- **Detected by:** [Martin Biskupek]
+- **Alert/Notification:**  
+![malware detected](/assets/malware-detected-11-04-2025.png)
+
+### 2.2 Affected User/Device
+- **User Name:** [Martin Biskupek]  
+- **Device ID/Hostname:** [ID 060]
+
+---
+
+## 3. Investigation Details
+
+### 3.1 Malware File
+- **Initial Assessment:**  
+  A preliminary review examined the email header, content structure, and sender verification procedures.  
+- **Purpose of the File:**  
+  The investigation involved analyzing email metadata, cross-referencing the sender’s domain against approved lists, and manually inspecting the email for indicators of phishing.  
+- **Further Investigation:**  
+  Teams including IT Support, Security Operations, Email Administration, and Compliance participated in the review.
+
+### 3.2 Findings
+- **False Positive Identification:**  
+  The review determined that the alert was caused by a misinterpretation of standard email formatting, which the automated system incorrectly flagged as anomalous.  
+- **Root Cause Analysis:**  
+  Factors contributing to the false positive included automated filtering thresholds that were too sensitive, and minor header formatting irregularities that did not indicate malicious intent.
+
+---
+
+## 4. Conclusion & Recommendations
+
+### 4.1 Summary of the Incident
+- 
+- **Recommendations:**  
+
+---
