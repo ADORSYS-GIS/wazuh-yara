@@ -170,7 +170,7 @@ remove_file_limit() {
 
     if maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
         # Remove the file_limit block
-        maybe_sudo sed -i "/<file_limit>/,/<\/file_limit>/d" "$OSSEC_CONF_PATH" || {
+        sed_alternative -i "/<file_limit>/,/<\/file_limit>/d" "$OSSEC_CONF_PATH" || {
             error_message "Error occurred during the removal of the file_limit block."
             exit 1
         }
