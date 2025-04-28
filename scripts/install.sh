@@ -166,24 +166,19 @@ restart_wazuh_agent() {
     esac
 }
 
-check_file_limit() {
+remove_file_limit() {
 
-    if ! maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
-        # Add the file_limit block after the <syscheck> line
-        sed_alternative -i "/<syscheck>/a\\
-<!-- Maximum number of files to be monitored -->\\
-<file_limit>\\
-  <enabled>no</enabled>\\
-</file_limit>" "$OSSEC_CONF_PATH" || {
-            error_message "Error occurred during the addition of the file_limit block."
+    if maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
+        # Remove the file_limit block
+        sed_alternative -i "/<file_limit>/,/<\/file_limit>/d" "$OSSEC_CONF_PATH" || {
+            error_message "Error occurred during the removal of the file_limit block."
             exit 1
         }
-        info_message "The file limit block was added successfully."
+        info_message "The file limit block was removed successfully."
     else
-        info_message "The file limit block already exists. No changes were made."
+        info_message "The file limit block does not exist. No changes were made."
     fi
 }
-
 
 
 
@@ -214,52 +209,35 @@ download_yara_script() {
   info_message "yara.sh script downloaded and installed successfully."
 }
 
-update_ossec_conf() {
+reverse_update_ossec_conf() {
     # Determine the OS type
     if [[ "$(uname)" == "Darwin" ]]; then
-        # First remove old config
-        if maybe_sudo grep -q '<directories realtime="yes">/Library, /Users, /usr, /Applications, /var, /System, /Volumes</directories>' "$OSSEC_CONF_PATH"; then
-            info_message "Removing old yara configuration..."
-            sed_alternative -i '/<directories realtime="yes">\/Library, \/Users, \/usr, \/Applications, \/var, \/System, \/Volumes<\/directories>/d' "$OSSEC_CONF_PATH" || {
-                error_message "Error occurred during manager address removal."
-                exit 1
-            }
-            info_message "Old yara configuration removed successfully"
-        fi
-
         NEWLINE=$'\n'  # macOS requires literal newlines
-        # Check and update configuration file
-        if ! maybe_sudo grep -q '<directories realtime="yes">/Users, /Applications</directories>' "$OSSEC_CONF_PATH"; then
-            sed_alternative -i "/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\\
-    <directories realtime=\"yes\">/Users, /Applications</directories>$NEWLINE" "$OSSEC_CONF_PATH" || {
-                error_message "Error occurred during configuration of directories to monitor."
+
+        # Check and remove configuration for directories to monitor on macOS
+        if maybe_sudo grep -q '<directories realtime="yes">/Users, /Applications</directories>' "$OSSEC_CONF_PATH"; then
+            info_message "Removing new yara configuration for macOS..."
+            sed_alternative -i '/<directories realtime="yes">\/Users, \/Applications<\/directories>/d' "$OSSEC_CONF_PATH" || {
+                error_message "Error occurred during removal of directories to monitor."
                 exit 1
             }
-            info_message "Directories configuration in Wazuh agent file updated successfully."
+            info_message "New yara configuration removed successfully on macOS."
         fi
     else
         NEWLINE=$'\n'
-        # Check and update configuration file
-        if ! maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
-            sed_alternative -i "/<directories>\/etc,\/usr\/bin,\/usr\/sbin<\/directories>/a\\
-    <directories realtime=\"yes\">/home, /root, /bin, /sbin</directories>$NEWLINE" "$OSSEC_CONF_PATH" || {
-                error_message "Error occurred during configuration of directories to monitor."
+
+        # Check and remove configuration for directories to monitor on Linux
+        if maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
+            info_message "Removing new yara configuration for Linux..."
+            sed_alternative -i '/<directories realtime="yes">\/home, \/root, \/bin, \/sbin<\/directories>/d' "$OSSEC_CONF_PATH" || {
+                error_message "Error occurred during removal of directories to monitor."
                 exit 1
             }
-            info_message "Directories configuration in Wazuh agent file updated successfully."
+            info_message "New yara configuration removed successfully on Linux."
         fi
     fi
 
-    # Update frequency value
-    sed_alternative -i "s/<frequency>300<\/frequency>/<frequency>21600<\/frequency>/g" "$OSSEC_CONF_PATH" ||
-    sed_alternative -i "s/<frequency>43200<\/frequency>/<frequency>21600<\/frequency>/g" "$OSSEC_CONF_PATH" || {
-        error_message "Error occurred during frequency update in Wazuh agent configuration file."
-        exit 1
-    }
-    info_message "Frequency in Wazuh agent configuration file updated successfully."
-
-    # Call to check file limit
-    check_file_limit
+    remove_file_limit
 }
 
 
@@ -394,7 +372,7 @@ print_step 4 "Updating Wazuh agent configuration file..."
 # Check if the OSSEC configuration file exists
 if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
     # Call the function to update OSSEC configuration
-    update_ossec_conf
+    reverse_update_ossec_conf
 else
     # Notify the user that the file is missing
     warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
