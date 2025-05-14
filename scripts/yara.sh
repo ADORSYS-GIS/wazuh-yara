@@ -84,8 +84,8 @@ then
         echo "wazuh-yara: INFO - Scan result: $line" >> ${LOG_FILE}
 
         # Extract the rule and file from the Yara output
-        rule=$(echo "$line" | awk '{print $1}')
-        detected_file=$(echo "$line" | awk '{print $2}')
+        rule="${line%% *}"
+        detected_file="${line#* }"
 
         # append extra information to the message
         message="${message}\nMalware: $rule; File: $detected_file"
