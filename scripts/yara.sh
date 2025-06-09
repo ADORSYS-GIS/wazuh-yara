@@ -87,7 +87,7 @@ add_fim_ignore() {
 
     # Check if the ignore rule already exists
     if grep -q "<ignore type=\"file\">${file_to_ignore}</ignore>" "$OSSEC_CONF_PATH" || grep -q "<ignore>${file_to_ignore}</ignore>" "$OSSEC_CONF_PATH"; then
-        echo "wazuh-yara: INFO - File '$file_to_ignore' is already ignored in FIM." >> "${LOG_FILE}"
+        echo "wazuh-yara: DEBUG - File '$file_to_ignore' is already ignored in FIM." >> "${LOG_FILE}"
         return 0
     fi
 
@@ -101,15 +101,15 @@ add_fim_ignore() {
 
     if [ $? -eq 0 ] && [ -s "$temp_ossec_conf" ]; then
         mv "$temp_ossec_conf" "$OSSEC_CONF_PATH"
-        echo "wazuh-yara: INFO - Added '$file_to_ignore' to FIM ignore list in $OSSEC_CONF_PATH." >> "${LOG_FILE}"
+        echo "wazuh-yara: DEBUG - Added '$file_to_ignore' to FIM ignore list in $OSSEC_CONF_PATH." >> "${LOG_FILE}"
         
         # Restart Wazuh agent to apply FIM changes
         if [ "$(uname)" = "Darwin" ]; then
             /Library/Ossec/bin/wazuh-control restart >> "${LOG_FILE}" 2>&1
-            echo "wazuh-yara: INFO - Wazuh agent restarted on macOS to apply FIM changes." >> "${LOG_FILE}"
+            echo "wazuh-yara: DEBUG - Wazuh agent restarted on macOS to apply FIM changes." >> "${LOG_FILE}"
         elif [ "$(uname)" = "Linux" ]; then
             systemctl restart wazuh-agent >> "${LOG_FILE}" 2>&1
-            echo "wazuh-yara: INFO - Wazuh agent restarted on Linux to apply FIM changes." >> "${LOG_FILE}"
+            echo "wazuh-yara: DEBUG - Wazuh agent restarted on Linux to apply FIM changes." >> "${LOG_FILE}"
         fi
         return 0
     else
@@ -197,14 +197,14 @@ send_notification_linux() {
         "delete_all")
             local confirm_msg="Are you sure you want to DELETE these files?\n\n${files_list_for_confirm}\n\nThis action cannot be undone."
             if confirm_action_linux "Delete" "$confirm_msg"; then
-                echo "wazuh-yara: INFO - User confirmed DELETE ALL detected files." >> "${LOG_FILE}"
+                echo "wazuh-yara: DEBUG - User confirmed DELETE ALL detected files." >> "${LOG_FILE}"
                 local delete_success=()
                 local delete_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
-                    echo "wazuh-yara: INFO - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
+                    echo "wazuh-yara: DEBUG - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
                     rm -f "${file_path}"
                     if [ $? -eq 0 ]; then
-                        echo "wazuh-yara: INFO - File deleted: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: DEBUG - File deleted: ${file_path}" >> "${LOG_FILE}"
                         delete_success+=("${file_path}")
                     else
                         echo "wazuh-yara: ERROR - Failed to delete file: ${file_path}" >> "${LOG_FILE}"
@@ -235,13 +235,13 @@ send_notification_linux() {
                     fi
                 fi
             else
-                echo "wazuh-yara: INFO - User CANCELLED DELETE ALL operation." >> "${LOG_FILE}"
+                echo "wazuh-yara: DEBUG - User CANCELLED DELETE ALL operation." >> "${LOG_FILE}"
             fi
             ;;
         "ignore_all")
             local confirm_msg="Are you sure you want to IGNORE these files from future FIM scans?\n\n${files_list_for_confirm}\n\nThis will modify Wazuh agent configuration and require a restart."
             if confirm_action_linux "Ignore" "$confirm_msg"; then
-                echo "wazuh-yara: INFO - User confirmed IGNORE ALL detected files." >> "${LOG_FILE}"
+                echo "wazuh-yara: DEBUG - User confirmed IGNORE ALL detected files." >> "${LOG_FILE}"
                 local ignore_success=()
                 local ignore_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
@@ -275,14 +275,14 @@ send_notification_linux() {
                     fi
                 fi
             else
-                echo "wazuh-yara: INFO - User CANCELLED IGNORE ALL operation." >> "${LOG_FILE}"
+                echo "wazuh-yara: DEBUG - User CANCELLED IGNORE ALL operation." >> "${LOG_FILE}"
             fi
             ;;
         "dismiss")
-            echo "wazuh-yara: INFO - User chose to DISMISS the notification." >> "${LOG_FILE}"
+            echo "wazuh-yara: DEBUG - User chose to DISMISS the notification." >> "${LOG_FILE}"
             ;;
         *)
-            echo "wazuh-yara: INFO - Notification dismissed or unknown action (Linux)." >> "${LOG_FILE}"
+            echo "wazuh-yara: DEBUG - Notification dismissed or unknown action (Linux)." >> "${LOG_FILE}"
             ;;
     esac
     echo "Notification sent: $message_body" >> "${LOG_FILE}"
@@ -328,14 +328,14 @@ send_notification_macos() {
         "delete_all")
             local confirm_msg="Are you sure you want to DELETE these files?\n\n${files_list_for_confirm}\n\nThis action cannot be undone."
             if confirm_action_macos "Delete" "$confirm_msg"; then
-                echo "wazuh-yara: INFO - User confirmed DELETE ALL detected files (macOS)." >> "${LOG_FILE}"
+                echo "wazuh-yara: DEBUG - User confirmed DELETE ALL detected files (macOS)." >> "${LOG_FILE}"
                 local delete_success=()
                 local delete_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
-                    echo "wazuh-yara: INFO - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
+                    echo "wazuh-yara: DEBUG - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
                     rm -f "${file_path}"
                     if [ $? -eq 0 ]; then
-                        echo "wazuh-yara: INFO - File deleted: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: DEBUG - File deleted: ${file_path}" >> "${LOG_FILE}"
                         delete_success+=("${file_path}")
                     else
                         echo "wazuh-yara: ERROR - Failed to delete file: ${file_path}" >> "${LOG_FILE}"
@@ -364,13 +364,13 @@ send_notification_macos() {
                     fi
                 fi
             else
-                echo "wazuh-yara: INFO - User CANCELLED DELETE ALL operation (macOS)." >> "${LOG_FILE}"
+                echo "wazuh-yara: DEBUG - User CANCELLED DELETE ALL operation (macOS)." >> "${LOG_FILE}"
             fi
             ;;
         "ignore_all")
             local confirm_msg="Are you sure you want to IGNORE these files from future FIM scans?\n\n${files_list_for_confirm}\n\nThis will modify Wazuh agent configuration and require a restart."
             if confirm_action_macos "Ignore" "$confirm_msg"; then
-                echo "wazuh-yara: INFO - User confirmed IGNORE ALL detected files (macOS)." >> "${LOG_FILE}"
+                echo "wazuh-yara: DEBUG - User confirmed IGNORE ALL detected files (macOS)." >> "${LOG_FILE}"
                 local ignore_success=()
                 local ignore_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
@@ -402,14 +402,14 @@ send_notification_macos() {
                     fi
                 fi
             else
-                echo "wazuh-yara: INFO - User CANCELLED IGNORE ALL operation (macOS)." >> "${LOG_FILE}"
+                echo "wazuh-yara: DEBUG - User CANCELLED IGNORE ALL operation (macOS)." >> "${LOG_FILE}"
             fi
             ;;
         "dismiss")
-            echo "wazuh-yara: INFO - User chose to DISMISS the notification (macOS)." >> "${LOG_FILE}"
+            echo "wazuh-yara: DEBUG - User chose to DISMISS the notification (macOS)." >> "${LOG_FILE}"
             ;;
         *)
-            echo "wazuh-yara: INFO - Notification dismissed or unknown action (macOS)." >> "${LOG_FILE}"
+            echo "wazuh-yara: DEBUG - Notification dismissed or unknown action (macOS)." >> "${LOG_FILE}"
             ;;
     esac
     echo "Notification sent: $message_body" >> "${LOG_FILE}"
@@ -421,7 +421,7 @@ send_notification_macos() {
 # Execute Yara scan on the specified filename
 # It's crucial to check for file existence BEFORE attempting Yara scan
 if ! "${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME" &> /dev/null; then
-    echo "wazuh-yara: INFO - Yara scan failed for '$FILENAME' (could not open file or other issue). Skipping further processing." >> "${LOG_FILE}"
+    echo "wazuh-yara: DEBUG - Yara scan failed for '$FILENAME' (could not open file or other issue). Skipping further processing." >> "${LOG_FILE}"
     exit 0 # Exit gracefully, as the file might be gone or inaccessible
 fi
 yara_output="$("${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME")"
@@ -474,7 +474,7 @@ then
         send_notification_macos "$notification_message" "detected_file_paths[@]" # Pass array name for indirection
     else
         echo "Unsupported OS for notifications: $(uname)" >> "${LOG_FILE}"
-        echo "wazuh-yara: INFO - Simple log of findings: $notification_message" >> "${LOG_FILE}"
+        echo "wazuh-yara: DEBUG - Simple log of findings: $notification_message" >> "${LOG_FILE}"
     fi
 fi
 
