@@ -176,15 +176,12 @@ send_notification_linux() {
     iconPath="/usr/share/pixmaps/wazuh-logo.png"
 
     local notify_command=(sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" notify-send --app-name=Wazuh -u critical)
-
     if [ -f "$iconPath" ]; then
         notify_command+=( -i "$iconPath" )
     fi
-
     # Add actions. notify-send returns the action ID if a button is clicked.
     notify_command+=( -A "delete_all=Delete All" -A "ignore_all=Ignore All" -A "dismiss=Dismiss" )
     notify_command+=( "$title" "$message_body" )
-
     # Execute notify-send and capture its output (the action ID)
     local user_action=$("${notify_command[@]}" 2>/dev/null)
 
@@ -229,8 +226,13 @@ send_notification_linux() {
                     done
                 fi
                 if [ -n "$notify_msg" ]; then
-                    sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
-                        notify-send --app-name=Wazuh -u critical "Wazuh-Yara Delete Result" "$notify_msg"
+                    if [ -f "$iconPath" ]; then
+                        sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                            notify-send --app-name=Wazuh -u critical -i "$iconPath" "Wazuh-Yara Delete Result" "$notify_msg"
+                    else
+                        sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                            notify-send --app-name=Wazuh -u critical "Wazuh-Yara Delete Result" "$notify_msg"
+                    fi
                 fi
             else
                 echo "wazuh-yara: INFO - User CANCELLED DELETE ALL operation." >> "${LOG_FILE}"
@@ -264,8 +266,13 @@ send_notification_linux() {
                     done
                 fi
                 if [ -n "$notify_msg" ]; then
-                    sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
-                        notify-send --app-name=Wazuh -u critical "Wazuh-Yara Ignore Result" "$notify_msg"
+                    if [ -f "$iconPath" ]; then
+                        sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                            notify-send --app-name=Wazuh -u critical -i "$iconPath" "Wazuh-Yara Ignore Result" "$notify_msg"
+                    else
+                        sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                            notify-send --app-name=Wazuh -u critical "Wazuh-Yara Ignore Result" "$notify_msg"
+                    fi
                 fi
             else
                 echo "wazuh-yara: INFO - User CANCELLED IGNORE ALL operation." >> "${LOG_FILE}"
@@ -289,8 +296,13 @@ send_notification_macos() {
 
     # osascript display dialog doesn't directly return action IDs.
     # We define buttons and capture which button was pressed.
-    local osascript_command="display dialog \"$message_body\" with title \"$title\" buttons {\"Dismiss\", \"Ignore All\", \"Delete All\"} default button \"Dismiss\""
-    
+    # Try to use icon if available (macOS: must be .icns or .png, and full path)
+    local iconPath="~/Dev/wazuh-logo.png"
+    local iconArg=""
+    if [ -f "$iconPath" ]; then
+        iconArg="with icon POSIX file \"$iconPath\""
+    fi
+    local osascript_command="display dialog \"$message_body\" with title \"$title\" buttons {\"Dismiss\", \"Ignore All\", \"Delete All\"} default button \"Dismiss\" $iconArg"
     # Execute osascript and capture its output
     # 'button returned:BUTTON_NAME'
     local osascript_result=$(osascript -e "$osascript_command" 2>/dev/null)
@@ -345,7 +357,11 @@ send_notification_macos() {
                     done
                 fi
                 if [ -n "$notify_msg" ]; then
-                    osascript -e "display notification (\"$notify_msg\") with title (\"Wazuh-Yara Delete Result\")"
+                    if [ -f "$iconPath" ]; then
+                        osascript -e "display notification (\"$notify_msg\") with title (\"Wazuh-Yara Delete Result\") sound name \"default\" subtitle \"Wazuh\"" -e "set theIcon to POSIX file \"$iconPath\" as alias" -e "display notification (\"$notify_msg\") with title (\"Wazuh-Yara Delete Result\") subtitle (\"Wazuh\") sound name (\"default\")"
+                    else
+                        osascript -e "display notification (\"$notify_msg\") with title (\"Wazuh-Yara Delete Result\")"
+                    fi
                 fi
             else
                 echo "wazuh-yara: INFO - User CANCELLED DELETE ALL operation (macOS)." >> "${LOG_FILE}"
@@ -379,7 +395,11 @@ send_notification_macos() {
                     done
                 fi
                 if [ -n "$notify_msg" ]; then
-                    osascript -e "display notification (\"$notify_msg\") with title (\"Wazuh-Yara Ignore Result\")"
+                    if [ -f "$iconPath" ]; then
+                        osascript -e "display notification (\"$notify_msg\") with title (\"Wazuh-Yara Ignore Result\") sound name \"default\" subtitle \"Wazuh\"" -e "set theIcon to POSIX file \"$iconPath\" as alias" -e "display notification (\"$notify_msg\") with title (\"Wazuh-Yara Ignore Result\") subtitle (\"Wazuh\") sound name (\"default\")"
+                    else
+                        osascript -e "display notification (\"$notify_msg\") with title (\"Wazuh-Yara Ignore Result\")"
+                    fi
                 fi
             else
                 echo "wazuh-yara: INFO - User CANCELLED IGNORE ALL operation (macOS)." >> "${LOG_FILE}"
