@@ -33,11 +33,13 @@ if [ "$(uname)" = "Darwin" ]; then
     YARA_RULES="/Library/Ossec/ruleset/yara/rules/yara_rules.yar"
     OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
     LOG_FILE="/Library/Ossec/logs/active-responses.log"
+    iconPath="/Library/Ossec/etc/wazuh-logo.png"
 elif [ "$(uname)" = "Linux" ]; then
     YARA_PATH="/usr/bin"
     YARA_RULES="/var/ossec/ruleset/yara/rules/yara_rules.yar"
     OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
     LOG_FILE="/var/ossec/logs/active-responses.log"
+    iconPath="/usr/share/pixmaps/wazuh-logo.png"
 else
     echo "wazuh-yara: ERROR - Unsupported OS: $(uname). This script only supports macOS and Linux." >> "${LOG_FILE}"
     exit 1
@@ -173,7 +175,6 @@ send_notification_linux() {
     USER=$(who | awk '{print $1}' | head -n 1)
     USER_UID=$(id -u "$USER")
     DBUS_PATH="/run/user/$USER_UID/bus"
-    iconPath="/usr/share/pixmaps/wazuh-logo.png"
 
     local notify_command=(sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" notify-send --app-name=Wazuh -u critical)
     if [ -f "$iconPath" ]; then
@@ -297,7 +298,6 @@ send_notification_macos() {
     # osascript display dialog doesn't directly return action IDs.
     # We define buttons and capture which button was pressed.
     # Try to use icon if available (macOS: must be .icns or .png, and full path)
-    local iconPath="~/Dev/wazuh-logo.png"
     local iconArg=""
     if [ -f "$iconPath" ]; then
         iconArg="with icon POSIX file \"$iconPath\""
