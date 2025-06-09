@@ -93,7 +93,7 @@ add_fim_ignore() {
 
     # Use awk to insert the ignore tag before the closing </syscheck> tag
     awk -v file="${file_to_ignore}" '/<\/syscheck>/ {
-        print "  <ignore type=\"file\">" file "</ignore>"
+        print "  <ignore>" file "</ignore>"
         print
         next
     }
