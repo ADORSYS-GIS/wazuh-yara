@@ -201,15 +201,37 @@ send_notification_linux() {
             local confirm_msg="Are you sure you want to DELETE these files?\n\n${files_list_for_confirm}\n\nThis action cannot be undone."
             if confirm_action_linux "Delete" "$confirm_msg"; then
                 echo "wazuh-yara: INFO - User confirmed DELETE ALL detected files." >> "${LOG_FILE}"
+                local delete_success=()
+                local delete_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
                     echo "wazuh-yara: INFO - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
                     rm -f "${file_path}"
                     if [ $? -eq 0 ]; then
                         echo "wazuh-yara: INFO - File deleted: ${file_path}" >> "${LOG_FILE}"
+                        delete_success+=("${file_path}")
                     else
                         echo "wazuh-yara: ERROR - Failed to delete file: ${file_path}" >> "${LOG_FILE}"
+                        delete_fail+=("${file_path}")
                     fi
                 done
+                # Show notification for result
+                local notify_msg=""
+                if [ ${#delete_success[@]} -gt 0 ]; then
+                    notify_msg+="Deleted files successfully:\n"
+                    for f in "${delete_success[@]}"; do
+                        notify_msg+="- $f\n"
+                    done
+                fi
+                if [ ${#delete_fail[@]} -gt 0 ]; then
+                    notify_msg+="Failed to delete:\n"
+                    for f in "${delete_fail[@]}"; do
+                        notify_msg+="- $f\n"
+                    done
+                fi
+                if [ -n "$notify_msg" ]; then
+                    sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                        notify-send --app-name=Wazuh -u critical "Wazuh-Yara Delete Result" "$notify_msg"
+                fi
             else
                 echo "wazuh-yara: INFO - User CANCELLED DELETE ALL operation." >> "${LOG_FILE}"
             fi
@@ -218,9 +240,33 @@ send_notification_linux() {
             local confirm_msg="Are you sure you want to IGNORE these files from future FIM scans?\n\n${files_list_for_confirm}\n\nThis will modify Wazuh agent configuration and require a restart."
             if confirm_action_linux "Ignore" "$confirm_msg"; then
                 echo "wazuh-yara: INFO - User confirmed IGNORE ALL detected files." >> "${LOG_FILE}"
+                local ignore_success=()
+                local ignore_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
-                    add_fim_ignore "${file_path}"
+                    if add_fim_ignore "${file_path}"; then
+                        ignore_success+=("${file_path}")
+                    else
+                        ignore_fail+=("${file_path}")
+                    fi
                 done
+                # Show notification for result
+                local notify_msg=""
+                if [ ${#ignore_success[@]} -gt 0 ]; then
+                    notify_msg+="Ignored files successfully:\n"
+                    for f in "${ignore_success[@]}"; do
+                        notify_msg+="- $f\n"
+                    done
+                fi
+                if [ ${#ignore_fail[@]} -gt 0 ]; then
+                    notify_msg+="Failed to ignore:\n"
+                    for f in "${ignore_fail[@]}"; do
+                        notify_msg+="- $f\n"
+                    done
+                fi
+                if [ -n "$notify_msg" ]; then
+                    sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                        notify-send --app-name=Wazuh -u critical "Wazuh-Yara Ignore Result" "$notify_msg"
+                fi
             else
                 echo "wazuh-yara: INFO - User CANCELLED IGNORE ALL operation." >> "${LOG_FILE}"
             fi
@@ -271,15 +317,36 @@ send_notification_macos() {
             local confirm_msg="Are you sure you want to DELETE these files?\n\n${files_list_for_confirm}\n\nThis action cannot be undone."
             if confirm_action_macos "Delete" "$confirm_msg"; then
                 echo "wazuh-yara: INFO - User confirmed DELETE ALL detected files (macOS)." >> "${LOG_FILE}"
+                local delete_success=()
+                local delete_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
                     echo "wazuh-yara: INFO - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
                     rm -f "${file_path}"
                     if [ $? -eq 0 ]; then
                         echo "wazuh-yara: INFO - File deleted: ${file_path}" >> "${LOG_FILE}"
+                        delete_success+=("${file_path}")
                     else
                         echo "wazuh-yara: ERROR - Failed to delete file: ${file_path}" >> "${LOG_FILE}"
+                        delete_fail+=("${file_path}")
                     fi
                 done
+                # Show notification for result
+                local notify_msg=""
+                if [ ${#delete_success[@]} -gt 0 ]; then
+                    notify_msg+="Deleted files successfully:\n"
+                    for f in "${delete_success[@]}"; do
+                        notify_msg+="- $f\n"
+                    done
+                fi
+                if [ ${#delete_fail[@]} -gt 0 ]; then
+                    notify_msg+="Failed to delete:\n"
+                    for f in "${delete_fail[@]}"; do
+                        notify_msg+="- $f\n"
+                    done
+                fi
+                if [ -n "$notify_msg" ]; then
+                    osascript -e "display notification (\"$notify_msg\") with title (\"Wazuh-Yara Delete Result\")"
+                fi
             else
                 echo "wazuh-yara: INFO - User CANCELLED DELETE ALL operation (macOS)." >> "${LOG_FILE}"
             fi
@@ -288,9 +355,32 @@ send_notification_macos() {
             local confirm_msg="Are you sure you want to IGNORE these files from future FIM scans?\n\n${files_list_for_confirm}\n\nThis will modify Wazuh agent configuration and require a restart."
             if confirm_action_macos "Ignore" "$confirm_msg"; then
                 echo "wazuh-yara: INFO - User confirmed IGNORE ALL detected files (macOS)." >> "${LOG_FILE}"
+                local ignore_success=()
+                local ignore_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
-                    add_fim_ignore "${file_path}"
+                    if add_fim_ignore "${file_path}"; then
+                        ignore_success+=("${file_path}")
+                    else
+                        ignore_fail+=("${file_path}")
+                    fi
                 done
+                # Show notification for result
+                local notify_msg=""
+                if [ ${#ignore_success[@]} -gt 0 ]; then
+                    notify_msg+="Ignored files successfully:\n"
+                    for f in "${ignore_success[@]}"; do
+                        notify_msg+="- $f\n"
+                    done
+                fi
+                if [ ${#ignore_fail[@]} -gt 0 ]; then
+                    notify_msg+="Failed to ignore:\n"
+                    for f in "${ignore_fail[@]}"; do
+                        notify_msg+="- $f\n"
+                    done
+                fi
+                if [ -n "$notify_msg" ]; then
+                    osascript -e "display notification (\"$notify_msg\") with title (\"Wazuh-Yara Ignore Result\")"
+                fi
             else
                 echo "wazuh-yara: INFO - User CANCELLED IGNORE ALL operation (macOS)." >> "${LOG_FILE}"
             fi
