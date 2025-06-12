@@ -11,6 +11,13 @@ LOG_LEVEL=${LOG_LEVEL:-INFO}
 USER="root"
 GROUP="wazuh"
 
+YARA_VERSION="${1:-4.5.4}"
+YARA_URL="https://github.com/VirusTotal/yara/archive/refs/tags/v${YARA_VERSION}.tar.gz"
+
+DOWNLOADS_DIR="${HOME}/yara-install"
+TAR_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}.tar.gz"
+EXTRACT_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}"
+
 if [ "$(uname)" = "Linux" ]; then
     OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
 elif [ "$(uname)" = "Darwin" ]; then
@@ -94,8 +101,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Define and prepare Downloads directory for source builds
-DOWNLOADS_DIR="${HOME}/Downloads"
+# Create Downloads directory for source builds
 mkdir -p "$DOWNLOADS_DIR"
 
 # Ensure that the root:wazuh user and group exist, creating them if necessary
@@ -234,16 +240,10 @@ reverse_update_ossec_conf() {
     remove_file_limit
 }
 
-#--------------------------------------------#
-
-# Step 1: Install YARA and necessary tools
-print_step 1 "Installing YARA and necessary tools..."
-
 remove_apt_yara() {
     # only on Debian/Ubuntu
     if command_exists dpkg; then
         if dpkg -s yara >/dev/null 2>&1; then
-            print_step "0" "Removing apt-installed YARA package"
             info_message "Detected apt-installed YARA; uninstalling via apt"
             maybe_sudo apt-get remove -y yara || {
                 error_message "Failed to remove apt-installed YARA"
@@ -259,7 +259,7 @@ remove_brew_yara() {
     # only on macOS/Homebrew
     if command_exists brew; then
         if brew list yara >/dev/null 2>&1; then
-            print_step "0" "Removing Homebrew-installed YARA package"
+            info_message "Removing Homebrew-installed YARA package"
             info_message "Detected Homebrew YARA; uninstalling via brew"
             brew uninstall --force yara || {
                 error_message "Failed to remove Homebrew-installed YARA"
@@ -272,18 +272,9 @@ remove_brew_yara() {
 
 
 install_yara_ubuntu() {
-    local version="${1:-4.5.4}"
-    local url="https://github.com/VirusTotal/yara/archive/refs/tags/v${version}.tar.gz"
-    local tarball="$DOWNLOADS_DIR/yara-${version}.tar.gz"
-    local src_dir="$DOWNLOADS_DIR/yara-${version}"
+    remove_apt_yara
 
-    # Only Linux for source build
-    if [ "$(uname)" != "Linux" ]; then
-        error_message "Source build only supported on Linux. Skipping."
-        return 1
-    fi
-
-    print_step "Installing YARA v${version} from source" ""
+    info_message "Installing YARA v${YARA_VERSION} from source on Ubuntu" ""
 
     # Check required tools
     for cmd in curl tar make gcc pkg-config; do
@@ -296,22 +287,22 @@ install_yara_ubuntu() {
     maybe_sudo apt-get update -qq
     maybe_sudo apt-get install -y automake libtool make gcc pkg-config flex bison curl
 
-    print_step "2" "Downloading YARA $version to $DOWNLOADS_DIR"
-    if ! curl -fsSL -o "$tarball" "$url"; then
+    print_step "2" "Downloading YARA $YARA_VERSION to $DOWNLOADS_DIR"
+    if ! curl -fsSL -o "$TAR_DIR" "$YARA_URL"; then
         error_message "Failed to download YARA source tarball"
         return 1
     fi
 
     print_step "3" "Extracting source to $DOWNLOADS_DIR"
-    rm -rf "$src_dir"
-    mkdir -p "$src_dir"
-    if ! tar -xzf "$tarball" -C "$DOWNLOADS_DIR"; then
+    rm -rf "$EXTRACT_DIR"
+    mkdir -p "$EXTRACT_DIR"
+    if ! tar -xzf "$TAR_DIR" -C "$DOWNLOADS_DIR"; then
         error_message "Failed to extract YARA tarball"
         return 1
     fi
 
     print_step "4" "Building & installing"
-    pushd "$src_dir" >/dev/null 2>&1 || return 1
+    pushd "$EXTRACT_DIR" >/dev/null 2>&1 || return 1
 
     info_message "Running bootstrap.sh"
     maybe_sudo ./bootstrap.sh
@@ -333,64 +324,14 @@ install_yara_ubuntu() {
 
     popd >/dev/null 2>&1
 
-    success_message "YARA v${version} installed from source successfully"
+    success_message "YARA v${YARA_VERSION} installed from source successfully"
 }
 
-install_yara_alpine() {
-    info_message "Installing YARA on Alpine Linux..."
-    maybe_sudo apk update
-    maybe_sudo apk add yara
-}
-
-install_yara_centos() {
-    info_message "Installing YARA on CentOS/RHEL..."
-    maybe_sudo yum install -y epel-release
-    maybe_sudo yum install -y yara
-}
-
-install_yara_fedora() {
-    info_message "Installing YARA on Fedora..."
-    maybe_sudo dnf install -y yara
-}
-
-install_yara_suse() {
-    info_message "Installing YARA on SUSE..."
-    maybe_sudo zypper install -y yara
-}
-
-install_yara_arch() {
-    info_message "Installing YARA on Arch Linux..."
-    maybe_sudo pacman -Syu --noconfirm yara
-}
-
-install_yara_busybox() {
-    info_message "Installing YARA on BusyBox..."
-    error_message "BusyBox does not support direct package management for YARA. Consider cross-compiling or using a pre-built binary."
-    exit 1
-}
 
 install_yara_macos() {
-    local version="${1:-4.5.0}"
-    local url="https://github.com/VirusTotal/yara/archive/refs/tags/v${version}.tar.gz"
-    local tarball="$DOWNLOADS_DIR/yara-${version}.tar.gz"
-    local src_dir="$DOWNLOADS_DIR/yara-${version}"
-
-    # Only Darwin here
-    if [ "$(uname)" != "Darwin" ]; then
-        error_message "Source build only supported on macOS. Skipping."
-        return 1
-    fi
-
-    print_step "Installing YARA v${version} from source on macOS" ""
-
-    # Ensure Homebrew is available
-    if ! command_exists brew; then
-        error_message "Homebrew is required to build YARA from source on macOS."
-        exit 1
-    fi
-
-    # Remove any existing Homebrew bottle
     remove_brew_yara
+
+    info_message "Installing YARA v${YARA_VERSION} from source on macOS" ""
 
     # Install build‐time dependencies via Homebrew
     for dep in autoconf automake libtool pkgconf; do
@@ -405,16 +346,16 @@ install_yara_macos() {
 
     # Download, unpack, compile & install
     maybe_sudo mkdir -p "$DOWNLOADS_DIR"
-    curl -SL --progress-bar "$url" -o "$tarball" || {
+    curl -SL --progress-bar "$YARA_URL" -o "$TAR_DIR" || {
         error_message "Failed to download YARA source tarball"
         exit 1
     }
-    tar -xzf "$tarball" -C "$DOWNLOADS_DIR" || {
+    tar -xzf "$TAR_DIR" -C "$DOWNLOADS_DIR" || {
         error_message "Failed to extract YARA source tarball"
         exit 1
     }
 
-    pushd "$src_dir" >/dev/null 2>&1
+    pushd "$EXTRACT_DIR" >/dev/null 2>&1
     ./bootstrap.sh     || error_message "bootstrap.sh failed"
     ./configure        || error_message "configure failed"
     make               || error_message "make failed"
@@ -422,7 +363,7 @@ install_yara_macos() {
     make check         || warn_message "Test suite failed—check output"
     popd >/dev/null 2>&1
 
-    success_message "YARA v${version} built and installed from source on macOS successfully"
+    success_message "YARA v${YARA_VERSION} built and installed from source on macOS successfully"
 }
 
 
@@ -431,16 +372,6 @@ install_yara_tools() {
         Linux)
             if command -v apt >/dev/null 2>&1; then
                 install_yara_ubuntu
-            elif command -v apk >/dev/null 2>&1; then
-                install_yara_alpine
-            elif command -v yum >/dev/null 2>&1; then
-                install_yara_centos
-            elif command -v dnf >/dev/null 2>&1; then
-                install_yara_fedora
-            elif command -v zypper >/dev/null 2>&1; then
-                install_yara_suse
-            elif command -v pacman >/dev/null 2>&1; then
-                install_yara_arch
             else
                 error_message "Unsupported Linux distribution. Exiting..."
                 exit 1
@@ -456,26 +387,28 @@ install_yara_tools() {
     esac
 }
 
-# Step 1 continued: purge any apt-installed YARA on Debian/Ubuntu
-if command_exists dpkg; then
-    remove_apt_yara
-fi
-# and purge any Homebrew-installed YARA on macOS
-if command_exists brew && [ "$(uname)" = "Darwin" ]; then
-    remove_brew_yara
-fi
-if command_exists yara; then
+#--------------------------------------------#
+
+# Step 1: Install YARA and necessary tools
+print_step 1 "Installing YARA and necessary tools..."
+
+if [ "$(yara --version)" == "$YARA_VERSION" ]; then
     info_message "YARA is already installed. Skipping installation."
 else
     info_message "Installing YARA..."
     install_yara_tools
 fi
 
+if [ -d "$DOWNLOADS_DIR" ]; then
+    info_message "Cleaning up downloads directory..."
+    rm -rf "$DOWNLOADS_DIR"
+fi
+
 # Step 2: Download YARA rules
+print_step 2 "Downloading YARA rules..."
 YARA_RULES_FILE="$TMP_DIR/yara_rules.yar"
 download_yara_rules() {
     YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/main/rules/yara_rules.yar"
-    info_message "Downloading YARA rules..."
     maybe_sudo curl -SL --progress-bar "$YARA_RULES_URL" -o "$YARA_RULES_FILE"
 
     if [ "$(uname)" = "Linux" ]; then
