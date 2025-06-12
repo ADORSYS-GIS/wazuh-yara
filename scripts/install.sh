@@ -401,7 +401,7 @@ fi
 
 if [ -d "$DOWNLOADS_DIR" ]; then
     info_message "Cleaning up downloads directory..."
-    rm -rf "$DOWNLOADS_DIR"
+    maybe_sudo rm -rf "$DOWNLOADS_DIR"
 fi
 
 # Step 2: Download YARA rules
