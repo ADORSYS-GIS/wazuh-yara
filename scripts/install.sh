@@ -247,11 +247,92 @@ reverse_update_ossec_conf() {
 # Step 1: Install YARA and necessary tools
 print_step 1 "Installing YARA and necessary tools..."
 
-install_yara_ubuntu() {
-    info_message "Installing YARA on Ubuntu/Debian..."
-    maybe_sudo apt update
-    maybe_sudo apt install -y yara
+# install_yara_ubuntu() {
+#     info_message "Installing YARA on Ubuntu/Debian..."
+#     maybe_sudo apt update
+#     maybe_sudo apt install -y yara
+# }
+
+remove_apt_yara() {
+    # only on Debian/Ubuntu
+    if command_exists dpkg; then
+        if dpkg -s yara >/dev/null 2>&1; then
+            print_step "0" "Removing apt-installed YARA package"
+            info_message "Detected apt-installed YARA; uninstalling via apt"
+            maybe_sudo apt-get remove -y yara || {
+                error_message "Failed to remove apt-installed YARA"
+                exit 1
+            }
+            maybe_sudo apt-get autoremove -y
+            success_message "Apt-installed YARA removed"
+        fi
+    fi
 }
+
+install_yara_ubuntu() {
+    local version="${1:-4.5.0}"
+    local url="https://github.com/VirusTotal/yara/archive/refs/tags/v${version}.tar.gz"
+    local src_dir="$TMP_DIR/yara-${version}"
+
+    # Only Linux for source build
+    if [ "$(uname)" != "Linux" ]; then
+        error_message "Source build only supported on Linux. Skipping."
+        return 1
+    fi
+
+    # Step 0: purge any apt-installed YARA
+    remove_apt_yara
+    
+    print_step "Installing YARA v${version} from source" ""
+
+    # Check required tools
+    for cmd in curl tar make gcc pkg-config; do
+        if ! command_exists "$cmd"; then
+            warn_message "$cmd not found; it will be installed as a dependency."
+        fi
+    done
+
+    print_step "1" "Installing build dependencies"
+    maybe_sudo apt-get update -qq
+    maybe_sudo apt-get install -y automake libtool make gcc pkg-config flex bison curl
+
+    print_step "2" "Downloading YARA $version"
+    if ! curl -fsSL -o "$TMP_DIR/yara-${version}.tar.gz" "$url"; then
+        error_message "Failed to download YARA source tarball"
+        return 1
+    fi
+
+    print_step "3" "Extracting source"
+    mkdir -p "$src_dir"
+    if ! tar -xzf "$TMP_DIR/yara-${version}.tar.gz" -C "$TMP_DIR"; then
+        error_message "Failed to extract YARA tarball"
+        return 1
+    fi
+
+    print_step "4" "Building & installing"
+    pushd "$src_dir" >/dev/null 2>&1 || return 1
+
+    info_message "Running bootstrap.sh"
+    ./bootstrap.sh
+
+    info_message "Configuring build"
+    ./configure
+
+    info_message "Compiling"
+    make
+
+    info_message "Installing (this may prompt for sudo password)"
+    maybe_sudo make install
+
+    info_message "Running test suite"
+    make check
+
+    popd >/dev/null 2>&1
+
+    success_message "YARA v${version} installed from source successfully"
+}
+
+
 
 install_yara_alpine() {
     info_message "Installing YARA on Alpine Linux..."
