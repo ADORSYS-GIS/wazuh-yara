@@ -255,6 +255,22 @@ remove_apt_yara() {
     fi
 }
 
+remove_brew_yara() {
+    # only on macOS/Homebrew
+    if command_exists brew; then
+        if brew list yara >/dev/null 2>&1; then
+            print_step "0" "Removing Homebrew-installed YARA package"
+            info_message "Detected Homebrew YARA; uninstalling via brew"
+            brew uninstall --force yara || {
+                error_message "Failed to remove Homebrew-installed YARA"
+                exit 1
+            }
+            success_message "Homebrew-installed YARA removed"
+        fi
+    fi
+}
+
+
 install_yara_ubuntu() {
     local version="${1:-4.5.4}"
     local url="https://github.com/VirusTotal/yara/archive/refs/tags/v${version}.tar.gz"
@@ -353,18 +369,8 @@ install_yara_busybox() {
     exit 1
 }
 
-# install_yara_macos() {
-#     info_message "Installing YARA on macOS..."
-#     brew install yara@4.5.4
-# }
-
 install_yara_macos() {
-    info_message "Installing YARA on macOS..."
-    brew install yara
-}
-
-install_yara_macos() {
-    local version="${1:-4.5.4}"
+    local version="${1:-4.5.0}"
     local url="https://github.com/VirusTotal/yara/archive/refs/tags/v${version}.tar.gz"
     local tarball="$DOWNLOADS_DIR/yara-${version}.tar.gz"
     local src_dir="$DOWNLOADS_DIR/yara-${version}"
