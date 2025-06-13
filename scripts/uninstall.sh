@@ -82,11 +82,19 @@ restart_wazuh_agent() {
 
 # Uninstall YARA based on package manager
 uninstall_yara() {
-    info_message "Removing YARA..."
-    YARA_BIN_PATH=$(which yara)
     if command -v yara >/dev/null 2>&1; then
-        maybe_sudo rm $YARA_BIN_PATH || warn_message "unable to remove Yara"
-        info_message "Yara successfully removed."
+        YARA_BIN_PATH=$(which yara)
+        info_message "Removing YARA..."
+        if [ "$(uname)" = "Linux" ]; then
+            maybe_sudo rm $YARA_BIN_PATH || warn_message "unable to remove Yara"
+        elif [ "$(uname)" = "Darwin" ]; then
+            brew uninstall --force yara || {
+                warn_message "Failed to remove Homebrew-installed YARA"
+            }
+        else
+            error_message "Unsupported operating system for uninstalling Yara."
+            exit 1
+        fi
     else
         warn_message "Yara is not installed. Skipping uninstallation."
     fi
@@ -108,8 +116,15 @@ remove_yara_components() {
         exit 1
     fi
 
-    [ -d "$YARA_DIR" ] && maybe_sudo rm -rf "$YARA_DIR" && info_message "Removed YARA directory: $YARA_DIR" || warn_message "YARA directory not found."
-    [ -f "$YARA_SCRIPT" ] && maybe_sudo rm -f "$YARA_SCRIPT" && info_message "Removed YARA script: $YARA_SCRIPT" || warn_message "YARA script not found."
+    if maybe_sudo [ -d "$YARA_DIR" ]; then
+        info_message "Removing YARA directory: $YARA_DIR"
+        maybe_sudo rm -rf "$YARA_DIR" || warn_message "YARA directory not found."
+    fi
+
+    if maybe_sudo [ -f "$YARA_SCRIPT" ]; then
+        info_message "Removing YARA script: $YARA_SCRIPT"
+        maybe_sudo rm -f "$YARA_SCRIPT" || warn_message "YARA script not found."
+    fi
 }
 
 # Remove ossec configuration modifications
@@ -158,9 +173,13 @@ remove_ossec_configuration() {
 }
 
 # Main uninstallation steps
-uninstall_yara
-remove_yara_components
-remove_ossec_configuration
-restart_wazuh_agent
 
-success_message "Uninstallation process completed successfully."
+if command -v yara >/dev/null 2>&1; then
+    uninstall_yara
+    remove_yara_components
+    remove_ossec_configuration
+    restart_wazuh_agent
+    success_message "Uninstallation process completed successfully."
+else
+    warn_message "Yara not installed. Skipping..."
+fi

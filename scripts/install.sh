@@ -272,8 +272,6 @@ remove_brew_yara() {
 
 
 install_yara_ubuntu() {
-    remove_apt_yara
-
     info_message "Installing YARA v${YARA_VERSION} from source on Ubuntu" ""
 
     # Check required tools
@@ -329,39 +327,17 @@ install_yara_ubuntu() {
 
 
 install_yara_macos() {
-    remove_brew_yara
-
     info_message "Installing YARA v${YARA_VERSION} from source on macOS" ""
+    YARA_RB_URL="https://raw.githubusercontent.com/Homebrew/homebrew-core/5239837c0dc157e5ffdfb2de325e942118db9485/Formula/y/yara.rb" #v4.5.4
+    YARA_RP_PATH="$DOWNLOADS_DIR/yara.rb"
 
-    # Install build‐time dependencies via Homebrew
-    for dep in autoconf automake libtool pkgconf; do
-        if ! brew list "$dep" >/dev/null 2>&1; then
-            info_message "Installing dependency $dep via Homebrew"
-            brew install "$dep" || {
-                error_message "Failed to install $dep"
-                exit 1
-            }
-        fi
-    done
-
-    # Download, unpack, compile & install
-    maybe_sudo mkdir -p "$DOWNLOADS_DIR"
-    curl -SL --progress-bar "$YARA_URL" -o "$TAR_DIR" || {
-        error_message "Failed to download YARA source tarball"
-        exit 1
-    }
-    tar -xzf "$TAR_DIR" -C "$DOWNLOADS_DIR" || {
-        error_message "Failed to extract YARA source tarball"
+    curl -SL --progress-bar "$YARA_RB_URL" -o "$YARA_RP_PATH" || {
+        error_message "Failed to download yara.rb file"
         exit 1
     }
 
-    pushd "$EXTRACT_DIR" >/dev/null 2>&1
-    ./bootstrap.sh     || error_message "bootstrap.sh failed"
-    ./configure        || error_message "configure failed"
-    make               || error_message "make failed"
-    maybe_sudo make install || error_message "make install failed"
-    make check         || warn_message "Test suite failed—check output"
-    popd >/dev/null 2>&1
+    brew install --formula "$YARA_RP_PATH"
+    brew pin yara
 
     success_message "YARA v${YARA_VERSION} built and installed from source on macOS successfully"
 }
@@ -392,8 +368,20 @@ install_yara_tools() {
 # Step 1: Install YARA and necessary tools
 print_step 1 "Installing YARA and necessary tools..."
 
-if [ "$(yara --version)" == "$YARA_VERSION" ]; then
-    info_message "YARA is already installed. Skipping installation."
+if [ "$(uname)" = "Linux" ]; then
+    remove_apt_yara
+fi
+
+if command_exists yara; then
+    if [ "$(yara --version)" == "$YARA_VERSION" ]; then
+        info_message "YARA is already installed. Skipping installation."
+    else
+        info_message "Installing YARA..."
+        if [ "$(uname)" = "Darwin" ]; then
+            remove_brew_yara
+        fi
+        install_yara_tools
+    fi
 else
     info_message "Installing YARA..."
     install_yara_tools
