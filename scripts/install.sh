@@ -282,8 +282,8 @@ install_yara_ubuntu() {
     done
 
     print_step "1" "Installing build dependencies"
-    maybe_sudo apt-get update -qq
-    maybe_sudo apt-get install -y automake libtool make gcc pkg-config flex bison curl
+    maybe_sudo apt update -qq
+    maybe_sudo apt install -y automake libtool make gcc pkg-config flex bison curl libjansson-dev libmagic-dev
 
     print_step "2" "Downloading YARA $YARA_VERSION to $DOWNLOADS_DIR"
     if ! curl -fsSL -o "$TAR_DIR" "$YARA_URL"; then
@@ -292,7 +292,7 @@ install_yara_ubuntu() {
     fi
 
     print_step "3" "Extracting source to $DOWNLOADS_DIR"
-    rm -rf "$EXTRACT_DIR"
+    maybe_sudo rm -rf "$EXTRACT_DIR"
     mkdir -p "$EXTRACT_DIR"
     if ! tar -xzf "$TAR_DIR" -C "$DOWNLOADS_DIR"; then
         error_message "Failed to extract YARA tarball"
@@ -306,10 +306,10 @@ install_yara_ubuntu() {
     maybe_sudo ./bootstrap.sh
 
     info_message "Configuring build"
-    maybe_sudo ./configure
+    maybe_sudo ./configure --disable-silent-rules --enable-cuckoo --enable-magic --enable-dotnet --enable-macho --enable-dex --with-crypto
 
     info_message "Compiling"
-    maybe_sudo make
+    maybe_sudo make 
 
     info_message "Installing (this may prompt for sudo password)"
     maybe_sudo make install

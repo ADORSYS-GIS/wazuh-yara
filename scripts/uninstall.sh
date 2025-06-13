@@ -80,13 +80,33 @@ restart_wazuh_agent() {
     esac
 }
 
+
+
+# Uninstall YARA based on package manager
+uninstall_yara_ubuntu() {
+    # only on Debian/Ubuntu
+    if command -v dpkg >/dev/null 2>&1; then
+        if dpkg -s yara >/dev/null 2>&1; then
+            info_message "Detected apt-installed YARA; uninstalling via apt"
+            maybe_sudo apt-get remove -y yara || {
+                error_message "Failed to remove apt-installed YARA"
+                exit 1
+            }
+        else
+            maybe_sudo rm $YARA_BIN_PATH || warn_message "unable to remove Yara"
+        fi
+        maybe_sudo apt-get autoremove -y
+        success_message "Apt-installed YARA removed"
+    fi
+}
+
 # Uninstall YARA based on package manager
 uninstall_yara() {
     if command -v yara >/dev/null 2>&1; then
         YARA_BIN_PATH=$(which yara)
         info_message "Removing YARA..."
         if [ "$(uname)" = "Linux" ]; then
-            maybe_sudo rm $YARA_BIN_PATH || warn_message "unable to remove Yara"
+            uninstall_yara_ubuntu
         elif [ "$(uname)" = "Darwin" ]; then
             brew uninstall --force yara || {
                 warn_message "Failed to remove Homebrew-installed YARA"
