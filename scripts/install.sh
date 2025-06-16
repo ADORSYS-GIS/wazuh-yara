@@ -386,7 +386,6 @@ install_yara_tools() {
     case "$(uname)" in
     Linux)
         if command -v apt >/dev/null 2>&1; then
-            install_notify_send
             install_yara_ubuntu
         else
             error_message "Unsupported Linux distribution. Exiting..."
@@ -410,6 +409,7 @@ print_step 1 "Installing YARA and necessary tools..."
 
 if [ "$(uname)" = "Linux" ]; then
     remove_apt_yara
+    install_notify_send
 fi
 
 if command_exists yara; then
