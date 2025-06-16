@@ -18,6 +18,8 @@ DOWNLOADS_DIR="${HOME}/yara-install"
 TAR_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}.tar.gz"
 EXTRACT_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}"
 
+NOTIFY_SEND_VERSION="0.8.3"
+
 if [ "$(uname)" = "Linux" ]; then
     OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
 elif [ "$(uname)" = "Darwin" ]; then
@@ -154,24 +156,24 @@ change_owner() {
 
 restart_wazuh_agent() {
     case "$(uname)" in
-        Linux)
-            if maybe_sudo /var/ossec/bin/wazuh-control restart >/dev/null 2>&1; then
-                info_message "Wazuh agent restarted successfully."
-            else
-                error_message "Error occurred during Wazuh agent restart."
-            fi
-            ;;
-        Darwin)
-            if maybe_sudo /Library/Ossec/bin/wazuh-control restart >/dev/null 2>&1; then
-                info_message "Wazuh agent restarted successfully."
-            else
-                error_message "Error occurred during Wazuh agent restart."
-            fi
-            ;;
-        *)
-            error_message "Unsupported operating system for restarting Wazuh agent."
-            exit 1
-            ;;
+    Linux)
+        if maybe_sudo /var/ossec/bin/wazuh-control restart >/dev/null 2>&1; then
+            info_message "Wazuh agent restarted successfully."
+        else
+            error_message "Error occurred during Wazuh agent restart."
+        fi
+        ;;
+    Darwin)
+        if maybe_sudo /Library/Ossec/bin/wazuh-control restart >/dev/null 2>&1; then
+            info_message "Wazuh agent restarted successfully."
+        else
+            error_message "Error occurred during Wazuh agent restart."
+        fi
+        ;;
+    *)
+        error_message "Unsupported operating system for restarting Wazuh agent."
+        exit 1
+        ;;
     esac
 }
 
@@ -180,7 +182,6 @@ remove_file_limit() {
         # Remove the file_limit block
         sed_alternative -i "/<file_limit>/,/<\/file_limit>/d" "$OSSEC_CONF_PATH" || {
             error_message "Error occurred during the removal of the file_limit block."
-            exit 1
         }
         info_message "The file limit block was removed successfully."
     else
@@ -189,7 +190,7 @@ remove_file_limit() {
 }
 
 download_yara_script() {
-    YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh" # TODO: Update URL if needed
+    YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh"
     if [ "$(uname)" = "Linux" ]; then
         YARA_SH_PATH="/var/ossec/active-response/bin/yara.sh"
     elif [ "$(uname)" = "Darwin" ]; then
@@ -203,13 +204,11 @@ download_yara_script() {
 
     maybe_sudo curl -SL --progress-bar "$YARA_SH_URL" -o "$TMP_DIR/yara.sh" || {
         error_message "Failed to download yara.sh script."
-        exit 1
     }
 
     maybe_sudo mv "$TMP_DIR/yara.sh" "$YARA_SH_PATH"
     (change_owner "$YARA_SH_PATH" && maybe_sudo chmod 750 "$YARA_SH_PATH") || {
         error_message "Error occurred during yara.sh file permissions change."
-        exit 1
     }
     info_message "yara.sh script downloaded and installed successfully."
 }
@@ -221,7 +220,6 @@ reverse_update_ossec_conf() {
             info_message "Removing new yara configuration for macOS..."
             sed_alternative -i '/<directories realtime="yes">\/Users, \/Applications<\/directories>/d' "$OSSEC_CONF_PATH" || {
                 error_message "Error occurred during removal of directories to monitor."
-                exit 1
             }
             info_message "New yara configuration removed successfully on macOS."
         fi
@@ -231,7 +229,6 @@ reverse_update_ossec_conf() {
             info_message "Removing new yara configuration for Linux..."
             sed_alternative -i '/<directories realtime="yes">\/home, \/root, \/bin, \/sbin<\/directories>/d' "$OSSEC_CONF_PATH" || {
                 error_message "Error occurred during removal of directories to monitor."
-                exit 1
             }
             info_message "New yara configuration removed successfully on Linux."
         fi
@@ -245,11 +242,10 @@ remove_apt_yara() {
     if command_exists dpkg; then
         if dpkg -s yara >/dev/null 2>&1; then
             info_message "Detected apt-installed YARA; uninstalling via apt"
-            maybe_sudo apt-get remove -y yara || {
+            maybe_sudo apt remove -y yara || {
                 error_message "Failed to remove apt-installed YARA"
-                exit 1
             }
-            maybe_sudo apt-get autoremove -y
+            maybe_sudo apt autoremove -y
             success_message "Apt-installed YARA removed"
         fi
     fi
@@ -263,13 +259,58 @@ remove_brew_yara() {
             info_message "Detected Homebrew YARA; uninstalling via brew"
             brew uninstall --force yara || {
                 error_message "Failed to remove Homebrew-installed YARA"
-                exit 1
             }
             success_message "Homebrew-installed YARA removed"
         fi
     fi
 }
 
+install_notify_send() {
+    deb_dir="$TMP_DIR/notify-send-debs"
+    mkdir -p "$deb_dir"
+    deb_url1="https://launchpad.net/ubuntu/+archive/primary/+files/libnotify4_0.8.3-1_amd64.deb"
+    deb_url2="https://launchpad.net/ubuntu/+archive/primary/+files/libnotify-bin_0.8.3-1_amd64.deb"
+    deb_file1="$deb_dir/$(basename "$deb_url1")"
+    deb_file2="$deb_dir/$(basename "$deb_url2")"
+    info_message "Downloading $deb_url1 ..."
+    curl -fsSL -o "$deb_file1" "$deb_url1" || {
+        error_message "Failed to download $deb_url1"
+        exit 1
+    }
+    info_message "Installing $(basename "$deb_url1") ..."
+    maybe_sudo apt install -y "$deb_file1" || {
+        error_message "Failed to install $deb_file1"
+        exit 1
+    }
+    info_message "Downloading $deb_url2 ..."
+    curl -fsSL -o "$deb_file2" "$deb_url2" || {
+        error_message "Failed to download $deb_url2"
+        exit 1
+    }
+    info_message "Installing $(basename "$deb_url2") ..."
+    maybe_sudo apt install -y "$deb_file2" || {
+        error_message "Failed to install $deb_file2"
+        exit 1
+    }
+    info_message "notify-send and dependencies installed/upgraded to $NOTIFY_SEND_VERSION."
+}
+
+# For Ubuntu: Ensure notify-send is at least version 0.8.3, else upgrade to it
+ensure_notify_send_version() {
+    if command_exists notify-send; then
+        version=$(notify-send --version 2>&1 | awk '{print $NF}')
+        if [ "$version" -lt "$NOTIFY_SEND_VERSION" ]; then
+            info_message "notify-send version $version is already installed."
+            return 0
+        else
+            warn_message "notify-send version $version found. Upgrading to $NOTIFY_SEND_VERSION..."
+            install_notify_send
+        fi
+    else
+        warn_message "notify-send not found. Installing version $NOTIFY_SEND_VERSION..."
+        install_notify_send
+    fi
+}
 
 install_yara_ubuntu() {
     info_message "Installing YARA v${YARA_VERSION} from source on Ubuntu" ""
@@ -283,7 +324,7 @@ install_yara_ubuntu() {
 
     print_step "1" "Installing build dependencies"
     maybe_sudo apt update -qq
-    maybe_sudo apt install -y automake libtool make gcc pkg-config flex bison curl libjansson-dev libmagic-dev
+    maybe_sudo apt install -y automake libtool make gcc pkg-config flex bison curl libjansson-dev libmagic-dev libssl-dev
 
     print_step "2" "Downloading YARA $YARA_VERSION to $DOWNLOADS_DIR"
     if ! curl -fsSL -o "$TAR_DIR" "$YARA_URL"; then
@@ -309,7 +350,7 @@ install_yara_ubuntu() {
     maybe_sudo ./configure --disable-silent-rules --enable-cuckoo --enable-magic --enable-dotnet --enable-macho --enable-dex --with-crypto
 
     info_message "Compiling"
-    maybe_sudo make 
+    maybe_sudo make
 
     info_message "Installing (this may prompt for sudo password)"
     maybe_sudo make install
@@ -324,7 +365,6 @@ install_yara_ubuntu() {
 
     success_message "YARA v${YARA_VERSION} installed from source successfully"
 }
-
 
 install_yara_macos() {
     info_message "Installing YARA v${YARA_VERSION} from source on macOS" ""
@@ -342,24 +382,24 @@ install_yara_macos() {
     success_message "YARA v${YARA_VERSION} built and installed from source on macOS successfully"
 }
 
-
 install_yara_tools() {
     case "$(uname)" in
-        Linux)
-            if command -v apt >/dev/null 2>&1; then
-                install_yara_ubuntu
-            else
-                error_message "Unsupported Linux distribution. Exiting..."
-                exit 1
-            fi
-            ;;
-        Darwin)
-            install_yara_macos
-            ;;
-        *)
-            error_message "Unsupported operating system. Exiting..."
+    Linux)
+        if command -v apt >/dev/null 2>&1; then
+            install_notify_send
+            install_yara_ubuntu
+        else
+            error_message "Unsupported Linux distribution. Exiting..."
             exit 1
-            ;;
+        fi
+        ;;
+    Darwin)
+        install_yara_macos
+        ;;
+    *)
+        error_message "Unsupported operating system. Exiting..."
+        exit 1
+        ;;
     esac
 }
 
@@ -373,13 +413,13 @@ if [ "$(uname)" = "Linux" ]; then
 fi
 
 if command_exists yara; then
-    if [ "$(yara --version)" == "$YARA_VERSION" ]; then
+    if [ "$(yara --version)" = "$YARA_VERSION" ]; then
         info_message "YARA is already installed. Skipping installation."
     else
-        info_message "Installing YARA..."
         if [ "$(uname)" = "Darwin" ]; then
             remove_brew_yara
         fi
+        info_message "Installing YARA..."
         install_yara_tools
     fi
 else
