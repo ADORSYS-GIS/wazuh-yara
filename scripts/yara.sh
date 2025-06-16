@@ -88,7 +88,7 @@ add_fim_ignore() {
     fi
 
     # Check if the ignore rule already exists
-    if grep -q "<ignore type=\"file\">${file_to_ignore}</ignore>" "$OSSEC_CONF_PATH" || grep -q "<ignore>${file_to_ignore}</ignore>" "$OSSEC_CONF_PATH"; then
+    if grep -q "<ignore>${file_to_ignore}</ignore>" "$OSSEC_CONF_PATH"; then
         echo "wazuh-yara: DEBUG - File '$file_to_ignore' is already ignored in FIM." >> "${LOG_FILE}"
         return 0
     fi
