@@ -127,7 +127,9 @@ ensure_user_group() {
             # macOS
             if ! dscl . -list /Users | grep -q "^$USER$"; then
                 info_message "Creating user $USER on macOS..."
-                maybe_sudo sysadminctl -addUser "$USER" -fullName "$USER" >/dev/null 2>&1
+                maybe_sudo sysadminctl -addUser "$USER" -fullName "$USER" || {
+                    error_message "Failed to create user $USER"
+                }
             fi
         else
             error_message "Unsupported OS for creating user."
@@ -145,7 +147,9 @@ ensure_user_group() {
             # macOS
             if ! dscl . -list /Groups | grep -q "^$GROUP$"; then
                 info_message "Creating group $GROUP on macOS..."
-                maybe_sudo dscl . -create /Groups/"$GROUP" >/dev/null 2>&1
+                maybe_sudo dscl . -create /Groups/"$GROUP" || {
+                    error_message "Failed to create group $GROUP"
+                }
             fi
         else
             error_message "Unsupported OS for creating group."
