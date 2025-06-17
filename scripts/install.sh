@@ -145,7 +145,7 @@ ensure_user_group() {
             # macOS
             if ! dscl . -list /Groups | grep -q "^$GROUP$"; then
                 info_message "Creating group $GROUP on macOS..."
-                maybe_sudo dscl . -create /Groups/"$GROUP"
+                maybe_sudo sysadminctl -addGroup "$GROUP"
             fi
         else
             error_message "Unsupported OS for creating group."
