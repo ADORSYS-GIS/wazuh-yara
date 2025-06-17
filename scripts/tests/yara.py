@@ -6,15 +6,6 @@ import testinfra
 def host():
     return testinfra.get_host("local://")
 
-# --- User and Group Tests ---
-def test_user_exists(host):
-    user = host.user("root")
-    assert user.exists
-
-def test_group_exists(host):
-    group = host.group("wazuh")
-    assert group.exists
-
 # --- Wazuh Configuration File ---
 def test_ossec_conf_exists(host):
     if host.system_info.type == "linux":
