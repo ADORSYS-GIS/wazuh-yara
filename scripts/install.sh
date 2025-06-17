@@ -158,7 +158,7 @@ ensure_user_group() {
 change_owner() {
     local path="$1"
     ensure_user_group
-    maybe_sudo chown "$USER:$GROUP" "$path"
+    maybe_sudo chown -R "$USER:$GROUP" "$path"
 }
 
 restart_wazuh_agent() {

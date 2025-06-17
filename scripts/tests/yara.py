@@ -44,7 +44,7 @@ def test_notify_send_version(host):
         pytest.skip("notify-send version test only applies to Linux")
     if not host.exists("notify-send"):
         pytest.skip("notify-send not installed")
-    version_output = host.run("notify-send --version").stdout.strip()
+    version_output = host.run("notify-send --version").stdout.strip().split(" ")[-1]
     assert version_output is not None, "Could not determine notify-send version"
     assert version_output == expected_version, f"notify-send version is not {expected_version}: {version_output}"
     
