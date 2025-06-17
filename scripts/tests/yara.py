@@ -47,6 +47,13 @@ def test_notify_send_version(host):
     version_output = host.run("notify-send --version").stdout.strip()
     assert version_output is not None, "Could not determine notify-send version"
     assert version_output == expected_version, f"notify-send version is not {expected_version}: {version_output}"
+    
+# --- zenity Installation (Linux only) ---
+def test_zenity_installed(host):
+    if host.system_info.type != "linux":
+        pytest.skip("zenity installation test only applies to Linux")
+    zenity = host.package("zenity")
+    assert zenity.is_installed, "zenity is not installed"
 
 # --- YARA Script and Rules File/Directory ---
 def get_yara_script_path(host):
