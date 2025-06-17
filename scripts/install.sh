@@ -293,6 +293,18 @@ ensure_notify_send_version() {
     fi
 }
 
+ensure_zenity_is_installed() {
+    if command_exists zenity; then
+        info_message "Zenity is already installed."
+    else
+        warn_message "Zenity is not installed. Installing it now..."
+        maybe_sudo apt install -y zenity || {
+            error_message "Failed to install Zenity."
+            exit 1
+        }
+    fi
+}
+
 install_yara_ubuntu() {
     info_message "Installing YARA v${YARA_VERSION} from source on Ubuntu" ""
 
@@ -363,7 +375,7 @@ install_yara_macos() {
     success_message "YARA v${YARA_VERSION} built and installed from source on macOS successfully"
 }
 
-install_yara_tools() {
+install_yara() {
     case "$OS" in
     Linux)
         if command -v apt >/dev/null 2>&1; then
@@ -381,6 +393,32 @@ install_yara_tools() {
         exit 1
         ;;
     esac
+}
+
+install_yara_and_tools(){
+    if [ "$OS" = "Linux" ]; then
+        remove_apt_yara
+        ensure_notify_send_version
+        ensure_zenity_is_installed
+    fi
+    if command_exists yara; then
+        if [ "$(yara --version)" = "$YARA_VERSION" ]; then
+            info_message "YARA is already installed. Skipping installation."
+        else
+            if [ "$OS" = "Darwin" ]; then
+                remove_brew_yara
+            fi
+            info_message "Installing YARA..."
+            install_yara
+        fi
+    else
+        info_message "Installing YARA..."
+        install_yara
+    fi
+    if [ -d "$DOWNLOADS_DIR" ]; then
+        info_message "Cleaning up downloads directory..."
+        maybe_sudo rm -rf "$DOWNLOADS_DIR"
+    fi
 }
 
 download_yara_rules() {
@@ -415,7 +453,7 @@ validate_installation() {
     if [ "$OS" = "Linux" ]; then
         if command_exists notify-send; then
             if [ "$(notify-send --version 2>&1 | awk '{print $NF}')" = "$NOTIFY_SEND_VERSION" ]; then
-            success_message "notify-send version $NOTIFY_SEND_VERSION is installed."
+                success_message "notify-send version $NOTIFY_SEND_VERSION is installed."
             else
                 warn_message "notify-send version mismatch. Expected $NOTIFY_SEND_VERSION, but found $(notify-send --version 2>&1 | awk '{print $NF}')."
                 VALIDATION_STATUS="FALSE"
@@ -425,7 +463,7 @@ validate_installation() {
             VALIDATION_STATUS="FALSE"
         fi
     fi
-    
+
     if command_exists yara; then
         if [ "$(yara --version)" = "$YARA_VERSION" ]; then
             success_message "Yara version $YARA_VERSION is installed."
@@ -437,7 +475,7 @@ validate_installation() {
         error_message "Yara command is not available. Please check the installation."
         VALIDATION_STATUS="FALSE"
     fi
-    
+
     if maybe_sudo [ ! -f "$YARA_RULES_DEST_DIR/yara_rules.yar" ]; then
         warn_message "Yara rules files not present at $YARA_RULES_DEST_DIR/yara_rules.yar."
         VALIDATION_STATUS="FALSE"
@@ -451,7 +489,7 @@ validate_installation() {
     else
         success_message "Yara active response script exists at $YARA_SH_PATH."
     fi
-    
+
     if [ "$VALIDATION_STATUS" = "TRUE" ]; then
         success_message "YARA installation and configuration validation completed successfully."
     else
@@ -464,29 +502,7 @@ validate_installation() {
 
 # Step 1: Install YARA and necessary tools
 print_step 1 "Installing YARA and necessary tools..."
-
-if [ "$OS" = "Linux" ]; then
-    remove_apt_yara
-    ensure_notify_send_version
-fi
-if command_exists yara; then
-    if [ "$(yara --version)" = "$YARA_VERSION" ]; then
-        info_message "YARA is already installed. Skipping installation."
-    else
-        if [ "$OS" = "Darwin" ]; then
-            remove_brew_yara
-        fi
-        info_message "Installing YARA..."
-        install_yara_tools
-    fi
-else
-    info_message "Installing YARA..."
-    install_yara_tools
-fi
-if [ -d "$DOWNLOADS_DIR" ]; then
-    info_message "Cleaning up downloads directory..."
-    maybe_sudo rm -rf "$DOWNLOADS_DIR"
-fi
+install_yara_and_tools
 
 # Step 2: Download YARA rules
 print_step 2 "Downloading YARA rules..."
