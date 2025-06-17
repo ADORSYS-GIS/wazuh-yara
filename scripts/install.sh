@@ -13,17 +13,24 @@ GROUP="wazuh"
 
 YARA_VERSION="${1:-4.5.4}"
 YARA_URL="https://github.com/VirusTotal/yara/archive/refs/tags/v${YARA_VERSION}.tar.gz"
+YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh"
 
 DOWNLOADS_DIR="${HOME}/yara-install"
 TAR_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}.tar.gz"
 EXTRACT_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}"
 
-NOTIFY_SEND_VERSION="0.8.3"
+NOTIFY_SEND_VERSION=0.8.3
 
-if [ "$(uname)" = "Linux" ]; then
+OS="$(uname -s)"
+
+if [ "$OS" = "Linux" ]; then
     OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
-elif [ "$(uname)" = "Darwin" ]; then
+    WAZUH_CONTROL_BIN_PATH="/var/ossec/bin/wazuh-control"
+    YARA_SH_PATH="/var/ossec/active-response/bin/yara.sh"
+elif [ "$OS" = "Darwin" ]; then
     OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
+    WAZUH_CONTROL_BIN_PATH="/Library/Ossec/bin/wazuh-control"
+    YARA_SH_PATH="/Library/Ossec/active-response/bin/yara.sh"
 else
     error_message "Unsupported OS. Exiting..."
     exit 1
@@ -112,11 +119,11 @@ ensure_user_group() {
 
     if ! id -u "$USER" >/dev/null 2>&1; then
         info_message "Creating user $USER..."
-        if [ "$(uname -s)" = "Linux" ] && command -v groupadd >/dev/null 2>&1; then
+        if [ "$OS" = "Linux" ] && command -v groupadd >/dev/null 2>&1; then
             maybe_sudo useradd -m "$USER"
         elif [ "$(which apk)" = "/sbin/apk" ]; then
             maybe_sudo adduser -D "$USER"
-        elif [ "$(uname -s)" = "Darwin" ]; then
+        elif [ "$OS" = "Darwin" ]; then
             # macOS
             if ! dscl . -list /Users | grep -q "^$USER$"; then
                 info_message "Creating user $USER on macOS..."
@@ -130,11 +137,11 @@ ensure_user_group() {
 
     if ! getent group "$GROUP" >/dev/null 2>&1; then
         info_message "Creating group $GROUP..."
-        if [ "$(uname -s)" = "Linux" ] && command -v groupadd >/dev/null 2>&1; then
+        if [ "$OS" = "Linux" ] && command -v groupadd >/dev/null 2>&1; then
             maybe_sudo groupadd "$GROUP"
         elif [ "$(which apk)" = "/sbin/apk" ]; then
             maybe_sudo addgroup "$GROUP"
-        elif [ "$(uname -s)" = "Darwin" ]; then
+        elif [ "$OS" = "Darwin" ]; then
             # macOS
             if ! dscl . -list /Groups | grep -q "^$GROUP$"; then
                 info_message "Creating group $GROUP on macOS..."
@@ -155,26 +162,11 @@ change_owner() {
 }
 
 restart_wazuh_agent() {
-    case "$(uname)" in
-    Linux)
-        if maybe_sudo /var/ossec/bin/wazuh-control restart >/dev/null 2>&1; then
-            info_message "Wazuh agent restarted successfully."
-        else
-            error_message "Error occurred during Wazuh agent restart."
-        fi
-        ;;
-    Darwin)
-        if maybe_sudo /Library/Ossec/bin/wazuh-control restart >/dev/null 2>&1; then
-            info_message "Wazuh agent restarted successfully."
-        else
-            error_message "Error occurred during Wazuh agent restart."
-        fi
-        ;;
-    *)
-        error_message "Unsupported operating system for restarting Wazuh agent."
-        exit 1
-        ;;
-    esac
+    if maybe_sudo "$WAZUH_CONTROL_BIN_PATH" restart >/dev/null 2>&1; then
+        info_message "Wazuh agent restarted successfully."
+    else
+        error_message "Error occurred during Wazuh agent restart."
+    fi
 }
 
 remove_file_limit() {
@@ -190,16 +182,6 @@ remove_file_limit() {
 }
 
 download_yara_script() {
-    YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh"
-    if [ "$(uname)" = "Linux" ]; then
-        YARA_SH_PATH="/var/ossec/active-response/bin/yara.sh"
-    elif [ "$(uname)" = "Darwin" ]; then
-        YARA_SH_PATH="/Library/Ossec/active-response/bin/yara.sh"
-    else
-        error_message "Unsupported OS. Exiting..."
-        exit 1
-    fi
-
     maybe_sudo mkdir -p "$(dirname "$YARA_SH_PATH")"
 
     maybe_sudo curl -SL --progress-bar "$YARA_SH_URL" -o "$TMP_DIR/yara.sh" || {
@@ -214,7 +196,7 @@ download_yara_script() {
 }
 
 reverse_update_ossec_conf() {
-    if [ "$(uname)" = "Darwin" ]; then
+    if [ "$OS" = "Darwin" ]; then
         # macOS
         if maybe_sudo grep -q '<directories realtime="yes">/Users, /Applications</directories>' "$OSSEC_CONF_PATH"; then
             info_message "Removing new yara configuration for macOS..."
@@ -295,13 +277,12 @@ install_notify_send() {
     info_message "notify-send and dependencies installed/upgraded to $NOTIFY_SEND_VERSION."
 }
 
-# For Ubuntu: Ensure notify-send is at least version 0.8.3, else upgrade to it
+# For Ubuntu: Ensure notify-send is at least expected version, else upgrade to it
 ensure_notify_send_version() {
     if command_exists notify-send; then
         version=$(notify-send --version 2>&1 | awk '{print $NF}')
-        if [ "$version" -lt "$NOTIFY_SEND_VERSION" ]; then
+        if dpkg --compare-versions "$version" ge "$NOTIFY_SEND_VERSION"; then
             info_message "notify-send version $version is already installed."
-            return 0
         else
             warn_message "notify-send version $version found. Upgrading to $NOTIFY_SEND_VERSION..."
             install_notify_send
@@ -383,7 +364,7 @@ install_yara_macos() {
 }
 
 install_yara_tools() {
-    case "$(uname)" in
+    case "$OS" in
     Linux)
         if command -v apt >/dev/null 2>&1; then
             install_yara_ubuntu
@@ -402,46 +383,14 @@ install_yara_tools() {
     esac
 }
 
-#--------------------------------------------#
-
-# Step 1: Install YARA and necessary tools
-print_step 1 "Installing YARA and necessary tools..."
-
-if [ "$(uname)" = "Linux" ]; then
-    remove_apt_yara
-    install_notify_send
-fi
-
-if command_exists yara; then
-    if [ "$(yara --version)" = "$YARA_VERSION" ]; then
-        info_message "YARA is already installed. Skipping installation."
-    else
-        if [ "$(uname)" = "Darwin" ]; then
-            remove_brew_yara
-        fi
-        info_message "Installing YARA..."
-        install_yara_tools
-    fi
-else
-    info_message "Installing YARA..."
-    install_yara_tools
-fi
-
-if [ -d "$DOWNLOADS_DIR" ]; then
-    info_message "Cleaning up downloads directory..."
-    maybe_sudo rm -rf "$DOWNLOADS_DIR"
-fi
-
-# Step 2: Download YARA rules
-print_step 2 "Downloading YARA rules..."
-YARA_RULES_FILE="$TMP_DIR/yara_rules.yar"
 download_yara_rules() {
+    YARA_RULES_FILE="$TMP_DIR/yara_rules.yar"
     YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/main/rules/yara_rules.yar"
     maybe_sudo curl -SL --progress-bar "$YARA_RULES_URL" -o "$YARA_RULES_FILE"
 
-    if [ "$(uname)" = "Linux" ]; then
+    if [ "$OS" = "Linux" ]; then
         YARA_RULES_DEST_DIR="/var/ossec/ruleset/yara/rules"
-    elif [ "$(uname)" = "Darwin" ]; then
+    elif [ "$OS" = "Darwin" ]; then
         YARA_RULES_DEST_DIR="/Library/Ossec/ruleset/yara/rules"
     else
         error_message "Unsupported OS. Exiting..."
@@ -458,6 +407,89 @@ download_yara_rules() {
         exit 1
     fi
 }
+
+validate_installation() {
+
+    VALIDATION_STATUS="TRUE"
+
+    if [ "$OS" = "Linux" ]; then
+        if command_exists notify-send; then
+            if [ "$(notify-send --version 2>&1 | awk '{print $NF}')" = "$NOTIFY_SEND_VERSION" ]; then
+            success_message "notify-send version $NOTIFY_SEND_VERSION is installed."
+            else
+                warn_message "notify-send version mismatch. Expected $NOTIFY_SEND_VERSION, but found $(notify-send --version 2>&1 | awk '{print $NF}')."
+                VALIDATION_STATUS="FALSE"
+            fi
+        else
+            warn_message "notify-send is not installed. Please install it to use notifications."
+            VALIDATION_STATUS="FALSE"
+        fi
+    fi
+    
+    if command_exists yara; then
+        if [ "$(yara --version)" = "$YARA_VERSION" ]; then
+            success_message "Yara version $YARA_VERSION is installed."
+        else
+            warn_message "Yara version mismatch. Expected $YARA_VERSION, but found $(yara --version)."
+            VALIDATION_STATUS="FALSE"
+        fi
+    else
+        error_message "Yara command is not available. Please check the installation."
+        VALIDATION_STATUS="FALSE"
+    fi
+    
+    if maybe_sudo [ ! -f "$YARA_RULES_DEST_DIR/yara_rules.yar" ]; then
+        warn_message "Yara rules files not present at $YARA_RULES_DEST_DIR/yara_rules.yar."
+        VALIDATION_STATUS="FALSE"
+    else
+        success_message "Yara rules files exists at $YARA_RULES_DEST_DIR/yara_rules.yar."
+    fi
+
+    if maybe_sudo [ ! -f "$YARA_SH_PATH" ]; then
+        warn_message "Yara active response script not present at $YARA_SH_PATH."
+        VALIDATION_STATUS="FALSE"
+    else
+        success_message "Yara active response script exists at $YARA_SH_PATH."
+    fi
+    
+    if [ "$VALIDATION_STATUS" = "TRUE" ]; then
+        success_message "YARA installation and configuration validation completed successfully."
+    else
+        error_message "YARA installation and configuration validation failed. Please check the warnings above."
+        exit 1
+    fi
+}
+
+#--------------------------------------------#
+
+# Step 1: Install YARA and necessary tools
+print_step 1 "Installing YARA and necessary tools..."
+
+if [ "$OS" = "Linux" ]; then
+    remove_apt_yara
+    ensure_notify_send_version
+fi
+if command_exists yara; then
+    if [ "$(yara --version)" = "$YARA_VERSION" ]; then
+        info_message "YARA is already installed. Skipping installation."
+    else
+        if [ "$OS" = "Darwin" ]; then
+            remove_brew_yara
+        fi
+        info_message "Installing YARA..."
+        install_yara_tools
+    fi
+else
+    info_message "Installing YARA..."
+    install_yara_tools
+fi
+if [ -d "$DOWNLOADS_DIR" ]; then
+    info_message "Cleaning up downloads directory..."
+    maybe_sudo rm -rf "$DOWNLOADS_DIR"
+fi
+
+# Step 2: Download YARA rules
+print_step 2 "Downloading YARA rules..."
 download_yara_rules
 
 # Step 3: Download yara.sh script
@@ -470,41 +502,16 @@ if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
     reverse_update_ossec_conf
 else
     warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
-    exit 1
 fi
 
 # Step 5: Restart Wazuh agent
 print_step 5 "Restarting Wazuh agent..."
-restart_wazuh_agent || {
-    error_message "Error occurred during Wazuh agent restart."
-}
-info_message "Wazuh agent restarted successfully."
+restart_wazuh_agent
 
-# Step 6: Validate installation and configuration
-validate_installation() {
-    if command_exists yara; then
-        success_message "Yara is running."
-    else
-        error_message "Yara is not installed."
-    fi
-
-    if maybe_sudo [ ! -f "$YARA_RULES_DEST_DIR/yara_rules.yar" ]; then
-        warn_message "Yara rules files not present at $YARA_RULES_DEST_DIR/yara_rules.yar."
-    else
-        success_message "Yara rules files exists at $YARA_RULES_DEST_DIR/yara_rules.yar."
-    fi
-
-    if maybe_sudo [ ! -f "$YARA_SH_PATH" ]; then
-        warn_message "Yara active response script not present at $YARA_SH_PATH."
-    else
-        success_message "Yara active response script exists at $YARA_SH_PATH."
-    fi
-
-    success_message "Installation and configuration validated successfully."
-}
-print_step 6 "Validating installation and configuration..."
-validate_installation
-
-# Step 7: Cleanup (handled by trap)
-print_step 7 "Cleaning up temporary files..."
+# Step 6: Cleanup (handled by trap)
+print_step 6 "Cleaning up temporary files..."
 info_message "Temporary files cleaned up."
+
+# Step 7: Validate installation and configuration
+print_step 7 "Validating installation and configuration..."
+validate_installation
