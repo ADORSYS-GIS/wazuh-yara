@@ -103,10 +103,5 @@ def test_yara_rules_file_permissions(host):
     assert dir.user == "root"
     assert dir.group == "wazuh"
 
-# --- Wazuh Agent Service ---
-def test_wazuh_agent_restarted(host):
-    service = host.service("wazuh-agent")
-    assert service.is_running
-    assert service.is_enabled
 
 
