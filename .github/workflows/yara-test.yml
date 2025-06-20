@@ -7,17 +7,21 @@ on:
       - develop
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - main
+      - develop
 
 jobs:
-  run-pytest:
+  run-pytest-linux:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
 
@@ -27,35 +31,68 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y curl gnupg2 
         pip install pytest pytest-testinfra
-
-        # Install wazuh-agent
-        wget https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.8.1-1_amd64.deb 
-        sudo WAZUH_MANAGER='10.0.0.2' WAZUH_AGENT_NAME='test' dpkg -i ./wazuh-agent_4.8.1-1_amd64.deb
-        sudo systemctl daemon-reload
-        sudo systemctl enable wazuh-agent
-        sudo systemctl start wazuh-agent
-
+    - name: Check install.sh syntax
+      run: |
+        sudo apt-get install -y shellcheck
+        shellcheck --shell=bash scripts/install.sh
+        
+    - name: Install Wazuh agent
+      run: |
+        curl -sfL https://raw.githubusercontent.com/adorsys-gis/wazuh-agent/main/scripts/setup-agent.sh | WAZUH_MANAGER=127.0.0.1 bash    
+    
     - name: Run yara install script
       run: |
-        sudo bash scripts/install.sh
+        bash scripts/install.sh
 
     - name: Run tests 
       run: |
         sudo $(which pytest) -vv scripts/tests/yara.py
         
+
+  run-pytest-macos:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        brew update
+        brew install python3 coreutils gnu-sed shellcheck
+        pip3 install pytest pytest-testinfra
+
+    - name: Check install.sh syntax
+      run: |
+        shellcheck --shell=bash scripts/install.sh
+        
+    - name: Install Wazuh agent
+      run: |
+        curl -sfL https://raw.githubusercontent.com/adorsys-gis/wazuh-agent/main/scripts/setup-agent.sh | WAZUH_MANAGER=127.0.0.1 bash
+    
+    - name: Run yara install script
+      run: |
+        bash scripts/install.sh
+
+    - name: Run tests
+      run: |
+        sudo $(which pytest) -vv scripts/tests/yara.py
+
   release:
     name: Release
     permissions: write-all
     needs:
-      - run-pytest
+      - run-pytest-linux
+      - run-pytest-macos
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-        
-      - name: Get the version
-        id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
 
       - name: Create Release
         id: create_release
@@ -64,7 +101,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.get_version.outputs.VERSION }}
-          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          tag_name: ${{ env.VERSION }}
+          release_name: Release ${{ env.VERSION }}
           draft: false
           prerelease: false
