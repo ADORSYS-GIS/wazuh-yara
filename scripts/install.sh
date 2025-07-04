@@ -237,13 +237,27 @@ remove_apt_yara() {
     fi
 }
 
+#Get the logged-in user (works on macOS & Linux)
+get_logged_in_user() {
+    if [ "$(uname -s)" = "Darwin" ]; then
+        scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}'
+    else
+        if command -v logname >/dev/null 2>&1; then
+            logname 2>/dev/null || who | awk '/console/{print $1}' | head -n 1
+        else
+            who | awk '/console/{print $1}' | head -n 1
+        fi
+    fi
+}
+
 remove_brew_yara() {
     # only on macOS/Homebrew
     if command_exists brew; then
         if brew list yara >/dev/null 2>&1; then
             info_message "Removing Homebrew-installed YARA package"
             info_message "Detected Homebrew YARA; uninstalling via brew"
-            brew uninstall --force yara || {
+            USER=$(get_logged_in_user)
+            maybe_sudo -u "$USER" brew uninstall --force yara || {
                 error_message "Failed to remove Homebrew-installed YARA"
             }
             success_message "Homebrew-installed YARA removed"
@@ -373,8 +387,9 @@ install_yara_macos() {
         exit 1
     }
 
-    brew install --formula "$YARA_RP_PATH"
-    brew pin yara
+    USER=$(get_logged_in_user)
+    maybe_sudo -u "$USER" brew install --formula "$YARA_RP_PATH"
+    maybe_sudo -u "$USER" brew pin yara
 
     success_message "YARA v${YARA_VERSION} built and installed from source on macOS successfully"
 }
