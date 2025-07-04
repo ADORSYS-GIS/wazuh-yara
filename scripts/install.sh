@@ -257,7 +257,7 @@ remove_brew_yara() {
             info_message "Removing Homebrew-installed YARA package"
             info_message "Detected Homebrew YARA; uninstalling via brew"
             USER=$(get_logged_in_user)
-            maybe_sudo -u "$USER" brew uninstall --force yara || {
+            sudo -u "$USER" brew uninstall --force yara || {
                 error_message "Failed to remove Homebrew-installed YARA"
             }
             success_message "Homebrew-installed YARA removed"
@@ -388,8 +388,8 @@ install_yara_macos() {
     }
 
     USER=$(get_logged_in_user)
-    maybe_sudo -u "$USER" brew install --formula "$YARA_RP_PATH"
-    maybe_sudo -u "$USER" brew pin yara
+    sudo -u "$USER" brew install --formula "$YARA_RP_PATH"
+    sudo -u "$USER" brew pin yara
 
     success_message "YARA v${YARA_VERSION} built and installed from source on macOS successfully"
 }
