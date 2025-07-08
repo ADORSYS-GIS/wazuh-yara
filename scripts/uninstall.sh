@@ -8,7 +8,11 @@ else
 fi
 
 LOG_LEVEL=${LOG_LEVEL:-INFO}
-LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
+LOGGED_IN_USER=""
+
+if [ "$(uname -s)" = "Darwin" ]; then
+    LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
+fi
 
 # Define text formatting
 RED='\033[0;31m'

@@ -20,8 +20,11 @@ TAR_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}.tar.gz"
 EXTRACT_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}"
 
 NOTIFY_SEND_VERSION=0.8.3
+LOGGED_IN_USER=""
 
-LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
+if [ "$(uname -s)" = "Darwin" ]; then
+    LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
+fi
 
 OS="$(uname -s)"
 
