@@ -20,6 +20,11 @@ TAR_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}.tar.gz"
 EXTRACT_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}"
 
 NOTIFY_SEND_VERSION=0.8.3
+LOGGED_IN_USER=""
+
+if [ "$(uname -s)" = "Darwin" ]; then
+    LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
+fi
 
 OS="$(uname -s)"
 
@@ -100,6 +105,11 @@ sed_alternative() {
     else
         maybe_sudo sed "$@"
     fi
+}
+
+#Get the logged-in user on macOS
+brew_command() {
+    sudo -u "$LOGGED_IN_USER" brew "$@"
 }
 
 # Create a temporary directory and ensure it's cleaned up on exit
@@ -240,10 +250,10 @@ remove_apt_yara() {
 remove_brew_yara() {
     # only on macOS/Homebrew
     if command_exists brew; then
-        if brew list yara >/dev/null 2>&1; then
+        if brew_command list yara >/dev/null 2>&1; then
             info_message "Removing Homebrew-installed YARA package"
             info_message "Detected Homebrew YARA; uninstalling via brew"
-            brew uninstall --force yara || {
+            brew_command uninstall --force yara || {
                 error_message "Failed to remove Homebrew-installed YARA"
             }
             success_message "Homebrew-installed YARA removed"
@@ -373,8 +383,8 @@ install_yara_macos() {
         exit 1
     }
 
-    brew install --formula "$YARA_RP_PATH"
-    brew pin yara
+    brew_command install --formula "$YARA_RP_PATH"
+    brew_command pin yara
 
     success_message "YARA v${YARA_VERSION} built and installed from source on macOS successfully"
 }
