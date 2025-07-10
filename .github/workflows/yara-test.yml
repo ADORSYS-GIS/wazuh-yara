@@ -38,7 +38,7 @@ jobs:
         
     - name: Install Wazuh agent
       run: |
-        curl -sfL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/refs/heads/main/scripts/install.sh | sudo bash    
+        curl -sfL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/main/scripts/install.sh | sudo bash    
     
     - name: Run yara install script
       run: |
@@ -73,7 +73,7 @@ jobs:
         
     - name: Install Wazuh agent
       run: |
-        curl -sfL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/refs/heads/main/scripts/install.sh | sudo bash
+        curl -sfL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/main/scripts/install.sh | sudo bash
     
     - name: Run yara install script
       run: |
