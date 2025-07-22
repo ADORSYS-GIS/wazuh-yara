@@ -8,6 +8,11 @@ else
 fi
 
 LOG_LEVEL=${LOG_LEVEL:-INFO}
+LOGGED_IN_USER=""
+
+if [ "$(uname -s)" = "Darwin" ]; then
+    LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
+fi
 
 # Define text formatting
 RED='\033[0;31m'
@@ -53,6 +58,10 @@ sed_alternative() {
     else
         maybe_sudo sed "$@"
     fi
+}
+
+brew_command() {
+    sudo -u "$LOGGED_IN_USER" brew "$@"
 }
 
 # Restart wazuh agent
@@ -108,7 +117,7 @@ uninstall_yara() {
         if [ "$(uname)" = "Linux" ]; then
             uninstall_yara_ubuntu
         elif [ "$(uname)" = "Darwin" ]; then
-            brew uninstall --force yara || {
+            brew_command uninstall --force yara || {
                 warn_message "Failed to remove Homebrew-installed YARA"
             }
         else
