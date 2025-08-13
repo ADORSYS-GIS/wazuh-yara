@@ -374,19 +374,27 @@ install_yara_ubuntu() {
 }
 
 install_yara_macos() {
-    info_message "Installing YARA v${YARA_VERSION} from source on macOS" ""
-    YARA_RB_URL="https://raw.githubusercontent.com/Homebrew/homebrew-core/5239837c0dc157e5ffdfb2de325e942118db9485/Formula/y/yara.rb" #v4.5.4
-    YARA_RP_PATH="$DOWNLOADS_DIR/yara.rb"
-
-    curl -SL --progress-bar "$YARA_RB_URL" -o "$YARA_RP_PATH" || {
+    info_message "Installing YARA v${YARA_VERSION} from source on macOS"
+    
+    YARA_RB_URL="https://raw.githubusercontent.com/Homebrew/homebrew-core/5239837c0dc157e5ffdfb2de325e942118db9485/Formula/y/yara.rb"
+    
+    # Use a location accessible to the target user
+    USER_HOME=$(eval echo "~$LOGGED_IN_USER")
+    YARA_RP_PATH="$USER_HOME/yara.rb"
+    
+    # Download as the target user, not as root
+    info_message "Downloading yara.rb formula..."
+    sudo -u "$LOGGED_IN_USER" curl -SL --progress-bar "$YARA_RB_URL" -o "$YARA_RP_PATH" || {
         error_message "Failed to download yara.rb file"
         exit 1
     }
-
+    
+    # Install using the file in user's home directory
     brew_command install --formula "$YARA_RP_PATH"
     brew_command pin yara
-
-    success_message "YARA v${YARA_VERSION} built and installed from source on macOS successfully"
+    
+    # Clean up
+    sudo -u "$LOGGED_IN_USER" rm -f "$YARA_RP_PATH"
 }
 
 install_yara() {
