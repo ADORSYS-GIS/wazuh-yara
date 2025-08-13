@@ -109,7 +109,7 @@ sed_alternative() {
 
 #Get the logged-in user on macOS
 brew_command() {
-    sudo -u "$LOGGED_IN_USER" brew "$@"
+    sudo -u "$LOGGED_IN_USER" -H -i brew "$@"
 }
 
 # Create a temporary directory and ensure it's cleaned up on exit
