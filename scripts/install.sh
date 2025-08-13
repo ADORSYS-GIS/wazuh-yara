@@ -23,7 +23,7 @@ NOTIFY_SEND_VERSION=0.8.3
 LOGGED_IN_USER=""
 
 if [ "$(uname -s)" = "Darwin" ]; then
-    LOGGED_IN_USER=$(stat -f '%Su' "$(brew --prefix)")
+    LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
 fi
 
 OS="$(uname -s)"
