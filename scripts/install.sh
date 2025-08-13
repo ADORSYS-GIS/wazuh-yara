@@ -20,11 +20,62 @@ TAR_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}.tar.gz"
 EXTRACT_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}"
 
 NOTIFY_SEND_VERSION=0.8.3
-LOGGED_IN_USER=""
 
-if [ "$(uname -s)" = "Darwin" ]; then
-    LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
-fi
+# ---------- Homebrew helpers ----------
+BREW_BIN=""
+BREW_PREFIX=""
+BREW_OWNER=""
+
+init_brew_env() {
+    [ "$(uname -s)" = "Darwin" ] || return 0
+    
+    # Try architecture-specific default first
+    case "$(uname -m)" in
+        arm64) local default_prefix="/opt/homebrew" ;;
+        *)     local default_prefix="/usr/local" ;;
+    esac
+    
+    # Check common locations in order of preference
+    for prefix in "$default_prefix" "/opt/homebrew" "/usr/local"; do
+        if [ -x "$prefix/bin/brew" ]; then
+            BREW_BIN="$prefix/bin/brew"
+            BREW_PREFIX="$prefix"
+            break
+        fi
+    done
+    
+    # If not found, try PATH
+    if [ -z "$BREW_BIN" ]; then
+        local found="$(command -v brew 2>/dev/null || true)"
+        if [ -n "$found" ] && [ -x "$found" ]; then
+            BREW_BIN="$found"
+            BREW_PREFIX="$(dirname "$(dirname "$found")")"
+        fi
+    fi
+    
+    # Determine owner
+    if [ -n "$BREW_PREFIX" ] && [ -d "$BREW_PREFIX" ]; then
+        BREW_OWNER="$(/usr/bin/stat -f '%Su' "$BREW_PREFIX" 2>/dev/null || echo "unknown")"
+    fi
+}
+
+brew_available() {
+    init_brew_env
+    [ -n "$BREW_BIN" ] && [ -x "$BREW_BIN" ] && [ -n "$BREW_OWNER" ] && [ "$BREW_OWNER" != "root" ]
+}
+
+require_brew_or_exit() {
+    if ! brew_available; then
+        error_message "Homebrew not available (or owner undetected). Install Homebrew as a regular user first."
+        exit 1
+    fi
+}
+
+brew_command() {
+    require_brew_or_exit
+    sudo -H -u "$BREW_OWNER" env NONINTERACTIVE=1 PATH="$(dirname "$BREW_BIN"):/usr/bin:/bin:/usr/sbin:/sbin" "$BREW_BIN" "$@"
+}
+# ---------- end Homebrew helpers ----------
 
 OS="$(uname -s)"
 
@@ -37,7 +88,7 @@ elif [ "$OS" = "Darwin" ]; then
     WAZUH_CONTROL_BIN_PATH="/Library/Ossec/bin/wazuh-control"
     YARA_SH_PATH="/Library/Ossec/active-response/bin/yara.sh"
 else
-    error_message "Unsupported OS. Exiting..."
+    echo "Unsupported OS. Exiting..." >&2
     exit 1
 fi
 
@@ -105,11 +156,6 @@ sed_alternative() {
     else
         maybe_sudo sed "$@"
     fi
-}
-
-#Get the logged-in user on macOS
-brew_command() {
-    sudo -u "$LOGGED_IN_USER" brew "$@"
 }
 
 # Create a temporary directory and ensure it's cleaned up on exit
@@ -249,8 +295,8 @@ remove_apt_yara() {
 
 remove_brew_yara() {
     # only on macOS/Homebrew
-    if command_exists brew; then
-        if brew_command list yara >/dev/null 2>&1; then
+    if brew_available; then
+        if brew_command list --formula yara >/dev/null 2>&1; then
             info_message "Removing Homebrew-installed YARA package"
             info_message "Detected Homebrew YARA; uninstalling via brew"
             brew_command uninstall --force yara || {
