@@ -376,24 +376,23 @@ install_yara_ubuntu() {
 install_yara_macos() {
     info_message "Installing YARA v${YARA_VERSION} via Homebrew tap on macOS"
 
-    # Ensure brew is available
     if ! command_exists brew; then
         error_message "Homebrew is not installed. Please install Homebrew first: https://brew.sh/"
         exit 1
     fi
 
-    # Create a local tap directory without enabling developer mode
+    # Local tap path
     TAP_NAME="wazuh/local"
     TAP_PATH="$(brew --repository)/Library/Taps/wazuh/homebrew-local/Formula"
 
+    # Ensure directory exists (no tap-new, no developer mode)
     if [ ! -d "$TAP_PATH" ]; then
         info_message "Creating local tap directory for $TAP_NAME..."
         mkdir -p "$TAP_PATH"
         echo "# auto-generated tap for YARA" > "$(dirname "$TAP_PATH")/README.md"
-        brew_command tap "$TAP_NAME" "$TAP_PATH"
     fi
 
-    # Download yara.rb from Homebrew-core repo
+    # Download yara.rb into the tap
     YARA_RB_URL="https://raw.githubusercontent.com/Homebrew/homebrew-core/5239837c0dc157e5ffdfb2de325e942118db9485/Formula/y/yara.rb"
     YARA_RB_FILE="$TAP_PATH/yara.rb"
 
@@ -403,16 +402,16 @@ install_yara_macos() {
         exit 1
     }
 
-    # Install from the tap
-    brew_command install wazuh/local/yara || {
+    # Install from local tap
+    brew_command install "$TAP_NAME/yara" || {
         error_message "Failed to install YARA from local tap"
         exit 1
     }
 
-    # Pin the version to avoid upgrades
+    # Pin version
     brew_command pin yara
 
-    success_message "YARA v${YARA_VERSION} installed successfully via Homebrew tap"
+    success_message "YARA v${YARA_VERSION} installed successfully via local Homebrew tap"
 }
 
 install_yara() {
