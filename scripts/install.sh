@@ -374,27 +374,45 @@ install_yara_ubuntu() {
 }
 
 install_yara_macos() {
-    info_message "Installing YARA v${YARA_VERSION} from source on macOS"
-    
+    info_message "Installing YARA v${YARA_VERSION} via Homebrew tap on macOS"
+
+    # Ensure brew is available
+    if ! command_exists brew; then
+        error_message "Homebrew is not installed. Please install Homebrew first: https://brew.sh/"
+        exit 1
+    fi
+
+    # Create a local tap directory without enabling developer mode
+    TAP_NAME="wazuh/local"
+    TAP_PATH="$(brew --repository)/Library/Taps/wazuh/homebrew-local/Formula"
+
+    if [ ! -d "$TAP_PATH" ]; then
+        info_message "Creating local tap directory for $TAP_NAME..."
+        mkdir -p "$TAP_PATH"
+        echo "# auto-generated tap for YARA" > "$(dirname "$TAP_PATH")/README.md"
+        brew_command tap "$TAP_NAME" "$TAP_PATH"
+    fi
+
+    # Download yara.rb from Homebrew-core repo
     YARA_RB_URL="https://raw.githubusercontent.com/Homebrew/homebrew-core/5239837c0dc157e5ffdfb2de325e942118db9485/Formula/y/yara.rb"
-    
-    # Use a location accessible to the target user
-    USER_HOME=$(eval echo "~$LOGGED_IN_USER")
-    YARA_RP_PATH="$USER_HOME/yara.rb"
-    
-    # Download as the target user, not as root
-    info_message "Downloading yara.rb formula..."
-    sudo -u "$LOGGED_IN_USER" curl -SL --progress-bar "$YARA_RB_URL" -o "$YARA_RP_PATH" || {
+    YARA_RB_FILE="$TAP_PATH/yara.rb"
+
+    info_message "Downloading yara.rb formula to $YARA_RB_FILE..."
+    sudo -u "$LOGGED_IN_USER" curl -sSL --progress-bar "$YARA_RB_URL" -o "$YARA_RB_FILE" || {
         error_message "Failed to download yara.rb file"
         exit 1
     }
-    
-    # Install using the file in user's home directory
-    brew_command install --formula "$YARA_RP_PATH"
+
+    # Install from the tap
+    brew_command install wazuh/local/yara || {
+        error_message "Failed to install YARA from local tap"
+        exit 1
+    }
+
+    # Pin the version to avoid upgrades
     brew_command pin yara
-    
-    # Clean up
-    sudo -u "$LOGGED_IN_USER" rm -f "$YARA_RP_PATH"
+
+    success_message "YARA v${YARA_VERSION} installed successfully via Homebrew tap"
 }
 
 install_yara() {
