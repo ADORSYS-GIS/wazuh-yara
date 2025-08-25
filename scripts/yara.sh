@@ -205,7 +205,7 @@ send_notification_linux() {
                     echo "wazuh-yara: DEBUG - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
                     rm -f "${file_path}"
                     if [ $? -eq 0 ]; then
-                        echo "wazuh-yara: DEBUG - File deleted: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: INFO - File deleted: ${file_path}" >> "${LOG_FILE}"
                         delete_success+=("${file_path}")
                     else
                         echo "wazuh-yara: ERROR - Failed to delete file: ${file_path}" >> "${LOG_FILE}"
@@ -247,8 +247,10 @@ send_notification_linux() {
                 local ignore_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
                     if add_fim_ignore "${file_path}"; then
+                        echo "wazuh-yara: INFO - File ignored in FIM: ${file_path}" >> "${LOG_FILE}"
                         ignore_success+=("${file_path}")
                     else
+                        echo "wazuh-yara: ERROR - Failed to ignore file in FIM: ${file_path}" >> "${LOG_FILE}"
                         ignore_fail+=("${file_path}")
                     fi
                 done
@@ -335,7 +337,7 @@ send_notification_macos() {
                     echo "wazuh-yara: DEBUG - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
                     rm -f "${file_path}"
                     if [ $? -eq 0 ]; then
-                        echo "wazuh-yara: DEBUG - File deleted: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: INFO - File deleted: ${file_path}" >> "${LOG_FILE}"
                         delete_success+=("${file_path}")
                     else
                         echo "wazuh-yara: ERROR - Failed to delete file: ${file_path}" >> "${LOG_FILE}"
@@ -375,8 +377,10 @@ send_notification_macos() {
                 local ignore_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
                     if add_fim_ignore "${file_path}"; then
+                        echo "wazuh-yara: INFO - File ignored in FIM: ${file_path}" >> "${LOG_FILE}"
                         ignore_success+=("${file_path}")
                     else
+                        echo "wazuh-yara: ERROR - Failed to ignore file in FIM: ${file_path}" >> "${LOG_FILE}"
                         ignore_fail+=("${file_path}")
                     fi
                 done
