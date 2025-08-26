@@ -261,6 +261,29 @@ remove_brew_yara() {
     fi
 }
 
+check_and_update_bash() {
+    if [ "$OS" = "Darwin" ]; then
+        if command_exists brew; then
+            local current_version
+            current_version=$(bash --version | head -n1 | cut -d' ' -f4 | cut -d'.' -f1)
+            local min_version=4
+
+            if [ "$current_version" -lt "$min_version" ]; then
+                info_message "Outdated Bash version detected (${current_version}), installing newer version..."
+                brew_command install bash || {
+                    error_message "Failed to install newer Bash version"
+                    return 1
+                }
+                success_message "Bash updated successfully"
+            else
+                info_message "Bash version is up to date (${current_version})"
+            fi
+        else
+            warn_message "Homebrew is not installed. Cannot update Bash version."
+        fi
+    fi
+}
+
 install_notify_send() {
     deb_dir="$TMP_DIR/notify-send-debs"
     mkdir -p "$deb_dir"
@@ -541,6 +564,8 @@ validate_installation() {
 
 # Step 1: Install YARA and necessary tools
 print_step 1 "Installing YARA and necessary tools..."
+# Check and update Bash version if needed
+check_and_update_bash
 install_yara_and_tools
 
 # Step 2: Download YARA rules
