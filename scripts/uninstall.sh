@@ -9,6 +9,9 @@ fi
 
 LOG_LEVEL=${LOG_LEVEL:-INFO}
 LOGGED_IN_USER=""
+TAP_NAME="adorsys-gis/tools"
+VERSION="${1:-4.5.4}"
+FORMULA="$TAP_NAME/yara@$VERSION"
 
 if [ "$(uname -s)" = "Darwin" ]; then
     LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
@@ -112,21 +115,17 @@ uninstall_yara_ubuntu() {
 # Uninstall YARA based on package manager
 uninstall_yara() {
     if command -v yara >/dev/null 2>&1; then
-        YARA_BIN_PATH=$(which yara)
-        info_message "Removing YARA..."
-        if [ "$(uname)" = "Linux" ]; then
-            uninstall_yara_ubuntu
-        elif [ "$(uname)" = "Darwin" ]; then
-            # Uninstall the specific version formula
-            brew_command uninstall yara@4.5.4 || {
-                warn_message "Failed to remove Homebrew-installed YARA 4.5.4"
+        if  brew_command list "$FORMULA" >/dev/null 2>&1; then
+            brew_command uninstall $FORMULA || {
+                warn_message "Failed to remove $FORMULA"
             }
         else
-            error_message "Unsupported operating system for uninstalling Yara."
-            exit 1
+            brew_command uninstall yara || {
+                warn_message "Failed to remove Homebrew default YARA"
+            }
         fi
     else
-        warn_message "Yara is not installed. Skipping uninstallation."
+        info_message "No YARA installation detected, skipping."
     fi
 }
 
