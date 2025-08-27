@@ -252,6 +252,7 @@ remove_brew_yara() {
     if command_exists brew; then
         if brew_command list yara >/dev/null 2>&1; then
             info_message "Detected other version of YARA; uninstalling via brew"
+            brew_command unpin yara
             brew_command uninstall --force yara || {
                 error_message "Failed to remove Homebrew-installed YARA"
             }
