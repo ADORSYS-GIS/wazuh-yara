@@ -117,8 +117,9 @@ uninstall_yara() {
         if [ "$(uname)" = "Linux" ]; then
             uninstall_yara_ubuntu
         elif [ "$(uname)" = "Darwin" ]; then
-            brew_command uninstall --force yara || {
-                warn_message "Failed to remove Homebrew-installed YARA"
+            # Uninstall the specific version formula
+            brew_command uninstall yara@4.5.4 || {
+                warn_message "Failed to remove Homebrew-installed YARA 4.5.4"
             }
         else
             error_message "Unsupported operating system for uninstalling Yara."
