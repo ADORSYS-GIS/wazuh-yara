@@ -453,6 +453,7 @@ install_yara_and_tools(){
             info_message "YARA is already installed. Skipping installation."
         else
             if [ "$OS" = "Darwin" ]; then
+                brew_command unpin yara
                 remove_brew_yara
             fi
             info_message "Installing YARA..."

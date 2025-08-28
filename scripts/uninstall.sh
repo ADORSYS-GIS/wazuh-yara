@@ -120,6 +120,7 @@ uninstall_yara() {
                 warn_message "Failed to remove $FORMULA"
             }
         else
+            brew_command unpin yara
             brew_command uninstall yara || {
                 warn_message "Failed to remove Homebrew default YARA"
             }
