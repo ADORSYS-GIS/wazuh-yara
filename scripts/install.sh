@@ -251,12 +251,35 @@ remove_brew_yara() {
     # only on macOS/Homebrew
     if command_exists brew; then
         if brew_command list yara >/dev/null 2>&1; then
-            info_message "Removing Homebrew-installed YARA package"
-            info_message "Detected Homebrew YARA; uninstalling via brew"
+            info_message "Detected other version of YARA; uninstalling via brew"
+            brew_command unpin yara
             brew_command uninstall --force yara || {
                 error_message "Failed to remove Homebrew-installed YARA"
             }
             success_message "Homebrew-installed YARA removed"
+        fi
+    fi
+}
+
+check_and_update_bash() {
+    if [ "$OS" = "Darwin" ]; then
+        if command_exists brew; then
+            local current_version
+            current_version=$(bash --version | head -n1 | cut -d' ' -f4 | cut -d'.' -f1)
+            local min_version=4
+
+            if [ "$current_version" -lt "$min_version" ]; then
+                info_message "Outdated Bash version detected (${current_version}), installing newer version..."
+                brew_command install bash || {
+                    error_message "Failed to install newer Bash version"
+                    return 1
+                }
+                success_message "Bash updated successfully"
+            else
+                info_message "Bash version is up to date (${current_version})"
+            fi
+        else
+            warn_message "Homebrew is not installed. Cannot update Bash version."
         fi
     fi
 }
@@ -381,35 +404,20 @@ install_yara_macos() {
         exit 1
     fi
 
-    # Local tap path
-    TAP_NAME="wazuh/local"
-    TAP_PATH="$(brew --repository)/Library/Taps/wazuh/homebrew-local/Formula"
-
-    # Ensure directory exists (no tap-new, no developer mode)
-    if [ ! -d "$TAP_PATH" ]; then
-        info_message "Creating local tap directory for $TAP_NAME..."
-        mkdir -p "$TAP_PATH"
-        echo "# auto-generated tap for YARA" > "$(dirname "$TAP_PATH")/README.md"
-    fi
-
-    # Download yara.rb into the tap
-    YARA_RB_URL="https://raw.githubusercontent.com/Homebrew/homebrew-core/5239837c0dc157e5ffdfb2de325e942118db9485/Formula/y/yara.rb"
-    YARA_RB_FILE="$TAP_PATH/yara.rb"
-
-    info_message "Downloading yara.rb formula to $YARA_RB_FILE..."
-    sudo -u "$LOGGED_IN_USER" curl -sSL --progress-bar "$YARA_RB_URL" -o "$YARA_RB_FILE" || {
-        error_message "Failed to download yara.rb file"
+    # Tap the adorsys-gis tools repository
+    TAP_NAME="adorsys-gis/tools"
+    
+    info_message "Tapping $TAP_NAME repository..."
+    brew_command tap "$TAP_NAME" "https://github.com/adorsys-gis/homebrew-tools" || {
+        error_message "Failed to tap $TAP_NAME repository"
         exit 1
     }
 
-    # Install from local tap
-    brew_command install "$TAP_NAME/yara" || {
-        error_message "Failed to install YARA from local tap"
+    # Install specific yara version from the tap
+    brew_command install "$TAP_NAME/yara@4.5.4" || {
+        error_message "Failed to install YARA 4.5.4 from tap"
         exit 1
     }
-
-    # Pin version
-    brew_command pin yara
 
     success_message "YARA v${YARA_VERSION} installed successfully via local Homebrew tap"
 }
@@ -541,6 +549,8 @@ validate_installation() {
 
 # Step 1: Install YARA and necessary tools
 print_step 1 "Installing YARA and necessary tools..."
+# Check and update Bash version if needed
+check_and_update_bash
 install_yara_and_tools
 
 # Step 2: Download YARA rules

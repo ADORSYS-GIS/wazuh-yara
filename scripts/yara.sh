@@ -7,6 +7,40 @@
 # License (version 2) as published by the FSF - Free Software
 # Foundation.
 
+# Check Bash version and re-execute with newer bash if needed
+if [ -n "$BASH_VERSION" ]; then
+    bash_major="${BASH_VERSION%%.*}"
+    if [ "$bash_major" -lt 4 ]; then
+        # Try to find a newer bash
+        newer_bash=""
+        
+        # Check common locations for newer bash
+        if [ -x "/opt/homebrew/bin/bash" ]; then
+            # macOS Apple Silicon with Homebrew
+            newer_bash="/opt/homebrew/bin/bash"
+        elif [ -x "/usr/local/bin/bash" ]; then
+            # macOS Intel with Homebrew or Ubuntu with custom bash
+            newer_bash="/usr/local/bin/bash"
+        elif [ -x "/bin/bash" ]; then
+            # Check if system bash is actually version 4+
+            system_bash_version=$(/bin/bash -c 'echo $BASH_VERSION' 2>/dev/null)
+            system_bash_major="${system_bash_version%%.*}"
+            if [ "$system_bash_major" -ge 4 ] 2>/dev/null; then
+                newer_bash="/bin/bash"
+            fi
+        fi
+        
+        # Re-execute with newer bash if found
+        if [ -n "$newer_bash" ]; then
+            exec "$newer_bash" "$0" "$@"
+        else
+            echo "Error: This script requires Bash 4.0 or later. Current version: $BASH_VERSION" >&2
+            echo "Please install a newer version of Bash." >&2
+            exit 1
+        fi
+    fi
+fi
+
 # Exit immediately if a command exits with a non-zero status.
 if [ -n "$BASH_VERSION" ]; then
     set -euo pipefail
@@ -205,10 +239,10 @@ send_notification_linux() {
                     echo "wazuh-yara: DEBUG - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
                     rm -f "${file_path}"
                     if [ $? -eq 0 ]; then
-                        echo "wazuh-yara: INFO - File deleted: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: SUCCESS - Delete file: ${file_path}" >> "${LOG_FILE}"
                         delete_success+=("${file_path}")
                     else
-                        echo "wazuh-yara: ERROR - Failed to delete file: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: ERROR - Delete file: ${file_path}" >> "${LOG_FILE}"
                         delete_fail+=("${file_path}")
                     fi
                 done
@@ -247,10 +281,10 @@ send_notification_linux() {
                 local ignore_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
                     if add_fim_ignore "${file_path}"; then
-                        echo "wazuh-yara: INFO - File ignored in FIM: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: SUCCESS - Ignore file: ${file_path}" >> "${LOG_FILE}"
                         ignore_success+=("${file_path}")
                     else
-                        echo "wazuh-yara: ERROR - Failed to ignore file in FIM: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: ERROR - Ignore file: ${file_path}" >> "${LOG_FILE}"
                         ignore_fail+=("${file_path}")
                     fi
                 done
@@ -337,10 +371,10 @@ send_notification_macos() {
                     echo "wazuh-yara: DEBUG - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
                     rm -f "${file_path}"
                     if [ $? -eq 0 ]; then
-                        echo "wazuh-yara: INFO - File deleted: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: SUCCESS - Delete file: ${file_path}" >> "${LOG_FILE}"
                         delete_success+=("${file_path}")
                     else
-                        echo "wazuh-yara: ERROR - Failed to delete file: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: ERROR - Delete file: ${file_path}" >> "${LOG_FILE}"
                         delete_fail+=("${file_path}")
                     fi
                 done
@@ -377,10 +411,10 @@ send_notification_macos() {
                 local ignore_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
                     if add_fim_ignore "${file_path}"; then
-                        echo "wazuh-yara: INFO - File ignored in FIM: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: SUCCESS - Ignore file: ${file_path}" >> "${LOG_FILE}"
                         ignore_success+=("${file_path}")
                     else
-                        echo "wazuh-yara: ERROR - Failed to ignore file in FIM: ${file_path}" >> "${LOG_FILE}"
+                        echo "wazuh-yara: ERROR - Ignore file: ${file_path}" >> "${LOG_FILE}"
                         ignore_fail+=("${file_path}")
                     fi
                 done
