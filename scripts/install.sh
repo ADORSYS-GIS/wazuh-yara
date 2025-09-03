@@ -563,10 +563,15 @@ install_yara_and_tools(){
         ensure_zenity_is_installed
     fi
     if command_exists yara; then
-        if [ "$(yara --version)" = "$YARA_VERSION" ]; then
-            info_message "YARA is already installed. Skipping installation."
+        current_version=$(yara --version 2>/dev/null || echo "unknown")
+        info_message "Current YARA version detected: $current_version"
+        
+        # Check if it's the prebuilt version we want (checking for exact version and if it's in /opt/yara)
+        if [ "$current_version" = "$YARA_VERSION" ] && [ -d "/opt/yara" ]; then
+            info_message "YARA prebuilt version $YARA_VERSION is already installed. Skipping installation."
         else
             if [ "$OS" = "Darwin" ]; then
+                info_message "Different YARA version detected. Removing and reinstalling..."
                 # Remove any existing YARA installations
                 remove_brew_yara
                 remove_prebuilt_yara
