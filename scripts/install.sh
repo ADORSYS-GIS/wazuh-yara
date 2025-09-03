@@ -257,10 +257,11 @@ remove_brew_yara() {
         if brew_command list yara >/dev/null 2>&1; then
             info_message "Detected Homebrew version of YARA; uninstalling via brew"
             brew_command unpin yara 2>/dev/null || true
-            brew_command uninstall --force yara || {
-                error_message "Failed to remove Homebrew-installed YARA"
-            }
-            success_message "Homebrew-installed YARA removed"
+            if brew_command uninstall --force yara; then
+                success_message "Homebrew-installed YARA removed"
+            else
+                warn_message "Homebrew uninstall had issues but continuing anyway"
+            fi
         fi
     fi
 }
@@ -473,9 +474,26 @@ install_yara_macos_prebuilt() {
     # Extract the tarball
     print_step "3" "Extracting YARA binary to ${install_dir}"
     
-    if ! maybe_sudo tar -xzf "$download_path" -C "$install_dir"; then
+    # First extract to temp to check structure
+    local temp_extract="${TMP_DIR}/yara_extract"
+    mkdir -p "$temp_extract"
+    
+    if ! tar -xzf "$download_path" -C "$temp_extract"; then
         error_message "Failed to extract YARA binary"
         exit 1
+    fi
+    
+    # Check if there's a nested directory and move contents appropriately
+    local extracted_dir
+    extracted_dir=$(ls -d "$temp_extract"/* | head -n1)
+    
+    if [ -d "$extracted_dir/bin" ]; then
+        # Contents are in a subdirectory, move them to install_dir
+        info_message "Moving extracted contents to ${install_dir}"
+        maybe_sudo cp -R "$extracted_dir"/* "$install_dir/"
+    else
+        # Contents are directly extracted, move everything
+        maybe_sudo cp -R "$temp_extract"/* "$install_dir/"
     fi
     
     success_message "Extracted YARA binary successfully"
