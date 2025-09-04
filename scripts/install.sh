@@ -425,8 +425,46 @@ install_yara_ubuntu() {
     success_message "YARA v${YARA_VERSION} installed from source successfully"
 }
 
+ensure_macos_dependencies() {
+    info_message "Ensuring required dependencies are installed..."
+    
+    if ! command_exists brew; then
+        error_message "Homebrew is required to install dependencies. Please install Homebrew first: https://brew.sh/"
+        exit 1
+    fi
+    
+    local deps=("openssl@3" "pcre2" "libmagic" "jansson" "protobuf-c")
+    local missing_deps=()
+    
+    # Check which dependencies are missing
+    for dep in "${deps[@]}"; do
+        if ! brew_command list "$dep" >/dev/null 2>&1; then
+            missing_deps+=("$dep")
+        fi
+    done
+    
+    # Install missing dependencies
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        info_message "Installing missing dependencies: ${missing_deps[*]}"
+        for dep in "${missing_deps[@]}"; do
+            info_message "Installing $dep..."
+            if brew_command install "$dep"; then
+                success_message "Installed $dep"
+            else
+                error_message "Failed to install $dep"
+                exit 1
+            fi
+        done
+    else
+        info_message "All required dependencies are already installed"
+    fi
+}
+
 install_yara_macos_prebuilt() {
     info_message "Installing YARA v${YARA_VERSION} from prebuilt binaries on macOS"
+
+    # Ensure dependencies are installed
+    ensure_macos_dependencies
 
     # Detect architecture
     local arch
