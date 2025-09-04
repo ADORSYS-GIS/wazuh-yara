@@ -523,11 +523,14 @@ install_yara_macos_prebuilt() {
     
     # Check if there's a nested directory and move contents appropriately
     local extracted_dir
-    extracted_dir=$(find "$temp_extract" -maxdepth 1 -type d | head -n1)
+    extracted_dir=$(ls -d "$temp_extract"/* | head -n1)
     
     if [ -d "$extracted_dir/bin" ]; then
-        # Contents are in a subdirectory, move them to install_dir
-        info_message "Moving extracted contents to ${install_dir}"
+        # Contents are in a subdirectory, move them directly to install_dir
+        info_message "Moving extracted contents directly to ${install_dir}"
+        # Clear the install directory first to avoid nested structures
+        maybe_sudo rm -rf "$install_dir"/*
+        # Move the contents of the nested directory directly to install_dir
         maybe_sudo cp -R "$extracted_dir"/* "$install_dir/"
     else
         # Contents are directly extracted, move everything
