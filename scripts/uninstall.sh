@@ -9,9 +9,7 @@ fi
 
 LOG_LEVEL=${LOG_LEVEL:-INFO}
 LOGGED_IN_USER=""
-TAP_NAME="adorsys-gis/tools"
 VERSION="${1:-4.5.4}"
-FORMULA="$TAP_NAME/yara@$VERSION"
 
 if [ "$(uname -s)" = "Darwin" ]; then
     LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
@@ -64,13 +62,17 @@ sed_alternative() {
 }
 
 brew_command() {
-    sudo -u "$LOGGED_IN_USER" brew "$@"
+    if [ -n "$LOGGED_IN_USER" ]; then
+        sudo -u "$LOGGED_IN_USER" brew "$@"
+    else
+        brew "$@"
+    fi
 }
 
-# Restart wazuh agent
+# Restart Wazuh agent
 restart_wazuh_agent() {
-    info_message "Restarting wazuh agent..."
-    case "$(uname)" in
+    info_message "Restarting Wazuh agent..."
+    case "$(uname -s)" in
         Linux)
             if maybe_sudo [ -f "/var/ossec/bin/wazuh-control" ]; then
                 maybe_sudo /var/ossec/bin/wazuh-control restart && info_message "Wazuh agent restarted successfully." || warn_message "Error occurred during Wazuh agent restart."
@@ -92,11 +94,55 @@ restart_wazuh_agent() {
     esac
 }
 
+# Remove prebuilt YARA installation (macOS)
+remove_prebuilt_yara() {
+    local install_dir="/opt/yara"
+    if [ -d "$install_dir" ]; then
+        info_message "Removing prebuilt YARA installation from ${install_dir}"
+        # Remove symlinks
+        if [ -L "/usr/local/bin/yara" ]; then
+            maybe_sudo rm -f /usr/local/bin/yara
+            info_message "Removed yara symlink"
+        fi
+        if [ -L "/usr/local/bin/yarac" ]; then
+            maybe_sudo rm -f /usr/local/bin/yarac
+            info_message "Removed yarac symlink"
+        fi
+        # Remove installation directory
+        maybe_sudo rm -rf "$install_dir"
+        success_message "Removed prebuilt YARA installation"
+    else
+        info_message "No prebuilt YARA installation found at ${install_dir}"
+    fi
+}
 
+# Remove source-installed YARA (Linux)
+remove_source_yara() {
+    info_message "Checking for source-installed YARA..."
+    local yara_bin="/usr/local/bin/yara"
+    local yarac_bin="/usr/local/bin/yarac"
+    local yara_lib="/usr/local/lib/libyara*"
+    local yara_include="/usr/local/include/yara"
+    local yara_man="/usr/local/share/man/man1/yara*"
 
-# Uninstall YARA based on package manager
+    if [ -f "$yara_bin" ] || [ -f "$yarac_bin" ] || ls $yara_lib >/dev/null 2>&1; then
+        info_message "Removing source-installed YARA components..."
+        [ -f "$yara_bin" ] && maybe_sudo rm -f "$yara_bin" && info_message "Removed $yara_bin"
+        [ -f "$yarac_bin" ] && maybe_sudo rm -f "$yarac_bin" && info_message "Removed $yarac_bin"
+        ls $yara_lib >/dev/null 2>&1 && maybe_sudo rm -f $yara_lib && info_message "Removed YARA libraries from /usr/local/lib"
+        [ -d "$yara_include" ] && maybe_sudo rm -rf "$yara_include" && info_message "Removed $yara_include"
+        ls $yara_man >/dev/null 2>&1 && maybe_sudo rm -f $yara_man && info_message "Removed YARA man pages"
+        maybe_sudo ldconfig && info_message "Updated shared library cache"
+        success_message "Source-installed YARA removed"
+    else
+        info_message "No source-installed YARA found"
+    fi
+}
+
+# Uninstall YARA for Ubuntu
 uninstall_yara_ubuntu() {
-    # only on Debian/Ubuntu
+    info_message "Checking for YARA installation..."
+    # Check for apt-installed YARA
     if command -v dpkg >/dev/null 2>&1; then
         if dpkg -s yara >/dev/null 2>&1; then
             info_message "Detected apt-installed YARA; uninstalling via apt"
@@ -104,40 +150,64 @@ uninstall_yara_ubuntu() {
                 error_message "Failed to remove apt-installed YARA"
                 exit 1
             }
+            maybe_sudo apt-get autoremove -y
+            success_message "Apt-installed YARA removed"
         else
-            maybe_sudo rm $YARA_BIN_PATH || warn_message "unable to remove Yara"
+            info_message "No apt-installed YARA found"
         fi
-        maybe_sudo apt-get autoremove -y
-        success_message "Apt-installed YARA removed"
     fi
+    # Check for source-installed YARA
+    remove_source_yara
 }
 
-# Uninstall YARA based on package manager
-uninstall_yara() {
+# Uninstall YARA for macOS
+uninstall_yara_macos() {
+    info_message "Checking for YARA installation..."
     if command -v yara >/dev/null 2>&1; then
-        if  brew_command list "$FORMULA" >/dev/null 2>&1; then
-            brew_command uninstall $FORMULA || {
-                warn_message "Failed to remove $FORMULA"
-            }
-        else
-            brew_command unpin yara
-            brew_command uninstall yara || {
-                warn_message "Failed to remove Homebrew default YARA"
-            }
+        # Check for Homebrew installation
+        if command -v brew >/dev/null 2>&1; then
+            if brew_command list yara >/dev/null 2>&1; then
+                info_message "Detected Homebrew-installed YARA; uninstalling via brew"
+                brew_command unpin yara 2>/dev/null || true
+                brew_command uninstall --force yara || {
+                    warn_message "Failed to remove Homebrew-installed YARA"
+                }
+                success_message "Homebrew-installed YARA removed"
+            else
+                info_message "No Homebrew-installed YARA found"
+            fi
         fi
+        # Check for prebuilt installation
+        remove_prebuilt_yara
     else
         info_message "No YARA installation detected, skipping."
     fi
 }
 
+# Uninstall YARA based on OS
+uninstall_yara() {
+    case "$(uname -s)" in
+        Linux)
+            uninstall_yara_ubuntu
+            ;;
+        Darwin)
+            uninstall_yara_macos
+            ;;
+        *)
+            error_message "Unsupported operating system."
+            exit 1
+            ;;
+    esac
+}
+
 # Remove YARA rules and scripts
 remove_yara_components() {
     info_message "Removing YARA rules and scripts..."
-    if [ "$(uname)" = "Linux" ]; then
+    if [ "$(uname -s)" = "Linux" ]; then
         YARA_DIR="/var/ossec/ruleset/yara"
         YARA_SCRIPT="/var/ossec/active-response/bin/yara.sh"
         OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
-    elif [ "$(uname)" = "Darwin" ]; then
+    elif [ "$(uname -s)" = "Darwin" ]; then
         YARA_DIR="/Library/Ossec/ruleset/yara"
         YARA_SCRIPT="/Library/Ossec/active-response/bin/yara.sh"
         OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
@@ -148,12 +218,16 @@ remove_yara_components() {
 
     if maybe_sudo [ -d "$YARA_DIR" ]; then
         info_message "Removing YARA directory: $YARA_DIR"
-        maybe_sudo rm -rf "$YARA_DIR" || warn_message "YARA directory not found."
+        maybe_sudo rm -rf "$YARA_DIR" || warn_message "Failed to remove YARA directory."
+    else
+        info_message "YARA directory not found: $YARA_DIR"
     fi
 
     if maybe_sudo [ -f "$YARA_SCRIPT" ]; then
         info_message "Removing YARA script: $YARA_SCRIPT"
-        maybe_sudo rm -f "$YARA_SCRIPT" || warn_message "YARA script not found."
+        maybe_sudo rm -f "$YARA_SCRIPT" || warn_message "Failed to remove YARA script."
+    else
+        info_message "YARA script not found: $YARA_SCRIPT"
     fi
 }
 
@@ -161,10 +235,16 @@ remove_yara_components() {
 remove_ossec_configuration() {
     if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
         info_message "Removing OSSEC configuration modifications..."
+        # Backup ossec.conf
+        local backup_path="$OSSEC_CONF_PATH.bak.$(date +%F_%H-%M-%S)"
+        info_message "Backing up $OSSEC_CONF_PATH to $backup_path"
+        maybe_sudo cp "$OSSEC_CONF_PATH" "$backup_path" || {
+            warn_message "Failed to backup $OSSEC_CONF_PATH"
+        }
 
         # Check and remove added file_limit block
         if maybe_sudo grep -q '<file_limit>' "$OSSEC_CONF_PATH"; then
-            sed_alternative -i '/<!-- Maximum number of files to be monitored -->/,/<\/file_limit>/d' "$OSSEC_CONF_PATH" || {
+            sed_alternative -i '/<file_limit>/,/<\/file_limit>/d' "$OSSEC_CONF_PATH" || {
                 error_message "Error occurred while removing the file_limit block."
                 exit 1
             }
@@ -174,8 +254,14 @@ remove_ossec_configuration() {
         fi
 
         # Check and remove added directories entry
-        if maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
-            sed_alternative -i '/<directories realtime="yes">\/home, \/root, \/bin, \/sbin<\/directories>/d' "$OSSEC_CONF_PATH" || {
+        local directories
+        if [ "$(uname -s)" = "Darwin" ]; then
+            directories="/Users, /Applications"
+        else
+            directories="/home, /root, /bin, /sbin"
+        fi
+        if maybe_sudo grep -q "<directories realtime=\"yes\">$directories</directories>" "$OSSEC_CONF_PATH"; then
+            sed_alternative -i "/<directories realtime=\"yes\">$directories<\/directories>/d" "$OSSEC_CONF_PATH" || {
                 error_message "Error occurred while removing directories configuration."
                 exit 1
             }
@@ -199,17 +285,17 @@ remove_ossec_configuration() {
     else
         warn_message "File $OSSEC_CONF_PATH not found. Skipping."
     fi
-
 }
 
 # Main uninstallation steps
-
+info_message "Starting YARA uninstallation process..."
+uninstall_yara
+remove_yara_components
+remove_ossec_configuration
+restart_wazuh_agent
+# Validate uninstallation
 if command -v yara >/dev/null 2>&1; then
-    uninstall_yara
-    remove_yara_components
-    remove_ossec_configuration
-    restart_wazuh_agent
-    success_message "Uninstallation process completed successfully."
-else
-    warn_message "Yara not installed. Skipping..."
+    error_message "YARA is still installed at $(which yara). Uninstallation failed."
+    exit 1
 fi
+success_message "Uninstallation process completed successfully."
