@@ -15,6 +15,10 @@ YARA_VERSION="${1:-4.5.4}"
 YARA_URL="https://github.com/VirusTotal/yara/archive/refs/tags/v${YARA_VERSION}.tar.gz"
 YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh"
 
+# GitHub Release configuration for prebuilt binaries
+GITHUB_RELEASE_TAG="v${YARA_VERSION}-adorsys.1"
+GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-yara-package/releases/download"
+
 DOWNLOADS_DIR="${HOME}/yara-install"
 TAR_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}.tar.gz"
 EXTRACT_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}"
@@ -251,13 +255,38 @@ remove_brew_yara() {
     # only on macOS/Homebrew
     if command_exists brew; then
         if brew_command list yara >/dev/null 2>&1; then
-            info_message "Detected other version of YARA; uninstalling via brew"
-            brew_command unpin yara
-            brew_command uninstall --force yara || {
-                error_message "Failed to remove Homebrew-installed YARA"
-            }
-            success_message "Homebrew-installed YARA removed"
+            info_message "Detected Homebrew version of YARA; uninstalling via brew"
+            brew_command unpin yara 2>/dev/null || true
+            if brew_command uninstall --force yara; then
+                success_message "Homebrew-installed YARA removed"
+            else
+                warn_message "Homebrew uninstall had issues but continuing anyway"
+            fi
         fi
+    fi
+}
+
+remove_prebuilt_yara() {
+    # Remove prebuilt YARA installation from /opt/yara
+    local install_dir="/opt/yara"
+    
+    if [ -d "$install_dir" ]; then
+        info_message "Removing existing prebuilt YARA installation from ${install_dir}"
+        
+        # Remove symlinks
+        if [ -L "/usr/local/bin/yara" ]; then
+            maybe_sudo rm -f /usr/local/bin/yara
+            info_message "Removed yara symlink"
+        fi
+        
+        if [ -L "/usr/local/bin/yarac" ]; then
+            maybe_sudo rm -f /usr/local/bin/yarac
+            info_message "Removed yarac symlink"
+        fi
+        
+        # Remove installation directory
+        maybe_sudo rm -rf "$install_dir"
+        success_message "Removed prebuilt YARA installation"
     fi
 }
 
@@ -396,30 +425,174 @@ install_yara_ubuntu() {
     success_message "YARA v${YARA_VERSION} installed from source successfully"
 }
 
-install_yara_macos() {
-    info_message "Installing YARA v${YARA_VERSION} via Homebrew tap on macOS"
-
+ensure_macos_dependencies() {
+    info_message "Ensuring required dependencies are installed..."
+    
     if ! command_exists brew; then
-        error_message "Homebrew is not installed. Please install Homebrew first: https://brew.sh/"
+        error_message "Homebrew is required to install dependencies. Please install Homebrew first: https://brew.sh/"
+        exit 1
+    fi
+    
+    local deps=("openssl@3" "pcre2" "libmagic" "jansson" "protobuf-c")
+    local missing_deps=()
+    
+    # Check which dependencies are missing
+    for dep in "${deps[@]}"; do
+        if ! brew_command list "$dep" >/dev/null 2>&1; then
+            missing_deps+=("$dep")
+        fi
+    done
+    
+    # Install missing dependencies
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        info_message "Installing missing dependencies: ${missing_deps[*]}"
+        for dep in "${missing_deps[@]}"; do
+            info_message "Installing $dep..."
+            if brew_command install "$dep"; then
+                success_message "Installed $dep"
+            else
+                error_message "Failed to install $dep"
+                exit 1
+            fi
+        done
+    else
+        info_message "All required dependencies are already installed"
+    fi
+}
+
+install_yara_macos_prebuilt() {
+    info_message "Installing YARA v${YARA_VERSION} from prebuilt binaries on macOS"
+
+    # Ensure dependencies are installed
+    ensure_macos_dependencies
+
+    # Detect architecture
+    local arch
+    arch=$(uname -m)
+    local binary_arch
+    
+    if [ "$arch" = "arm64" ]; then
+        binary_arch="arm64"
+        info_message "Detected ARM64 architecture"
+    elif [ "$arch" = "x86_64" ]; then
+        binary_arch="x86_64"
+        info_message "Detected x86_64 architecture"
+    else
+        error_message "Unsupported architecture: $arch"
         exit 1
     fi
 
-    # Tap the adorsys-gis tools repository
-    TAP_NAME="adorsys-gis/tools"
+    # Construct download URL
+    local binary_name="yara-${GITHUB_RELEASE_TAG}-macos-${binary_arch}.tar.gz"
+    local download_url="${GITHUB_RELEASE_BASE_URL}/${GITHUB_RELEASE_TAG}/${binary_name}"
     
-    info_message "Tapping $TAP_NAME repository..."
-    brew_command tap "$TAP_NAME" "https://github.com/adorsys-gis/homebrew-tools" || {
-        error_message "Failed to tap $TAP_NAME repository"
+    info_message "Download URL: $download_url"
+    
+    # Download to temp directory
+    local download_path="${TMP_DIR}/${binary_name}"
+    print_step "1" "Downloading YARA prebuilt binary for ${binary_arch}"
+    
+    if ! curl -fsSL --progress-bar -o "$download_path" "$download_url"; then
+        error_message "Failed to download YARA binary from: $download_url"
+        error_message "Please check if the release exists and the tag is correct: ${GITHUB_RELEASE_TAG}"
         exit 1
-    }
-
-    # Install specific yara version from the tap
-    brew_command install "$TAP_NAME/yara@4.5.4" || {
-        error_message "Failed to install YARA 4.5.4 from tap"
+    fi
+    
+    success_message "Downloaded YARA binary successfully"
+    
+    # Create installation directory
+    local install_dir="/opt/yara"
+    print_step "2" "Creating installation directory at ${install_dir}"
+    
+    if ! maybe_sudo mkdir -p "$install_dir"; then
+        error_message "Failed to create installation directory: ${install_dir}"
         exit 1
-    }
+    fi
+    
+    # Extract the tarball
+    print_step "3" "Extracting YARA binary to ${install_dir}"
+    
+    # First extract to temp to check structure
+    local temp_extract="${TMP_DIR}/yara_extract"
+    mkdir -p "$temp_extract"
+    
+    if ! tar -xzf "$download_path" -C "$temp_extract"; then
+        error_message "Failed to extract YARA binary"
+        exit 1
+    fi
+    
+    # Check if there's a nested directory and move contents appropriately
+    local extracted_dir
+    extracted_dir=$(find "$temp_extract" -maxdepth 1 -mindepth 1 -type d | head -n1)
+    
+    if [ -d "$extracted_dir/bin" ]; then
+        # Contents are in a subdirectory, move them directly to install_dir
+        info_message "Moving extracted contents directly to ${install_dir}"
+        # Clear the install directory first to avoid nested structures
+        maybe_sudo rm -rf "$install_dir"/*
+        # Move the contents of the nested directory directly to install_dir
+        maybe_sudo cp -R "$extracted_dir"/* "$install_dir/"
+    else
+        # Contents are directly extracted, move everything
+        maybe_sudo cp -R "$temp_extract"/* "$install_dir/"
+    fi
+    
+    success_message "Extracted YARA binary successfully"
+    
+    # Remove quarantine attributes from all extracted files
+    print_step "4" "Removing macOS quarantine attributes"
+    
+    # Find all files and remove quarantine attribute
+    if maybe_sudo find "$install_dir" -type f -exec xattr -d com.apple.quarantine {} \; 2>/dev/null; then
+        success_message "Removed quarantine attributes from YARA files"
+    else
+        warn_message "No quarantine attributes found or already removed"
+    fi
+    
+    # Set proper permissions
+    print_step "5" "Setting proper permissions"
+    
+    maybe_sudo chmod -R 755 "$install_dir"
+    
+    # Create symlinks in /usr/local/bin for easier access
+    print_step "6" "Creating symlinks for YARA executables"
+    
+    maybe_sudo mkdir -p /usr/local/bin
+    
+    # Create symlinks for yara and yarac
+    if [ -f "$install_dir/bin/yara" ]; then
+        maybe_sudo ln -sf "$install_dir/bin/yara" /usr/local/bin/yara
+        success_message "Created symlink for yara"
+    else
+        error_message "yara executable not found in $install_dir/bin/"
+        exit 1
+    fi
+    
+    if [ -f "$install_dir/bin/yarac" ]; then
+        maybe_sudo ln -sf "$install_dir/bin/yarac" /usr/local/bin/yarac
+        success_message "Created symlink for yarac"
+    else
+        warn_message "yarac executable not found in $install_dir/bin/ (optional)"
+    fi
+    
+    # Verify installation
+    print_step "7" "Verifying YARA installation"
+    
+    if command_exists yara; then
+        local installed_version
+        installed_version=$(yara --version)
+        success_message "YARA installed successfully. Version: ${installed_version}"
+    else
+        error_message "YARA installation verification failed"
+        exit 1
+    fi
+    
+    success_message "YARA v${YARA_VERSION} installed successfully from prebuilt binaries"
+}
 
-    success_message "YARA v${YARA_VERSION} installed successfully via local Homebrew tap"
+install_yara_macos() {
+    # Use the new prebuilt binary installation method
+    install_yara_macos_prebuilt
 }
 
 install_yara() {
@@ -449,16 +622,28 @@ install_yara_and_tools(){
         ensure_zenity_is_installed
     fi
     if command_exists yara; then
-        if [ "$(yara --version)" = "$YARA_VERSION" ]; then
-            info_message "YARA is already installed. Skipping installation."
+        current_version=$(yara --version 2>/dev/null || echo "unknown")
+        info_message "Current YARA version detected: $current_version"
+        
+        # Check if it's the prebuilt version we want (checking for exact version and if it's in /opt/yara)
+        if [ "$current_version" = "$YARA_VERSION" ] && [ -d "/opt/yara" ]; then
+            info_message "YARA prebuilt version $YARA_VERSION is already installed. Skipping installation."
         else
             if [ "$OS" = "Darwin" ]; then
+                info_message "Different YARA version detected. Removing and reinstalling..."
+                # Remove any existing YARA installations
                 remove_brew_yara
+                remove_prebuilt_yara
             fi
             info_message "Installing YARA..."
             install_yara
         fi
     else
+        if [ "$OS" = "Darwin" ]; then
+            # Remove any existing YARA installations before installing
+            remove_brew_yara
+            remove_prebuilt_yara
+        fi
         info_message "Installing YARA..."
         install_yara
     fi

@@ -62,8 +62,7 @@ fi
 
 # Default paths and variables
 if [ "$(uname)" = "Darwin" ]; then
-    BREW_PREFIX=$(brew --prefix)
-    YARA_PATH="${BREW_PREFIX}/bin" 
+    YARA_PATH="/opt/yara/bin"  # Direct prebuilt installation path
     YARA_RULES="/Library/Ossec/ruleset/yara/rules/yara_rules.yar"
     OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
     LOG_FILE="/Library/Ossec/logs/active-responses.log"
