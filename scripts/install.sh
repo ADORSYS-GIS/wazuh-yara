@@ -11,8 +11,7 @@ LOG_LEVEL=${LOG_LEVEL:-INFO}
 USER="root"
 GROUP="wazuh"
 
-YARA_VERSION="${1:-4.5.4}"
-YARA_URL="https://github.com/VirusTotal/yara/archive/refs/tags/v${YARA_VERSION}.tar.gz"
+YARA_VERSION="${1:-4.6.0}"
 YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh"
 
 # GitHub Release configuration for prebuilt binaries
@@ -372,57 +371,120 @@ ensure_zenity_is_installed() {
 }
 
 install_yara_ubuntu() {
-    info_message "Installing YARA v${YARA_VERSION} from source on Ubuntu" ""
+    info_message "Installing YARA v${YARA_VERSION} from prebuilt binaries on Ubuntu"
 
-    # Check required tools
-    for cmd in curl tar make gcc pkg-config; do
-        if ! command_exists "$cmd"; then
-            warn_message "$cmd not found; it will be installed as a dependency."
-        fi
-    done
+    # Detect architecture
+    local arch
+    arch=$(uname -m)
+    local binary_arch
 
-    print_step "1" "Installing build dependencies"
-    maybe_sudo apt update -qq
-    maybe_sudo apt install -y automake libtool make gcc pkg-config flex bison curl libjansson-dev libmagic-dev libssl-dev
-
-    print_step "2" "Downloading YARA $YARA_VERSION to $DOWNLOADS_DIR"
-    if ! curl -fsSL -o "$TAR_DIR" "$YARA_URL"; then
-        error_message "Failed to download YARA source tarball"
-        return 1
+    if [ "$arch" = "x86_64" ]; then
+        binary_arch="amd64" # Ubuntu often uses amd64 for x86_64
+        info_message "Detected x86_64 architecture"
+    elif [ "$arch" = "aarch64" ]; then
+        binary_arch="arm64"
+        info_message "Detected ARM64 architecture"
+    else
+        error_message "Unsupported architecture: $arch"
+        exit 1
     fi
 
-    print_step "3" "Extracting source to $DOWNLOADS_DIR"
-    maybe_sudo rm -rf "$EXTRACT_DIR"
-    mkdir -p "$EXTRACT_DIR"
-    if ! tar -xzf "$TAR_DIR" -C "$DOWNLOADS_DIR"; then
-        error_message "Failed to extract YARA tarball"
-        return 1
+    # Construct download URL
+    local binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu-${binary_arch}.tar.gz"
+    local download_url="${GITHUB_RELEASE_BASE_URL}/${GITHUB_RELEASE_TAG}/${binary_name}"
+
+    info_message "Download URL: $download_url"
+
+    # Download to temp directory
+    local download_path="${TMP_DIR}/${binary_name}"
+    print_step "1" "Downloading YARA prebuilt binary for ${binary_arch}"
+
+    if ! curl -fsSL --progress-bar -o "$download_path" "$download_url"; then
+        error_message "Failed to download YARA binary from: $download_url"
+        error_message "Please check if the release exists and the tag is correct: ${GITHUB_RELEASE_TAG}"
+        exit 1
     fi
 
-    print_step "4" "Building & installing"
-    pushd "$EXTRACT_DIR" >/dev/null 2>&1 || return 1
+    success_message "Downloaded YARA binary successfully"
 
-    info_message "Running bootstrap.sh"
-    maybe_sudo ./bootstrap.sh
+    # Create installation directory
+    local install_dir="/opt/yara"
+    print_step "2" "Creating installation directory at ${install_dir}"
 
-    info_message "Configuring build"
-    maybe_sudo ./configure --disable-silent-rules --enable-cuckoo --enable-magic --enable-dotnet --enable-macho --enable-dex --with-crypto
+    if ! maybe_sudo mkdir -p "$install_dir"; then
+        error_message "Failed to create installation directory: ${install_dir}"
+        exit 1
+    fi
 
-    info_message "Compiling"
-    maybe_sudo make
+    # Extract the tarball
+    print_step "3" "Extracting YARA binary to ${install_dir}"
 
-    info_message "Installing (this may prompt for sudo password)"
-    maybe_sudo make install
+    # First extract to temp to check structure
+    local temp_extract="${TMP_DIR}/yara_extract"
+    mkdir -p "$temp_extract"
 
-    info_message "Running test suite"
-    maybe_sudo make check
+    if ! tar -xzf "$download_path" -C "$temp_extract"; then
+        error_message "Failed to extract YARA binary"
+        exit 1
+    fi
 
-    info_message "Updating shared library cache: sudo ldconfig ..."
-    maybe_sudo ldconfig
+    # Check if there's a nested directory and move contents appropriately
+    local extracted_dir
+    extracted_dir=$(find "$temp_extract" -maxdepth 1 -mindepth 1 -type d | head -n1)
 
-    popd >/dev/null 2>&1
+    if [ -d "$extracted_dir/bin" ]; then
+        # Contents are in a subdirectory, move them directly to install_dir
+        info_message "Moving extracted contents directly to ${install_dir}"
+        # Clear the install directory first to avoid nested structures
+        maybe_sudo rm -rf "$install_dir"/*
+        # Move the contents of the nested directory directly to install_dir
+        maybe_sudo cp -R "$extracted_dir"/* "$install_dir/"
+    else
+        # Contents are directly extracted, move everything
+        maybe_sudo cp -R "$temp_extract"/* "$install_dir/"
+    fi
 
-    success_message "YARA v${YARA_VERSION} installed from source successfully"
+    success_message "Extracted YARA binary successfully"
+
+    # Set proper permissions
+    print_step "4" "Setting proper permissions"
+
+    maybe_sudo chmod -R 755 "$install_dir"
+
+    # Create symlinks in /usr/local/bin for easier access
+    print_step "5" "Creating symlinks for YARA executables"
+
+    maybe_sudo mkdir -p /usr/local/bin
+
+    # Create symlinks for yara and yarac
+    if [ -f "$install_dir/bin/yara" ]; then
+        maybe_sudo ln -sf "$install_dir/bin/yara" /usr/local/bin/yara
+        success_message "Created symlink for yara"
+    else
+        error_message "yara executable not found in $install_dir/bin/"
+        exit 1
+    fi
+
+    if [ -f "$install_dir/bin/yarac" ]; then
+        maybe_sudo ln -sf "$install_dir/bin/yarac" /usr/local/bin/yarac
+        success_message "Created symlink for yarac"
+    else
+        warn_message "yarac executable not found in $install_dir/bin/ (optional)"
+    fi
+
+    # Verify installation
+    print_step "6" "Verifying YARA installation"
+
+    if command_exists yara; then
+        local installed_version
+        installed_version=$(yara --version)
+        success_message "YARA installed successfully. Version: ${installed_version}"
+    else
+        error_message "YARA installation verification failed"
+        exit 1
+    fi
+
+    success_message "YARA v${YARA_VERSION} installed successfully from prebuilt binaries"
 }
 
 ensure_macos_dependencies() {
