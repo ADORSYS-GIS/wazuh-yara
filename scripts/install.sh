@@ -372,57 +372,123 @@ ensure_zenity_is_installed() {
 }
 
 install_yara_ubuntu() {
-    info_message "Installing YARA v${YARA_VERSION} from source on Ubuntu" ""
+    info_message "Installing YARA v${YARA_VERSION} from prebuilt binaries on Ubuntu"
 
-    # Check required tools
-    for cmd in curl tar make gcc pkg-config; do
-        if ! command_exists "$cmd"; then
-            warn_message "$cmd not found; it will be installed as a dependency."
-        fi
-    done
+    # Detect architecture
+    local arch
+    arch=$(uname -m)
+    local binary_arch
 
-    print_step "1" "Installing build dependencies"
-    maybe_sudo apt update -qq
-    maybe_sudo apt install -y automake libtool make gcc pkg-config flex bison curl libjansson-dev libmagic-dev libssl-dev
+    case "$arch" in
+        x86_64)
+            binary_arch="x86_64"
+            info_message "Detected x86_64 architecture"
+            ;;
+        aarch64|arm64)
+            binary_arch="arm64"
+            info_message "Detected ARM64 architecture"
+            ;;
+        *)
+            error_message "Unsupported architecture: $arch"
+            return 1
+            ;;
+    esac
 
-    print_step "2" "Downloading YARA $YARA_VERSION to $DOWNLOADS_DIR"
-    if ! curl -fsSL -o "$TAR_DIR" "$YARA_URL"; then
-        error_message "Failed to download YARA source tarball"
+    # Construct download URL based on release asset naming
+    # Note: x86_64 assets are named with "dirty-ubuntu-x86_64" while ARM uses "ubuntu-aarch64"
+    local binary_name
+    if [ "$binary_arch" = "x86_64" ]; then
+        binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-x86_64.tar.gz"
+    else
+        # arm64
+        binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu-aarch64.tar.gz"
+    fi
+    local download_url="${GITHUB_RELEASE_BASE_URL}/${GITHUB_RELEASE_TAG}/${binary_name}"
+
+    info_message "Download URL: $download_url"
+
+    # Download to temp directory
+    local download_path="${TMP_DIR}/${binary_name}"
+    print_step "1" "Downloading YARA prebuilt binary for ${binary_arch}"
+
+    if ! curl -fsSL --progress-bar -o "$download_path" "$download_url"; then
+        error_message "Failed to download YARA binary from: $download_url"
+        error_message "Please check if the release exists and the tag is correct: ${GITHUB_RELEASE_TAG}"
         return 1
     fi
 
-    print_step "3" "Extracting source to $DOWNLOADS_DIR"
-    maybe_sudo rm -rf "$EXTRACT_DIR"
-    mkdir -p "$EXTRACT_DIR"
-    if ! tar -xzf "$TAR_DIR" -C "$DOWNLOADS_DIR"; then
-        error_message "Failed to extract YARA tarball"
+    success_message "Downloaded YARA binary successfully"
+
+    # Create installation directory
+    local install_dir="/opt/yara"
+    print_step "2" "Creating installation directory at ${install_dir}"
+
+    if ! maybe_sudo mkdir -p "$install_dir"; then
+        error_message "Failed to create installation directory: ${install_dir}"
         return 1
     fi
 
-    print_step "4" "Building & installing"
-    pushd "$EXTRACT_DIR" >/dev/null 2>&1 || return 1
+    # Extract the tarball
+    print_step "3" "Extracting YARA binary to ${install_dir}"
 
-    info_message "Running bootstrap.sh"
-    maybe_sudo ./bootstrap.sh
+    # First extract to temp to check structure
+    local temp_extract="${TMP_DIR}/yara_extract_linux"
+    mkdir -p "$temp_extract"
 
-    info_message "Configuring build"
-    maybe_sudo ./configure --disable-silent-rules --enable-cuckoo --enable-magic --enable-dotnet --enable-macho --enable-dex --with-crypto
+    if ! tar -xzf "$download_path" -C "$temp_extract"; then
+        error_message "Failed to extract YARA binary"
+        return 1
+    fi
 
-    info_message "Compiling"
-    maybe_sudo make
+    # Check if there's a nested directory and move contents appropriately
+    local extracted_dir
+    extracted_dir=$(find "$temp_extract" -maxdepth 1 -mindepth 1 -type d | head -n1)
 
-    info_message "Installing (this may prompt for sudo password)"
-    maybe_sudo make install
+    if [ -d "$extracted_dir/bin" ]; then
+        info_message "Moving extracted contents directly to ${install_dir}"
+        maybe_sudo rm -rf "$install_dir"/*
+        maybe_sudo cp -R "$extracted_dir"/* "$install_dir/"
+    else
+        maybe_sudo cp -R "$temp_extract"/* "$install_dir/"
+    fi
 
-    info_message "Running test suite"
-    maybe_sudo make check
+    success_message "Extracted YARA binary successfully"
 
-    info_message "Updating shared library cache: sudo ldconfig ..."
-    maybe_sudo ldconfig
+    # Set proper permissions
+    print_step "4" "Setting proper permissions"
+    maybe_sudo chmod -R 755 "$install_dir"
 
-    popd >/dev/null 2>&1
+    # Create symlinks in /usr/local/bin for easier access
+    print_step "5" "Creating symlinks for YARA executables"
+    maybe_sudo mkdir -p /usr/local/bin
 
-    success_message "YARA v${YARA_VERSION} installed from source successfully"
+    if [ -f "$install_dir/bin/yara" ]; then
+        maybe_sudo ln -sf "$install_dir/bin/yara" /usr/local/bin/yara
+        success_message "Created symlink for yara"
+    else
+        error_message "yara executable not found in $install_dir/bin/"
+        return 1
+    fi
+
+    if [ -f "$install_dir/bin/yarac" ]; then
+        maybe_sudo ln -sf "$install_dir/bin/yarac" /usr/local/bin/yarac
+        success_message "Created symlink for yarac"
+    else
+        warn_message "yarac executable not found in $install_dir/bin/ (optional)"
+    fi
+
+    # Verify installation
+    print_step "6" "Verifying YARA installation"
+    if command_exists yara; then
+        local installed_version
+        installed_version=$(yara --version)
+        success_message "YARA installed successfully. Version: ${installed_version}"
+    else
+        error_message "YARA installation verification failed"
+        return 1
+    fi
+
+    success_message "YARA v${YARA_VERSION} installed successfully from prebuilt binaries"
 }
 
 ensure_macos_dependencies() {
@@ -618,6 +684,7 @@ install_yara() {
 install_yara_and_tools(){
     if [ "$OS" = "Linux" ]; then
         remove_apt_yara
+        remove_prebuilt_yara
         ensure_notify_send_version
         ensure_zenity_is_installed
     fi
