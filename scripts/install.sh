@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 # Check if we're running in bash; if not, adjust behavior
 if [ -n "$BASH_VERSION" ]; then
@@ -12,7 +12,7 @@ USER="root"
 GROUP="wazuh"
 
 YARA_VERSION="${1:-4.5.4}"
-YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh"
+YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/main/scripts/yara.sh"
 
 # GitHub Release configuration for prebuilt binaries
 GITHUB_RELEASE_TAG="v${YARA_VERSION}-adorsys.1"
@@ -20,8 +20,16 @@ GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-yara-package/relea
 
 DOWNLOADS_DIR="${HOME}/yara-install"
 
+# shellcheck disable=SC2034
+YARA_URL="https://github.com/VirusTotal/yara/archive/refs/tags/v${YARA_VERSION}.tar.gz"
+# shellcheck disable=SC2034
+TAR_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}.tar.gz"
+# shellcheck disable=SC2034
+EXTRACT_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}"
+
 NOTIFY_SEND_VERSION=0.8.3
 LOGGED_IN_USER=""
+
 
 if [ "$(uname -s)" = "Darwin" ]; then
     LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
