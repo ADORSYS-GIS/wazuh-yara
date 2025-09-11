@@ -12,7 +12,6 @@ USER="root"
 GROUP="wazuh"
 
 YARA_VERSION="${1:-4.5.4}"
-YARA_URL="https://github.com/VirusTotal/yara/archive/refs/tags/v${YARA_VERSION}.tar.gz"
 YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh"
 
 # GitHub Release configuration for prebuilt binaries
@@ -20,8 +19,6 @@ GITHUB_RELEASE_TAG="v${YARA_VERSION}-adorsys.1"
 GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-yara-package/releases/download"
 
 DOWNLOADS_DIR="${HOME}/yara-install"
-TAR_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}.tar.gz"
-EXTRACT_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}"
 
 NOTIFY_SEND_VERSION=0.8.3
 LOGGED_IN_USER=""
