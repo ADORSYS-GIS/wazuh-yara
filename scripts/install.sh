@@ -256,6 +256,27 @@ remove_apt_yara() {
     fi
 }
 
+remove_yum_yara() {
+    # only on CentOS/RHEL/Fedora
+    if command_exists yum; then
+        if yum list installed yara >/dev/null 2>&1; then
+            info_message "Detected yum-installed YARA; uninstalling via yum"
+            maybe_sudo yum remove -y yara || {
+                error_message "Failed to remove yum-installed YARA"
+            }
+            success_message "Yum-installed YARA removed"
+        fi
+    elif command_exists dnf; then
+        if dnf list installed yara >/dev/null 2>&1; then
+            info_message "Detected dnf-installed YARA; uninstalling via dnf"
+            maybe_sudo dnf remove -y yara || {
+                error_message "Failed to remove dnf-installed YARA"
+            }
+            success_message "DNF-installed YARA removed"
+        fi
+    fi
+}
+
 remove_brew_yara() {
     # only on macOS/Homebrew
     if command_exists brew; then
@@ -585,8 +606,37 @@ install_yara_macos_prebuilt() {
 install_yara_linux_prebuilt() {
     info_message "Installing YARA v${YARA_VERSION} from prebuilt binaries on Linux"
 
-    # Remove any existing YARA installations first
-    remove_apt_yara
+    # Detect Linux distribution
+    local distro=""
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        case "$ID" in
+            ubuntu|debian)
+                distro="ubuntu"
+                info_message "Detected Ubuntu/Debian-based distribution"
+                ;;
+            centos|rhel|rocky|almalinux|fedora)
+                distro="centos"
+                info_message "Detected CentOS/RHEL-based distribution"
+                ;;
+            *)
+                error_message "Unsupported Linux distribution: $ID"
+                error_message "This script only supports Ubuntu/Debian and CentOS/RHEL-based distributions"
+                return 1
+                ;;
+        esac
+    else
+        error_message "Cannot detect Linux distribution. /etc/os-release not found."
+        error_message "This script only supports Ubuntu/Debian and CentOS/RHEL-based distributions"
+        return 1
+    fi
+
+    # Remove any existing YARA installations first based on distribution
+    if [ "$distro" = "ubuntu" ]; then
+        remove_apt_yara
+    elif [ "$distro" = "centos" ]; then
+        remove_yum_yara
+    fi
     remove_prebuilt_yara
     remove_source_yara
 
@@ -724,8 +774,23 @@ install_yara() {
 
 install_yara_and_tools(){
     if [ "$OS" = "Linux" ]; then
-        ensure_notify_send_version
-        ensure_zenity_is_installed
+        # Detect Linux distribution for tool installation
+        local distro=""
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            case "$ID" in
+                ubuntu|debian)
+                    distro="ubuntu"
+                    ensure_notify_send_version
+                    ensure_zenity_is_installed
+                    ;;
+                centos|rhel|rocky|almalinux|fedora)
+                    distro="centos"
+                    # CentOS/RHEL specific tools would go here if needed
+                    info_message "CentOS/RHEL detected - skipping Ubuntu-specific tools"
+                    ;;
+            esac
+        fi
     fi
     if command_exists yara; then
         current_version=$(yara --version 2>/dev/null || echo "unknown")
