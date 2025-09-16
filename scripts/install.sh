@@ -274,24 +274,76 @@ remove_brew_yara() {
 remove_prebuilt_yara() {
     # Remove prebuilt YARA installation from /opt/yara
     local install_dir="/opt/yara"
-    
+
     if [ -d "$install_dir" ]; then
         info_message "Removing existing prebuilt YARA installation from ${install_dir}"
-        
+
         # Remove symlinks
         if [ -L "/usr/local/bin/yara" ]; then
             maybe_sudo rm -f /usr/local/bin/yara
             info_message "Removed yara symlink"
         fi
-        
+
         if [ -L "/usr/local/bin/yarac" ]; then
             maybe_sudo rm -f /usr/local/bin/yarac
             info_message "Removed yarac symlink"
         fi
-        
+
         # Remove installation directory
         maybe_sudo rm -rf "$install_dir"
         success_message "Removed prebuilt YARA installation"
+    fi
+}
+
+remove_source_yara() {
+    # Remove source-built YARA installation (typically installed to /usr/local)
+    if command_exists yara; then
+        local yara_path
+        yara_path=$(which yara 2>/dev/null)
+
+        if [ -n "$yara_path" ] && [ "$yara_path" != "/usr/local/bin/yara" ] || [ ! -L "$yara_path" ]; then
+            info_message "Detected source-built YARA installation"
+
+            # Common source-built installation paths
+            local common_paths=(
+                "/usr/local/bin/yara"
+                "/usr/local/bin/yarac"
+                "/usr/local/lib/libyara.so*"
+                "/usr/local/lib/pkgconfig/yara.pc"
+                "/usr/local/include/yara.h"
+                "/usr/local/include/yara"
+            )
+
+            info_message "Removing source-built YARA files from /usr/local"
+            for path_pattern in "${common_paths[@]}"; do
+                if [ "${path_pattern}" = "${path_pattern%\*}" ]; then
+                    # No wildcard - exact path
+                    if [ -e "$path_pattern" ] || [ -L "$path_pattern" ]; then
+                        maybe_sudo rm -rf "$path_pattern"
+                        info_message "Removed $path_pattern"
+                    fi
+                else
+                    # Wildcard pattern - use find
+                    local base_path="${path_pattern%\*}"
+                    local matches
+                    matches=$(find "$(dirname "$base_path")" -name "$(basename "$path_pattern")" 2>/dev/null || true)
+                    if [ -n "$matches" ]; then
+                        echo "$matches" | while read -r match; do
+                            maybe_sudo rm -rf "$match"
+                            info_message "Removed $match"
+                        done
+                    fi
+                fi
+            done
+
+            # Update library cache
+            if command_exists ldconfig; then
+                maybe_sudo ldconfig
+                info_message "Updated library cache"
+            fi
+
+            success_message "Source-built YARA installation removed"
+        fi
     fi
 }
 
@@ -536,6 +588,7 @@ install_yara_linux_prebuilt() {
     # Remove any existing YARA installations first
     remove_apt_yara
     remove_prebuilt_yara
+    remove_source_yara
 
     # Detect architecture
     local arch
