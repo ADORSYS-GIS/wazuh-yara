@@ -322,8 +322,16 @@ remove_source_yara() {
         local yara_path
         yara_path=$(which yara 2>/dev/null)
 
-        if [ -n "$yara_path" ] && [ "$yara_path" != "/usr/local/bin/yara" ] || [ ! -L "$yara_path" ]; then
-            info_message "Detected source-built YARA installation"
+        # Skip if YARA is already our prebuilt installation (symlink to /opt/yara)
+        if [ -L "$yara_path" ] && [ "$(readlink -f "$yara_path" 2>/dev/null)" = "/opt/yara/bin/yara" ]; then
+            info_message "Detected existing prebuilt YARA installation - skipping source removal"
+            return 0
+        fi
+
+        # Check if this looks like a source installation
+        # Source installations are typically in /usr/local and not symlinks to /opt/yara
+        if [ -n "$yara_path" ] && [ "$yara_path" = "/usr/local/bin/yara" ] && [ ! -L "$yara_path" ]; then
+            info_message "Detected source-built YARA installation at $yara_path"
 
             # Common source-built installation paths
             local common_paths=(
@@ -364,6 +372,8 @@ remove_source_yara() {
             fi
 
             success_message "Source-built YARA installation removed"
+        else
+            info_message "No source-built YARA installation detected"
         fi
     fi
 }
