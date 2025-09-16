@@ -35,19 +35,43 @@ if [ "$(uname -s)" = "Darwin" ]; then
     LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
 fi
 
-OS="$(uname -s)"
-
-if [ "$OS" = "Linux" ]; then
+# OS and Distribution Detection
+case "$(uname)" in
+Linux)
+    OS="linux"
     OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
     WAZUH_CONTROL_BIN_PATH="/var/ossec/bin/wazuh-control"
     YARA_SH_PATH="/var/ossec/active-response/bin/yara.sh"
-elif [ "$OS" = "Darwin" ]; then
+    ;;
+Darwin)
+    OS="darwin"
     OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
     WAZUH_CONTROL_BIN_PATH="/Library/Ossec/bin/wazuh-control"
     YARA_SH_PATH="/Library/Ossec/active-response/bin/yara.sh"
-else
-    error_message "Unsupported OS. Exiting..."
+    ;;
+*)
+    error_message "Unsupported operating system: $(uname)"
     exit 1
+    ;;
+esac
+
+# Detect Linux Distribution
+if [ "$OS" = "linux" ]; then
+    detect_distro() {
+        if [ -f /etc/os-release ]; then
+            # shellcheck source=/dev/null
+            . /etc/os-release
+            echo "$ID"
+        elif [ -f /etc/redhat-release ]; then
+            echo "redhat"
+        elif [ -f /etc/debian_version ]; then
+            echo "debian"
+        else
+            error_message "Unable to detect Linux distribution"
+            exit 1
+        fi
+    }
+    DISTRO=$(detect_distro)
 fi
 
 # Define text formatting
@@ -138,11 +162,11 @@ ensure_user_group() {
 
     if ! id -u "$USER" >/dev/null 2>&1; then
         info_message "Creating user $USER..."
-        if [ "$OS" = "Linux" ] && command -v groupadd >/dev/null 2>&1; then
+        if [ "$OS" = "linux" ] && command -v groupadd >/dev/null 2>&1; then
             maybe_sudo useradd -m "$USER"
         elif [ "$(which apk)" = "/sbin/apk" ]; then
             maybe_sudo adduser -D "$USER"
-        elif [ "$OS" = "Darwin" ]; then
+        elif [ "$OS" = "darwin" ]; then
             # macOS
             if ! dscl . -list /Users | grep -q "^$USER$"; then
                 info_message "Creating user $USER on macOS..."
@@ -158,11 +182,11 @@ ensure_user_group() {
 
     if ! getent group "$GROUP" >/dev/null 2>&1; then
         info_message "Creating group $GROUP..."
-        if [ "$OS" = "Linux" ] && command -v groupadd >/dev/null 2>&1; then
+        if [ "$OS" = "linux" ] && command -v groupadd >/dev/null 2>&1; then
             maybe_sudo groupadd "$GROUP"
         elif [ "$(which apk)" = "/sbin/apk" ]; then
             maybe_sudo addgroup "$GROUP"
-        elif [ "$OS" = "Darwin" ]; then
+        elif [ "$OS" = "darwin" ]; then
             # macOS
             if ! dscl . -list /Groups | grep -q "^$GROUP$"; then
                 info_message "Creating group $GROUP on macOS..."
@@ -219,7 +243,7 @@ download_yara_script() {
 }
 
 reverse_update_ossec_conf() {
-    if [ "$OS" = "Darwin" ]; then
+    if [ "$OS" = "darwin" ]; then
         # macOS
         if maybe_sudo grep -q '<directories realtime="yes">/Users, /Applications</directories>' "$OSSEC_CONF_PATH"; then
             info_message "Removing new yara configuration for macOS..."
@@ -379,7 +403,7 @@ remove_source_yara() {
 }
 
 check_and_update_bash() {
-    if [ "$OS" = "Darwin" ]; then
+    if [ "$OS" = "darwin" ]; then
         if command_exists brew; then
             local current_version
             current_version=$(bash --version | head -n1 | cut -d' ' -f4 | cut -d'.' -f1)
@@ -616,37 +640,22 @@ install_yara_macos_prebuilt() {
 install_yara_linux_prebuilt() {
     info_message "Installing YARA v${YARA_VERSION} from prebuilt binaries on Linux"
 
-    # Detect Linux distribution
-    local distro=""
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        case "$ID" in
-            ubuntu|debian)
-                distro="ubuntu"
-                info_message "Detected Ubuntu/Debian-based distribution"
-                ;;
-            centos|rhel|rocky|almalinux|fedora)
-                distro="centos"
-                info_message "Detected CentOS/RHEL-based distribution"
-                ;;
-            *)
-                error_message "Unsupported Linux distribution: $ID"
-                error_message "This script only supports Ubuntu/Debian and CentOS/RHEL-based distributions"
-                return 1
-                ;;
-        esac
-    else
-        error_message "Cannot detect Linux distribution. /etc/os-release not found."
-        error_message "This script only supports Ubuntu/Debian and CentOS/RHEL-based distributions"
-        return 1
-    fi
-
-    # Remove any existing YARA installations first based on distribution
-    if [ "$distro" = "ubuntu" ]; then
-        remove_apt_yara
-    elif [ "$distro" = "centos" ]; then
-        remove_yum_yara
-    fi
+    # Use the already detected DISTRO variable
+    case "$DISTRO" in
+        ubuntu|debian)
+            info_message "Detected Ubuntu/Debian-based distribution: $DISTRO"
+            remove_apt_yara
+            ;;
+        centos|rhel|rocky|almalinux|fedora)
+            info_message "Detected CentOS/RHEL-based distribution: $DISTRO"
+            remove_yum_yara
+            ;;
+        *)
+            error_message "Unsupported Linux distribution: $DISTRO"
+            error_message "This script only supports Ubuntu/Debian and CentOS/RHEL-based distributions"
+            return 1
+            ;;
+    esac
     remove_prebuilt_yara
     remove_source_yara
 
@@ -769,10 +778,10 @@ install_yara_linux_prebuilt() {
 
 install_yara() {
     case "$OS" in
-    Linux)
+    linux)
         install_yara_linux_prebuilt
         ;;
-    Darwin)
+    darwin)
         install_yara_macos_prebuilt
         ;;
     *)
@@ -783,24 +792,18 @@ install_yara() {
 }
 
 install_yara_and_tools(){
-    if [ "$OS" = "Linux" ]; then
-        # Detect Linux distribution for tool installation
-        local distro=""
-        if [ -f /etc/os-release ]; then
-            . /etc/os-release
-            case "$ID" in
-                ubuntu|debian)
-                    distro="ubuntu"
-                    ensure_notify_send_version
-                    ensure_zenity_is_installed
-                    ;;
-                centos|rhel|rocky|almalinux|fedora)
-                    distro="centos"
-                    # CentOS/RHEL specific tools would go here if needed
-                    info_message "CentOS/RHEL detected - skipping Ubuntu-specific tools"
-                    ;;
-            esac
-        fi
+    if [ "$OS" = "linux" ]; then
+        # Use the already detected DISTRO variable for tool installation
+        case "$DISTRO" in
+            ubuntu|debian)
+                ensure_notify_send_version
+                ensure_zenity_is_installed
+                ;;
+            centos|rhel|rocky|almalinux|fedora)
+                # CentOS/RHEL specific tools would go here if needed
+                info_message "$DISTRO detected - skipping Ubuntu-specific tools"
+                ;;
+        esac
     fi
     if command_exists yara; then
         current_version=$(yara --version 2>/dev/null || echo "unknown")
@@ -810,7 +813,7 @@ install_yara_and_tools(){
         if [ "$current_version" = "$YARA_VERSION" ] && [ -d "/opt/yara" ]; then
             info_message "YARA prebuilt version $YARA_VERSION is already installed. Skipping installation."
         else
-            if [ "$OS" = "Darwin" ]; then
+            if [ "$OS" = "darwin" ]; then
                 info_message "Different YARA version detected. Removing and reinstalling..."
                 # Remove any existing YARA installations
                 remove_brew_yara
@@ -820,7 +823,7 @@ install_yara_and_tools(){
             install_yara
         fi
     else
-        if [ "$OS" = "Darwin" ]; then
+        if [ "$OS" = "darwin" ]; then
             # Remove any existing YARA installations before installing
             remove_brew_yara
             remove_prebuilt_yara
@@ -839,9 +842,9 @@ download_yara_rules() {
     YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/main/rules/yara_rules.yar"
     maybe_sudo curl -SL --progress-bar "$YARA_RULES_URL" -o "$YARA_RULES_FILE"
 
-    if [ "$OS" = "Linux" ]; then
+    if [ "$OS" = "linux" ]; then
         YARA_RULES_DEST_DIR="/var/ossec/ruleset/yara/rules"
-    elif [ "$OS" = "Darwin" ]; then
+    elif [ "$OS" = "darwin" ]; then
         YARA_RULES_DEST_DIR="/Library/Ossec/ruleset/yara/rules"
     else
         error_message "Unsupported OS. Exiting..."
@@ -863,7 +866,7 @@ validate_installation() {
 
     VALIDATION_STATUS="TRUE"
 
-    if [ "$OS" = "Linux" ]; then
+    if [ "$OS" = "linux" ]; then
         if command_exists notify-send; then
             if [ "$(notify-send --version 2>&1 | awk '{print $NF}')" = "$NOTIFY_SEND_VERSION" ]; then
                 success_message "notify-send version $NOTIFY_SEND_VERSION is installed."
