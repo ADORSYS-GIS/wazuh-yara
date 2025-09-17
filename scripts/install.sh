@@ -647,7 +647,7 @@ install_yara_linux_prebuilt() {
             remove_apt_yara
             ;;
         centos|rhel|rocky|almalinux|fedora)
-            info_message "Detected CentOS/RHEL-based distribution: $DISTRO"
+            info_message "Detected CentOS/RHEL-based distribution: $DISTRO (using Ubuntu 22 prebuilt binaries)"
             remove_yum_yara
             ;;
         *)
@@ -680,14 +680,54 @@ install_yara_linux_prebuilt() {
     esac
 
     # Construct download URL based on release asset naming
-    # x86_64 uses "dirty-ubuntu-x86_64" while ARM64 uses "ubuntu-aarch64"
     local binary_name
-    if [ "$binary_arch" = "x86_64" ]; then
-        binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-x86_64.tar.gz"
-    else
-        # aarch64
-        binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu-aarch64.tar.gz"
-    fi
+    case "$DISTRO" in
+        ubuntu|debian)
+            # Detect Ubuntu version for proper binary selection
+            if [ "$DISTRO" = "ubuntu" ] && command_exists lsb_release; then
+                ubuntu_version=$(lsb_release -rs 2>/dev/null || echo "")
+                if [ "$ubuntu_version" = "22.04" ]; then
+                    info_message "Detected Ubuntu 22.04 - using Ubuntu 22 prebuilt binaries"
+                    if [ "$binary_arch" = "x86_64" ]; then
+                        binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu22-x86_64.tar.gz"
+                    else
+                        # Use Ubuntu 24 ARM binary for Ubuntu 22 ARM as fallback
+                        binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
+                    fi
+                else
+                    info_message "Detected Ubuntu ${ubuntu_version:-unknown} or Debian - using Ubuntu 24 prebuilt binaries"
+                    if [ "$binary_arch" = "x86_64" ]; then
+                        binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu-x86_64.tar.gz"
+                    else
+                        # aarch64
+                        binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
+                    fi
+                fi
+            else
+                # Default to Ubuntu 24 binaries for Debian or when version detection fails
+                info_message "Using Ubuntu 24 prebuilt binaries"
+                if [ "$binary_arch" = "x86_64" ]; then
+                    binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu-x86_64.tar.gz"
+                else
+                    binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
+                fi
+            fi
+            ;;
+        centos|rhel|rocky|almalinux|fedora)
+            # Use Ubuntu 22 prebuilt binaries for CentOS/RHEL distributions
+            info_message "Using Ubuntu 22 prebuilt binaries for CentOS/RHEL compatibility"
+            if [ "$binary_arch" = "x86_64" ]; then
+                binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu22-x86_64.tar.gz"
+            else
+                # For ARM64, use Ubuntu 24 ARM binary as fallback since Ubuntu 22 ARM might not be available
+                binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
+            fi
+            ;;
+        *)
+            error_message "Unsupported distribution for binary selection: $DISTRO"
+            return 1
+            ;;
+    esac
     local download_url="${GITHUB_RELEASE_BASE_URL}/${GITHUB_RELEASE_TAG}/${binary_name}"
 
     info_message "Download URL: $download_url"
