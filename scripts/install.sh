@@ -15,7 +15,7 @@ YARA_VERSION="${1:-4.5.4}"
 YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh"
 
 # GitHub Release configuration for prebuilt binaries
-GITHUB_RELEASE_TAG="v${YARA_VERSION}-adorsys.1"
+GITHUB_RELEASE_TAG="v${YARA_VERSION}-adorsys.2.rc1"
 GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-yara-package/releases/download"
 
 DOWNLOADS_DIR="${HOME}/yara-install"
