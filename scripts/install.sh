@@ -574,19 +574,7 @@ install_yara_macos_prebuilt() {
     else
         warn_message "yarac executable not found in $install_dir/bin/ (optional)"
     fi
-    
-    # Verify installation
-    print_step "7" "Verifying YARA installation"
-    
-    if command_exists yara; then
-        local installed_version
-        installed_version=$(yara --version)
-        success_message "YARA installed successfully. Version: ${installed_version}"
-    else
-        error_message "YARA installation verification failed"
-        exit 1
-    fi
-    
+
     success_message "YARA v${YARA_VERSION} installed successfully from prebuilt binaries"
 }
 
@@ -696,11 +684,23 @@ validate_installation() {
         fi
     fi
 
+    # Check YARA installation - try command first, then direct path
+    local yara_found="FALSE"
+    local actual_version=""
+    
     if command_exists yara; then
-        if [ "$(yara --version)" = "$YARA_VERSION" ]; then
+        actual_version=$(yara --version)
+        yara_found="TRUE"
+    elif [ -f "/opt/yara/bin/yara" ]; then
+        actual_version=$(/opt/yara/bin/yara --version)
+        yara_found="TRUE"
+    fi
+    
+    if [ "$yara_found" = "TRUE" ]; then
+        if [ "$actual_version" = "$YARA_VERSION" ]; then
             success_message "Yara version $YARA_VERSION is installed."
         else
-            warn_message "Yara version mismatch. Expected $YARA_VERSION, but found $(yara --version)."
+            warn_message "Yara version mismatch. Expected $YARA_VERSION, but found $actual_version."
             VALIDATION_STATUS="FALSE"
         fi
     else
