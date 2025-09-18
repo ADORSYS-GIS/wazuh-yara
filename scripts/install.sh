@@ -638,17 +638,20 @@ install_yara_macos_prebuilt() {
 }
 
 install_yara_linux_prebuilt() {
-    info_message "Installing YARA v${YARA_VERSION} from prebuilt binaries on Linux"
+    info_message "Installing YARA v${YARA_VERSION} on Linux"
 
     # Use the already detected DISTRO variable
     case "$DISTRO" in
         ubuntu|debian)
-            info_message "Detected Ubuntu/Debian-based distribution: $DISTRO"
+            info_message "Detected Ubuntu/Debian-based distribution: $DISTRO - using prebuilt binaries"
             remove_apt_yara
+            remove_prebuilt_yara
+            remove_source_yara
             ;;
         centos|rhel|rocky|almalinux|fedora)
-            info_message "Detected CentOS/RHEL-based distribution: $DISTRO (using Ubuntu 22 prebuilt binaries)"
-            remove_yum_yara
+            info_message "Detected CentOS/RHEL-based distribution: $DISTRO - using yum package manager"
+            install_yara_centos_yum
+            return $?
             ;;
         *)
             error_message "Unsupported Linux distribution: $DISTRO"
@@ -656,8 +659,6 @@ install_yara_linux_prebuilt() {
             return 1
             ;;
     esac
-    remove_prebuilt_yara
-    remove_source_yara
 
     # Detect architecture
     local arch
@@ -679,55 +680,37 @@ install_yara_linux_prebuilt() {
             ;;
     esac
 
-    # Construct download URL based on release asset naming
+    # Construct download URL based on release asset naming (Ubuntu/Debian only)
     local binary_name
-    case "$DISTRO" in
-        ubuntu|debian)
-            # Detect Ubuntu version for proper binary selection
-            if [ "$DISTRO" = "ubuntu" ] && command_exists lsb_release; then
-                ubuntu_version=$(lsb_release -rs 2>/dev/null || echo "")
-                if [ "$ubuntu_version" = "22.04" ]; then
-                    info_message "Detected Ubuntu 22.04 - using Ubuntu 22 prebuilt binaries"
-                    if [ "$binary_arch" = "x86_64" ]; then
-                        binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu22-x86_64.tar.gz"
-                    else
-                        # Use Ubuntu 24 ARM binary for Ubuntu 22 ARM as fallback
-                        binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
-                    fi
-                else
-                    info_message "Detected Ubuntu ${ubuntu_version:-unknown} or Debian - using Ubuntu 24 prebuilt binaries"
-                    if [ "$binary_arch" = "x86_64" ]; then
-                        binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu-x86_64.tar.gz"
-                    else
-                        # aarch64
-                        binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
-                    fi
-                fi
-            else
-                # Default to Ubuntu 24 binaries for Debian or when version detection fails
-                info_message "Using Ubuntu 24 prebuilt binaries"
-                if [ "$binary_arch" = "x86_64" ]; then
-                    binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu-x86_64.tar.gz"
-                else
-                    binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
-                fi
-            fi
-            ;;
-        centos|rhel|rocky|almalinux|fedora)
-            # Use Ubuntu 22 prebuilt binaries for CentOS/RHEL distributions
-            info_message "Using Ubuntu 22 prebuilt binaries for CentOS/RHEL compatibility"
+    # Detect Ubuntu version for proper binary selection
+    if [ "$DISTRO" = "ubuntu" ] && command_exists lsb_release; then
+        ubuntu_version=$(lsb_release -rs 2>/dev/null || echo "")
+        if [ "$ubuntu_version" = "22.04" ]; then
+            info_message "Detected Ubuntu 22.04 - using Ubuntu 22 prebuilt binaries"
             if [ "$binary_arch" = "x86_64" ]; then
                 binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu22-x86_64.tar.gz"
             else
-                # For ARM64, use Ubuntu 24 ARM binary as fallback since Ubuntu 22 ARM might not be available
+                # Use Ubuntu 24 ARM binary for Ubuntu 22 ARM as fallback
                 binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
             fi
-            ;;
-        *)
-            error_message "Unsupported distribution for binary selection: $DISTRO"
-            return 1
-            ;;
-    esac
+        else
+            info_message "Detected Ubuntu ${ubuntu_version:-unknown} - using Ubuntu 24 prebuilt binaries"
+            if [ "$binary_arch" = "x86_64" ]; then
+                binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu-x86_64.tar.gz"
+            else
+                # aarch64
+                binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
+            fi
+        fi
+    else
+        # Default to Ubuntu 24 binaries for Debian or when version detection fails
+        info_message "Using Ubuntu 24 prebuilt binaries for Debian"
+        if [ "$binary_arch" = "x86_64" ]; then
+            binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu-x86_64.tar.gz"
+        else
+            binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
+        fi
+    fi
     local download_url="${GITHUB_RELEASE_BASE_URL}/${GITHUB_RELEASE_TAG}/${binary_name}"
 
     info_message "Download URL: $download_url"
@@ -816,6 +799,72 @@ install_yara_linux_prebuilt() {
     success_message "YARA v${YARA_VERSION} installed successfully from prebuilt binaries"
 }
 
+install_yara_centos_yum() {
+    info_message "Installing YARA v${YARA_VERSION} via yum on CentOS/RHEL"
+
+    # Check if yum is available
+    if ! command_exists yum; then
+        error_message "yum package manager not found"
+        error_message "This script requires yum to install YARA on CentOS/RHEL systems"
+        exit 1
+    fi
+
+    # Install EPEL repository if not already installed (needed for yara package)
+    if ! yum repolist enabled | grep -q epel; then
+        info_message "Installing EPEL repository..."
+        maybe_sudo yum install -y epel-release || {
+            error_message "Failed to install EPEL repository"
+            return 1
+        }
+    fi
+
+    # Install specific version of YARA
+    info_message "Installing YARA version ${YARA_VERSION} via yum..."
+    if ! maybe_sudo yum install -y "yara-${YARA_VERSION}*"; then
+        # If specific version not available, try without version specifier
+        info_message "Specific version not found, trying to install available yara package..."
+        maybe_sudo yum install -y yara || {
+            error_message "Failed to install YARA via yum"
+            return 1
+        }
+    fi
+
+    # Lock YARA version to prevent upgrades
+    info_message "Locking YARA package to prevent automatic upgrades..."
+    if command_exists yum-versionlock; then
+        maybe_sudo yum versionlock yara || {
+            warn_message "Failed to lock YARA version - package may be upgraded in future updates"
+        }
+    else
+        info_message "Installing yum-plugin-versionlock to lock YARA version..."
+        if maybe_sudo yum install -y yum-plugin-versionlock; then
+            maybe_sudo yum versionlock yara || {
+                warn_message "Failed to lock YARA version - package may be upgraded in future updates"
+            }
+        else
+            warn_message "Could not install yum-plugin-versionlock - YARA version will not be locked"
+        fi
+    fi
+
+    # Verify installation
+    if command_exists yara; then
+        local installed_version
+        installed_version=$(yara --version)
+        success_message "YARA installed successfully. Version: ${installed_version}"
+
+        # Check if the installed version matches what we wanted
+        if [ "$installed_version" != "$YARA_VERSION" ]; then
+            warn_message "Installed YARA version ($installed_version) differs from requested version ($YARA_VERSION)"
+            warn_message "This may be due to package repository limitations"
+        fi
+    else
+        error_message "YARA installation verification failed"
+        return 1
+    fi
+
+    success_message "YARA installed successfully via yum package manager"
+}
+
 install_yara() {
     case "$OS" in
     linux)
@@ -848,20 +897,39 @@ install_yara_and_tools(){
     if command_exists yara; then
         current_version=$(yara --version 2>/dev/null || echo "unknown")
         info_message "Current YARA version detected: $current_version"
-        
-        # Check if it's the prebuilt version we want (checking for exact version and if it's in /opt/yara)
-        if [ "$current_version" = "$YARA_VERSION" ] && [ -d "/opt/yara" ]; then
-            info_message "YARA prebuilt version $YARA_VERSION is already installed. Skipping installation."
-        else
-            if [ "$OS" = "darwin" ]; then
-                info_message "Different YARA version detected. Removing and reinstalling..."
-                # Remove any existing YARA installations
-                remove_brew_yara
-                remove_prebuilt_yara
+
+        # Check if it's the version we want
+        if [ "$current_version" = "$YARA_VERSION" ]; then
+            # For Ubuntu/Debian, also check if it's in /opt/yara (prebuilt)
+            # For CentOS/RHEL, we just check the version since it's installed via package manager
+            if [ "$OS" = "linux" ]; then
+                case "$DISTRO" in
+                    ubuntu|debian)
+                        if [ -d "/opt/yara" ]; then
+                            info_message "YARA prebuilt version $YARA_VERSION is already installed. Skipping installation."
+                            return 0
+                        fi
+                        ;;
+                    centos|rhel|rocky|almalinux|fedora)
+                        info_message "YARA version $YARA_VERSION is already installed via package manager. Skipping installation."
+                        return 0
+                        ;;
+                esac
+            elif [ "$OS" = "darwin" ] && [ -d "/opt/yara" ]; then
+                info_message "YARA prebuilt version $YARA_VERSION is already installed. Skipping installation."
+                return 0
             fi
-            info_message "Installing YARA..."
-            install_yara
         fi
+
+        # Different version detected or wrong installation method, reinstall
+        if [ "$OS" = "darwin" ]; then
+            info_message "Different YARA version detected. Removing and reinstalling..."
+            # Remove any existing YARA installations
+            remove_brew_yara
+            remove_prebuilt_yara
+        fi
+        info_message "Installing YARA..."
+        install_yara
     else
         if [ "$OS" = "darwin" ]; then
             # Remove any existing YARA installations before installing
