@@ -704,11 +704,23 @@ validate_installation() {
         fi
     fi
 
+    # Check YARA installation - try command first, then direct path
+    local yara_found="FALSE"
+    local actual_version=""
+    
     if command_exists yara; then
-        if [ "$(yara --version)" = "$YARA_VERSION" ]; then
+        actual_version=$(yara --version)
+        yara_found="TRUE"
+    elif [ -f "/opt/yara/bin/yara" ]; then
+        actual_version=$(/opt/yara/bin/yara --version)
+        yara_found="TRUE"
+    fi
+    
+    if [ "$yara_found" = "TRUE" ]; then
+        if [ "$actual_version" = "$YARA_VERSION" ]; then
             success_message "Yara version $YARA_VERSION is installed."
         else
-            warn_message "Yara version mismatch. Expected $YARA_VERSION, but found $(yara --version)."
+            warn_message "Yara version mismatch. Expected $YARA_VERSION, but found $actual_version."
             VALIDATION_STATUS="FALSE"
         fi
     else
