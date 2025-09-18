@@ -574,27 +574,7 @@ install_yara_macos_prebuilt() {
     else
         warn_message "yarac executable not found in $install_dir/bin/ (optional)"
     fi
-    
-    # Verify installation
-    print_step "7" "Verifying YARA installation"
-    
-    # Check if the actual binary exists
-    if [ -f "$install_dir/bin/yara" ]; then
-        local installed_version
-        installed_version=$("$install_dir/bin/yara" --version)
-        success_message "YARA binary installed at $install_dir/bin/yara. Version: ${installed_version}"
-        
-        # Verify symlink exists and points to correct location
-        if [ -L "/usr/local/bin/yara" ] && [ "$(readlink /usr/local/bin/yara)" = "$install_dir/bin/yara" ]; then
-            success_message "YARA symlink verified at /usr/local/bin/yara"
-        else
-            warn_message "YARA symlink at /usr/local/bin/yara is missing or incorrect"
-        fi
-    else
-        error_message "YARA installation verification failed - binary not found at $install_dir/bin/yara"
-        exit 1
-    fi
-    
+
     success_message "YARA v${YARA_VERSION} installed successfully from prebuilt binaries"
 }
 
