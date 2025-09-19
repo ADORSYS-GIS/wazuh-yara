@@ -848,7 +848,7 @@ install_yara_centos_yum() {
             error_message "Failed to install Development Tools for source build"
             return 1
         }
-        maybe_sudo yum install -y gcc make automake libtool openssl-devel libmagic-devel file-devel pcre-devel || {
+        maybe_sudo yum install -y gcc make automake libtool pkg-config openssl-devel libmagic-devel file-devel pcre-devel || {
             error_message "Failed to install build dependencies for source build"
             return 1
         }
@@ -887,7 +887,7 @@ install_yara_centos_yum() {
             return 1
         fi
 
-        if ! ./configure --enable-magic --enable-cuckoo --prefix=/usr/local; then
+        if ! ./configure --enable-cuckoo --enable-magic --enable-dotnet --prefix=/usr/local; then
             error_message "Failed to configure YARA build"
             return 1
         fi
