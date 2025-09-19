@@ -893,7 +893,7 @@ install_yara_centos_yum() {
         fi
 
         info_message "Compiling YARA (this may take a few minutes)..."
-        if ! make -j$(nproc); then
+        if ! make -j"$(nproc)"; then
             error_message "Failed to compile YARA"
             return 1
         fi
