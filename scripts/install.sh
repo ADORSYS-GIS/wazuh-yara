@@ -848,7 +848,7 @@ install_yara_centos_yum() {
             error_message "Failed to install Development Tools for source build"
             return 1
         }
-        maybe_sudo yum install -y gcc make automake libtool pkg-config openssl-devel libmagic-devel file-devel pcre-devel || {
+        maybe_sudo yum install -y gcc make automake libtool pkg-config openssl-devel file-devel pcre-devel || {
             error_message "Failed to install build dependencies for source build"
             return 1
         }
