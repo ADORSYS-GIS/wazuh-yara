@@ -649,7 +649,7 @@ install_yara_linux_prebuilt() {
             remove_source_yara
             ;;
         centos|rhel|rocky|almalinux|fedora)
-            info_message "Detected CentOS/RHEL-based distribution: $DISTRO - using yum package manager"
+            info_message "Detected CentOS/RHEL-based distribution: $DISTRO - using yum with source fallback"
             install_yara_centos_yum
             return $?
             ;;
@@ -800,7 +800,7 @@ install_yara_linux_prebuilt() {
 }
 
 install_yara_centos_yum() {
-    info_message "Installing YARA v${YARA_VERSION} via yum on CentOS/RHEL"
+    info_message "Installing YARA v${YARA_VERSION} on CentOS/RHEL (yum with source fallback)"
 
     # Check if yum is available
     if ! command_exists yum; then
@@ -809,24 +809,106 @@ install_yara_centos_yum() {
         exit 1
     fi
 
-    # Install EPEL repository if not already installed (needed for yara package)
+    # Try to install EPEL repository first (needed for yara package)
+    local epel_installed=false
     if ! yum repolist enabled | grep -q epel; then
         info_message "Installing EPEL repository..."
-        maybe_sudo yum install -y epel-release || {
-            error_message "Failed to install EPEL repository"
-            return 1
-        }
+        if maybe_sudo yum install -y epel-release; then
+            epel_installed=true
+        else
+            warn_message "Failed to install EPEL repository - will fallback to source build"
+        fi
+    else
+        epel_installed=true
     fi
 
-    # Install specific version of YARA
-    info_message "Installing YARA version ${YARA_VERSION} via yum..."
-    if ! maybe_sudo yum install -y "yara-${YARA_VERSION}*"; then
-        # If specific version not available, try without version specifier
-        info_message "Specific version not found, trying to install available yara package..."
-        maybe_sudo yum install -y yara || {
-            error_message "Failed to install YARA via yum"
+    # Try to install YARA via yum if EPEL is available
+    local yum_install_success=false
+    if [ "$epel_installed" = true ]; then
+        info_message "Installing YARA version ${YARA_VERSION} via yum..."
+        if maybe_sudo yum install -y "yara-${YARA_VERSION}*"; then
+            yum_install_success=true
+        else
+            info_message "Specific version not found, trying to install available yara package..."
+            if maybe_sudo yum install -y yara; then
+                yum_install_success=true
+            else
+                warn_message "Failed to install YARA via yum - will fallback to source build"
+            fi
+        fi
+    fi
+
+    # Fallback to source build if yum installation failed
+    if [ "$yum_install_success" = false ]; then
+        info_message "Falling back to building YARA from source..."
+
+        # Install build dependencies
+        info_message "Installing build dependencies..."
+        maybe_sudo yum groupinstall -y "Development Tools" || {
+            error_message "Failed to install Development Tools for source build"
             return 1
         }
+        maybe_sudo yum install -y gcc make automake libtool openssl-devel libmagic-devel file-devel pcre-devel || {
+            error_message "Failed to install build dependencies for source build"
+            return 1
+        }
+
+        # Create build directory
+        local build_dir="$DOWNLOADS_DIR/yara-build"
+        mkdir -p "$build_dir"
+        cd "$build_dir" || {
+            error_message "Failed to create build directory"
+            return 1
+        }
+
+        # Download YARA source
+        info_message "Downloading YARA v${YARA_VERSION} source code..."
+        if ! curl -fsSL --progress-bar -o "yara-${YARA_VERSION}.tar.gz" "$YARA_URL"; then
+            error_message "Failed to download YARA source from: $YARA_URL"
+            return 1
+        fi
+
+        # Extract source
+        info_message "Extracting YARA source code..."
+        if ! tar -xzf "yara-${YARA_VERSION}.tar.gz"; then
+            error_message "Failed to extract YARA source"
+            return 1
+        fi
+
+        cd "yara-${YARA_VERSION}" || {
+            error_message "Failed to enter YARA source directory"
+            return 1
+        }
+
+        # Configure, compile and install
+        info_message "Configuring YARA build..."
+        if ! ./bootstrap.sh; then
+            error_message "Failed to bootstrap YARA build"
+            return 1
+        fi
+
+        if ! ./configure --enable-magic --enable-cuckoo --prefix=/usr/local; then
+            error_message "Failed to configure YARA build"
+            return 1
+        fi
+
+        info_message "Compiling YARA (this may take a few minutes)..."
+        if ! make -j$(nproc); then
+            error_message "Failed to compile YARA"
+            return 1
+        fi
+
+        info_message "Installing YARA..."
+        if ! maybe_sudo make install; then
+            error_message "Failed to install YARA"
+            return 1
+        fi
+
+        # Update library cache
+        maybe_sudo ldconfig
+
+        success_message "YARA built and installed successfully from source"
+        return 0
     fi
 
     # Lock YARA version to prevent upgrades
