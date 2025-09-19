@@ -848,10 +848,25 @@ install_yara_centos_yum() {
             error_message "Failed to install Development Tools for source build"
             return 1
         }
-        maybe_sudo yum install -y gcc make automake libtool pkg-config openssl-devel file-devel pcre-devel jansson-devel || {
-            error_message "Failed to install build dependencies for source build"
+
+        # Enable PowerTools repository for additional devel packages (RHEL/CentOS 8+)
+        maybe_sudo yum config-manager --set-enabled powertools 2>/dev/null || true
+        maybe_sudo yum config-manager --set-enabled crb 2>/dev/null || true
+
+        # Install basic dependencies first
+        maybe_sudo yum install -y gcc make automake libtool pkg-config openssl-devel pcre-devel || {
+            error_message "Failed to install basic build dependencies for source build"
             return 1
         }
+
+        # Install file-devel and jansson-devel with fallback for RHEL 9
+        if ! maybe_sudo yum install -y file-devel jansson-devel; then
+            warn_message "Failed to install file-devel and jansson-devel, trying alternative package names..."
+            # Try alternative package names that might be available
+            maybe_sudo yum install -y libmagic-devel libjansson-devel 2>/dev/null || {
+                warn_message "Alternative package names also failed, YARA will build without magic and jansson support"
+            }
+        fi
 
         # Create build directory
         local build_dir="$DOWNLOADS_DIR/yara-build"
