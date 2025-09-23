@@ -821,9 +821,9 @@ install_yara_centos_source() {
         if [ -f /etc/redhat-release ]; then
             rhel_version=$(grep -oE '[0-9]+' /etc/redhat-release | head -1)
             if [ "$rhel_version" = "8" ]; then
-                maybe_sudo subscription-manager repos --enable codeready-builder-for-rhel-8-$(arch)-rpms 2>/dev/null || true
+                maybe_sudo subscription-manager repos --enable "codeready-builder-for-rhel-8-$(arch)-rpms" 2>/dev/null || true
             elif [ "$rhel_version" = "9" ]; then
-                maybe_sudo subscription-manager repos --enable codeready-builder-for-rhel-9-$(arch)-rpms 2>/dev/null || true
+                maybe_sudo subscription-manager repos --enable "codeready-builder-for-rhel-9-$(arch)-rpms" 2>/dev/null || true
             fi
         fi
 
