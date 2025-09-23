@@ -1023,8 +1023,7 @@ validate_installation() {
 
     VALIDATION_STATUS="TRUE"
 
-    # Only validate notify-send on Ubuntu/Debian systems where it's required
-    if [ "$OS" = "linux" ] && { [ "$DISTRO" = "ubuntu" ] || [ "$DISTRO" = "debian" ]; }; then
+    if [ "$OS" = "linux" ]; then
         if command_exists notify-send; then
             if [ "$(notify-send --version 2>&1 | awk '{print $NF}')" = "$NOTIFY_SEND_VERSION" ]; then
                 success_message "notify-send version $NOTIFY_SEND_VERSION is installed."
@@ -1035,15 +1034,6 @@ validate_installation() {
         else
             warn_message "notify-send is not installed. Please install it to use notifications."
             VALIDATION_STATUS="FALSE"
-        fi
-    elif [ "$OS" = "linux" ]; then
-        # For CentOS/RHEL systems, notify-send is optional
-        if command_exists notify-send; then
-            local current_notify_version
-            current_notify_version=$(notify-send --version 2>&1 | awk '{print $NF}')
-            info_message "notify-send version $current_notify_version is available (optional for CentOS/RHEL)."
-        else
-            info_message "notify-send is not installed (optional for CentOS/RHEL systems)."
         fi
     fi
 
