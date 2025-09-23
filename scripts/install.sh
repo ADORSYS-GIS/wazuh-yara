@@ -815,6 +815,18 @@ install_yara_centos_source() {
         maybe_sudo yum config-manager --set-enabled powertools 2>/dev/null || true
         maybe_sudo yum config-manager --set-enabled crb 2>/dev/null || true
 
+        # Enable codeready-builder repository for RHEL (required for jansson-devel)
+        # RHEL 8 uses codeready-builder-for-rhel-8-*-rpms
+        # RHEL 9 uses codeready-builder-for-rhel-9-*-rpms
+        if [ -f /etc/redhat-release ]; then
+            rhel_version=$(grep -oE '[0-9]+' /etc/redhat-release | head -1)
+            if [ "$rhel_version" = "8" ]; then
+                maybe_sudo subscription-manager repos --enable codeready-builder-for-rhel-8-$(arch)-rpms 2>/dev/null || true
+            elif [ "$rhel_version" = "9" ]; then
+                maybe_sudo subscription-manager repos --enable codeready-builder-for-rhel-9-$(arch)-rpms 2>/dev/null || true
+            fi
+        fi
+
         # Install basic dependencies first
         maybe_sudo yum install -y gcc make automake libtool pkg-config openssl-devel pcre-devel || {
             error_message "Failed to install basic build dependencies for source build"
