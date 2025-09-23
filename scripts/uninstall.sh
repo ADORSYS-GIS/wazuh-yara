@@ -15,6 +15,39 @@ if [ "$(uname -s)" = "Darwin" ]; then
     LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
 fi
 
+# OS and Distribution Detection
+case "$(uname)" in
+Linux)
+    OS="linux"
+    ;;
+Darwin)
+    OS="darwin"
+    ;;
+*)
+    error_message "Unsupported operating system: $(uname)"
+    exit 1
+    ;;
+esac
+
+# Detect Linux Distribution
+if [ "$OS" = "linux" ]; then
+    detect_distro() {
+        if [ -f /etc/os-release ]; then
+            # shellcheck source=/dev/null
+            . /etc/os-release
+            echo "$ID"
+        elif [ -f /etc/redhat-release ]; then
+            echo "redhat"
+        elif [ -f /etc/debian_version ]; then
+            echo "debian"
+        else
+            error_message "Unable to detect Linux distribution"
+            exit 1
+        fi
+    }
+    DISTRO=$(detect_distro)
+fi
+
 # Define text formatting
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -139,9 +172,9 @@ remove_source_yara() {
     fi
 }
 
-# Uninstall YARA for Ubuntu
+# Uninstall YARA for Ubuntu/Debian
 uninstall_yara_ubuntu() {
-    info_message "Checking for YARA installation..."
+    info_message "Checking for YARA installation on Ubuntu/Debian..."
     # Check for apt-installed YARA
     if command -v dpkg >/dev/null 2>&1; then
         if dpkg -s yara >/dev/null 2>&1; then
@@ -156,6 +189,41 @@ uninstall_yara_ubuntu() {
             info_message "No apt-installed YARA found"
         fi
     fi
+    # Check for prebuilt installation
+    remove_prebuilt_yara
+    # Check for source-installed YARA
+    remove_source_yara
+}
+
+# Uninstall YARA for CentOS/RHEL
+uninstall_yara_centos() {
+    info_message "Checking for YARA installation on CentOS/RHEL..."
+    # Check for yum/dnf-installed YARA
+    if command -v yum >/dev/null 2>&1; then
+        if yum list installed yara >/dev/null 2>&1; then
+            info_message "Detected yum-installed YARA; uninstalling via yum"
+            maybe_sudo yum remove -y yara || {
+                error_message "Failed to remove yum-installed YARA"
+                exit 1
+            }
+            success_message "Yum-installed YARA removed"
+        else
+            info_message "No yum-installed YARA found"
+        fi
+    elif command -v dnf >/dev/null 2>&1; then
+        if dnf list installed yara >/dev/null 2>&1; then
+            info_message "Detected dnf-installed YARA; uninstalling via dnf"
+            maybe_sudo dnf remove -y yara || {
+                error_message "Failed to remove dnf-installed YARA"
+                exit 1
+            }
+            success_message "DNF-installed YARA removed"
+        else
+            info_message "No dnf-installed YARA found"
+        fi
+    fi
+    # Check for prebuilt installation (should not exist for CentOS/RHEL, but check anyway)
+    remove_prebuilt_yara
     # Check for source-installed YARA
     remove_source_yara
 }
@@ -184,17 +252,29 @@ uninstall_yara_macos() {
     fi
 }
 
-# Uninstall YARA based on OS
+# Uninstall YARA based on OS and distribution
 uninstall_yara() {
-    case "$(uname -s)" in
-        Linux)
-            uninstall_yara_ubuntu
+    case "$OS" in
+        linux)
+            case "$DISTRO" in
+                ubuntu|debian)
+                    uninstall_yara_ubuntu
+                    ;;
+                centos|rhel|rocky|almalinux|fedora)
+                    uninstall_yara_centos
+                    ;;
+                *)
+                    error_message "Unsupported Linux distribution: $DISTRO"
+                    error_message "This script only supports Ubuntu/Debian and CentOS/RHEL-based distributions"
+                    exit 1
+                    ;;
+            esac
             ;;
-        Darwin)
+        darwin)
             uninstall_yara_macos
             ;;
         *)
-            error_message "Unsupported operating system."
+            error_message "Unsupported operating system: $OS"
             exit 1
             ;;
     esac
@@ -289,6 +369,10 @@ remove_ossec_configuration() {
 
 # Main uninstallation steps
 info_message "Starting YARA uninstallation process..."
+info_message "Detected OS: ${OS}"
+if [ "$OS" = "linux" ]; then
+    info_message "Detected Linux distribution: ${DISTRO}"
+fi
 uninstall_yara
 remove_yara_components
 remove_ossec_configuration
