@@ -118,6 +118,22 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Check if version matches 4.5.x pattern
+version_is_4_5_x() {
+    local version="$1"
+
+    # Extract major and minor version numbers
+    local major=$(echo "$version" | cut -d'.' -f1)
+    local minor=$(echo "$version" | cut -d'.' -f2)
+
+    # Check if it's 4.5.x
+    if [ "$major" = "4" ] && [ "$minor" = "5" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Check if sudo is available or if the script is run as root
 maybe_sudo() {
     if [ "$(id -u)" -ne 0 ]; then
@@ -1034,10 +1050,10 @@ validate_installation() {
     fi
 
     if [ "$yara_found" = "TRUE" ]; then
-        if [ "$actual_version" = "$YARA_VERSION" ]; then
-            success_message "Yara version $YARA_VERSION is installed."
+        if version_is_4_5_x "$actual_version"; then
+            success_message "Yara version $actual_version is installed (4.5.x series)."
         else
-            warn_message "Yara version mismatch. Expected $YARA_VERSION, but found $actual_version."
+            warn_message "Yara version $actual_version is not compatible. Version 4.5.x is required."
             VALIDATION_STATUS="FALSE"
         fi
     else
