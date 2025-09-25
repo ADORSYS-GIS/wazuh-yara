@@ -72,6 +72,15 @@ if [ "$OS" = "linux" ]; then
         fi
     }
     DISTRO=$(detect_distro)
+
+    # Check for unsupported RPM-based distributions
+    case "$DISTRO" in
+        centos|rhel|redhat|rocky|almalinux|fedora)
+            error_message "Unsupported Linux distribution: $DISTRO"
+            error_message "This script only supports Ubuntu and Debian distributions"
+            exit 1
+            ;;
+    esac
 fi
 
 # Define text formatting
@@ -268,26 +277,6 @@ remove_apt_yara() {
     fi
 }
 
-remove_yum_yara() {
-    # only on CentOS/RHEL/Fedora
-    if command_exists yum; then
-        if yum list installed yara >/dev/null 2>&1; then
-            info_message "Detected yum-installed YARA; uninstalling via yum"
-            maybe_sudo yum remove -y yara || {
-                error_message "Failed to remove yum-installed YARA"
-            }
-            success_message "Yum-installed YARA removed"
-        fi
-    elif command_exists dnf; then
-        if dnf list installed yara >/dev/null 2>&1; then
-            info_message "Detected dnf-installed YARA; uninstalling via dnf"
-            maybe_sudo dnf remove -y yara || {
-                error_message "Failed to remove dnf-installed YARA"
-            }
-            success_message "DNF-installed YARA removed"
-        fi
-    fi
-}
 
 remove_brew_yara() {
     # only on macOS/Homebrew
@@ -779,180 +768,6 @@ install_yara_linux_prebuilt() {
 # SOURCE BUILD INSTALLATION FUNCTIONS
 #=============================================================================
 
-install_yara_centos_source() {
-    info_message "Installing YARA v${YARA_VERSION} on CentOS/RHEL (yum with source fallback)"
-
-    # Check if yum is available
-    if ! command_exists yum; then
-        error_message "yum package manager not found"
-        error_message "This script requires yum to install YARA on CentOS/RHEL systems"
-        exit 1
-    fi
-
-    # Try to install EPEL repository first (needed for yara package)
-    local epel_installed=false
-    if ! yum repolist enabled | grep -q epel; then
-        info_message "Installing EPEL repository..."
-        if maybe_sudo yum install -y epel-release; then
-            epel_installed=true
-        else
-            warn_message "Failed to install EPEL repository - will fallback to source build"
-        fi
-    else
-        epel_installed=true
-    fi
-
-    # Try to install YARA via yum if EPEL is available
-    local yum_install_success=false
-    if [ "$epel_installed" = true ]; then
-        info_message "Installing YARA version ${YARA_VERSION} via yum..."
-        if maybe_sudo yum install -y "yara-${YARA_VERSION}*"; then
-            yum_install_success=true
-        else
-            info_message "Specific version not found, trying to install available yara package..."
-            if maybe_sudo yum install -y yara; then
-                yum_install_success=true
-            else
-                warn_message "Failed to install YARA via yum - will fallback to source build"
-            fi
-        fi
-    fi
-
-    # Fallback to source build if yum installation failed
-    if [ "$yum_install_success" = false ]; then
-        info_message "Falling back to building YARA from source..."
-
-        # Install build dependencies
-        info_message "Installing build dependencies..."
-        maybe_sudo yum groupinstall -y "Development Tools" || {
-            error_message "Failed to install Development Tools for source build"
-            return 1
-        }
-
-        # Enable PowerTools repository for additional devel packages (RHEL/CentOS 8+)
-        maybe_sudo yum config-manager --set-enabled powertools 2>/dev/null || true
-        maybe_sudo yum config-manager --set-enabled crb 2>/dev/null || true
-
-        # Enable codeready-builder repository for RHEL (required for jansson-devel)
-        # RHEL 8 uses codeready-builder-for-rhel-8-*-rpms
-        # RHEL 9 uses codeready-builder-for-rhel-9-*-rpms
-        if [ -f /etc/redhat-release ]; then
-            rhel_version=$(grep -oE '[0-9]+' /etc/redhat-release | head -1)
-            if [ "$rhel_version" = "8" ]; then
-                maybe_sudo subscription-manager repos --enable "codeready-builder-for-rhel-8-$(arch)-rpms" 2>/dev/null || true
-            elif [ "$rhel_version" = "9" ]; then
-                maybe_sudo subscription-manager repos --enable "codeready-builder-for-rhel-9-$(arch)-rpms" 2>/dev/null || true
-            fi
-        fi
-
-        # Install basic dependencies first
-        maybe_sudo yum install -y gcc make automake libtool pkg-config openssl-devel pcre-devel || {
-            error_message "Failed to install basic build dependencies for source build"
-            return 1
-        }
-
-        # Install file-devel and jansson-devel with fallback for RHEL 9
-        if ! maybe_sudo yum install -y file-devel jansson-devel; then
-            warn_message "Failed to install file-devel and jansson-devel, trying alternative package names..."
-            # Try alternative package names that might be available
-            maybe_sudo yum install -y libmagic-devel libjansson-devel 2>/dev/null || {
-                warn_message "Alternative package names also failed, YARA will build without magic and jansson support"
-            }
-        fi
-
-        # Create build directory
-        local build_dir="$DOWNLOADS_DIR/yara-build"
-        mkdir -p "$build_dir"
-        cd "$build_dir" || {
-            error_message "Failed to create build directory"
-            return 1
-        }
-
-        # Download YARA source
-        info_message "Downloading YARA v${YARA_VERSION} source code..."
-        if ! curl -fsSL --progress-bar -o "yara-${YARA_VERSION}.tar.gz" "$YARA_URL"; then
-            error_message "Failed to download YARA source from: $YARA_URL"
-            return 1
-        fi
-
-        # Extract source
-        info_message "Extracting YARA source code..."
-        if ! tar -xzf "yara-${YARA_VERSION}.tar.gz"; then
-            error_message "Failed to extract YARA source"
-            return 1
-        fi
-
-        cd "yara-${YARA_VERSION}" || {
-            error_message "Failed to enter YARA source directory"
-            return 1
-        }
-
-        # Configure, compile and install
-        info_message "Configuring YARA build..."
-        if ! ./bootstrap.sh; then
-            error_message "Failed to bootstrap YARA build"
-            return 1
-        fi
-
-        if ! ./configure --enable-cuckoo --enable-magic --enable-dotnet --prefix=/usr/local; then
-            error_message "Failed to configure YARA build"
-            return 1
-        fi
-
-        info_message "Compiling YARA (this may take a few minutes)..."
-        if ! make -j"$(nproc)"; then
-            error_message "Failed to compile YARA"
-            return 1
-        fi
-
-        info_message "Installing YARA..."
-        if ! maybe_sudo make install; then
-            error_message "Failed to install YARA"
-            return 1
-        fi
-
-        # Update library cache
-        maybe_sudo ldconfig
-
-        success_message "YARA built and installed successfully from source"
-        return 0
-    fi
-
-    # Lock YARA version to prevent upgrades
-    info_message "Locking YARA package to prevent automatic upgrades..."
-    if command_exists yum-versionlock; then
-        maybe_sudo yum versionlock yara || {
-            warn_message "Failed to lock YARA version - package may be upgraded in future updates"
-        }
-    else
-        info_message "Installing yum-plugin-versionlock to lock YARA version..."
-        if maybe_sudo yum install -y yum-plugin-versionlock; then
-            maybe_sudo yum versionlock yara || {
-                warn_message "Failed to lock YARA version - package may be upgraded in future updates"
-            }
-        else
-            warn_message "Could not install yum-plugin-versionlock - YARA version will not be locked"
-        fi
-    fi
-
-    # Verify installation
-    if command_exists yara; then
-        local installed_version
-        installed_version=$(yara --version)
-        success_message "YARA installed successfully. Version: ${installed_version}"
-
-        # Check if the installed version matches what we wanted
-        if [ "$installed_version" != "$YARA_VERSION" ]; then
-            warn_message "Installed YARA version ($installed_version) differs from requested version ($YARA_VERSION)"
-            warn_message "This may be due to package repository limitations"
-        fi
-    else
-        error_message "YARA installation verification failed"
-        return 1
-    fi
-
-    success_message "YARA installed successfully via yum package manager"
-}
 
 #=============================================================================
 # POST-INSTALLATION FUNCTIONS (SHARED)
@@ -1037,15 +852,6 @@ validate_installation() {
         else
             warn_message "notify-send is not installed. Please install it to use notifications."
             VALIDATION_STATUS="FALSE"
-        fi
-    elif [ "$OS" = "linux" ]; then
-        # For CentOS/RHEL systems, notify-send is optional
-        if command_exists notify-send; then
-            local current_notify_version
-            current_notify_version=$(notify-send --version 2>&1 | awk '{print $NF}')
-            info_message "notify-send version $current_notify_version is available (optional for CentOS/RHEL)."
-        else
-            info_message "notify-send is not installed (optional for CentOS/RHEL systems)."
         fi
     fi
 
@@ -1230,83 +1036,6 @@ main_prebuilt_installation() {
     success_message "Prebuilt binary installation completed successfully!"
 }
 
-# Main function for OS requiring source builds (CentOS/RHEL/Rocky/AlmaLinux)
-main_source_installation() {
-    info_message "Starting source build installation for ${OS} (${DISTRO})"
-
-    # Step 1: Setup and cleanup
-    print_step 1 "Setting up environment and checking for existing installations"
-
-    # Remove existing YARA installations
-    remove_yum_yara
-
-    # Check if YARA is already correctly installed
-    if command_exists yara; then
-        current_version=$(yara --version 2>/dev/null || echo "unknown")
-        info_message "Current YARA version detected: $current_version"
-
-        # For CentOS/RHEL, we accept both package manager and source installations
-        if [ "$current_version" = "$YARA_VERSION" ]; then
-            info_message "YARA version $YARA_VERSION is already installed. Skipping installation."
-            # Skip to post-installation steps
-            print_step 4 "Downloading YARA rules..."
-            download_yara_rules
-            print_step 5 "Downloading yara.sh script..."
-            download_yara_script
-            print_step 6 "Updating Wazuh agent configuration..."
-            if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
-                reverse_update_ossec_conf
-            else
-                warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
-            fi
-            print_step 7 "Restarting Wazuh agent..."
-            restart_wazuh_agent
-            print_step 8 "Validating installation..."
-            validate_installation
-            return 0
-        fi
-    fi
-
-    # Step 2: Install YARA via package manager with source fallback
-    print_step 2 "Installing YARA v${YARA_VERSION} via package manager (with source fallback)"
-    install_yara_centos_source
-
-    # Cleanup downloads directory
-    if [ -d "$DOWNLOADS_DIR" ]; then
-        info_message "Cleaning up downloads directory..."
-        maybe_sudo rm -rf "$DOWNLOADS_DIR"
-    fi
-
-    # Step 3: Download YARA rules
-    print_step 3 "Downloading YARA rules..."
-    download_yara_rules
-
-    # Step 4: Download yara.sh script
-    print_step 4 "Downloading yara.sh script..."
-    download_yara_script
-
-    # Step 5: Update Wazuh agent configuration file
-    print_step 5 "Updating Wazuh agent configuration file..."
-    if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
-        reverse_update_ossec_conf
-    else
-        warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
-    fi
-
-    # Step 6: Restart Wazuh agent
-    print_step 6 "Restarting Wazuh agent..."
-    restart_wazuh_agent
-
-    # Step 7: Cleanup (handled by trap)
-    print_step 7 "Cleaning up temporary files..."
-    info_message "Temporary files cleaned up."
-
-    # Step 8: Validate installation and configuration
-    print_step 8 "Validating installation and configuration..."
-    validate_installation
-
-    success_message "Source build installation completed successfully!"
-}
 
 #=============================================================================
 # MAIN ENTRY POINT
@@ -1328,13 +1057,9 @@ main() {
                     info_message "Using prebuilt binary installation for Ubuntu/Debian"
                     main_prebuilt_installation
                     ;;
-                centos|rhel|rocky|almalinux|fedora)
-                    info_message "Using source build installation for CentOS/RHEL-based distributions"
-                    main_source_installation
-                    ;;
                 *)
                     error_message "Unsupported Linux distribution: $DISTRO"
-                    error_message "This script only supports Ubuntu/Debian and CentOS/RHEL-based distributions"
+                    error_message "This script only supports Ubuntu and Debian distributions"
                     exit 1
                     ;;
             esac
