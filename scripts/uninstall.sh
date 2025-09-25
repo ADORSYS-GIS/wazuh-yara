@@ -46,6 +46,15 @@ if [ "$OS" = "linux" ]; then
         fi
     }
     DISTRO=$(detect_distro)
+
+    # Check for unsupported RPM-based distributions
+    case "$DISTRO" in
+        centos|rhel|redhat|rocky|almalinux|fedora)
+            error_message "Unsupported Linux distribution: $DISTRO"
+            error_message "This script only supports Ubuntu and Debian distributions"
+            exit 1
+            ;;
+    esac
 fi
 
 # Define text formatting
@@ -195,38 +204,6 @@ uninstall_yara_ubuntu() {
     remove_source_yara
 }
 
-# Uninstall YARA for CentOS/RHEL
-uninstall_yara_centos() {
-    info_message "Checking for YARA installation on CentOS/RHEL..."
-    # Check for yum/dnf-installed YARA
-    if command -v yum >/dev/null 2>&1; then
-        if yum list installed yara >/dev/null 2>&1; then
-            info_message "Detected yum-installed YARA; uninstalling via yum"
-            maybe_sudo yum remove -y yara || {
-                error_message "Failed to remove yum-installed YARA"
-                exit 1
-            }
-            success_message "Yum-installed YARA removed"
-        else
-            info_message "No yum-installed YARA found"
-        fi
-    elif command -v dnf >/dev/null 2>&1; then
-        if dnf list installed yara >/dev/null 2>&1; then
-            info_message "Detected dnf-installed YARA; uninstalling via dnf"
-            maybe_sudo dnf remove -y yara || {
-                error_message "Failed to remove dnf-installed YARA"
-                exit 1
-            }
-            success_message "DNF-installed YARA removed"
-        else
-            info_message "No dnf-installed YARA found"
-        fi
-    fi
-    # Check for prebuilt installation (should not exist for CentOS/RHEL, but check anyway)
-    remove_prebuilt_yara
-    # Check for source-installed YARA
-    remove_source_yara
-}
 
 # Uninstall YARA for macOS
 uninstall_yara_macos() {
@@ -260,12 +237,9 @@ uninstall_yara() {
                 ubuntu|debian)
                     uninstall_yara_ubuntu
                     ;;
-                centos|rhel|rocky|almalinux|fedora)
-                    uninstall_yara_centos
-                    ;;
                 *)
                     error_message "Unsupported Linux distribution: $DISTRO"
-                    error_message "This script only supports Ubuntu/Debian and CentOS/RHEL-based distributions"
+                    error_message "This script only supports Ubuntu and Debian distributions"
                     exit 1
                     ;;
             esac
