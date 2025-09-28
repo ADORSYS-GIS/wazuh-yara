@@ -121,21 +121,26 @@ remove_prebuilt_yara() {
 uninstall_yara_ubuntu() {
     info_message "Checking for YARA installation..."
     # Check for apt-installed YARA
-    if command -v dpkg >/dev/null 2>&1; then
-        if dpkg -s yara >/dev/null 2>&1; then
-            info_message "Detected apt-installed YARA; uninstalling via apt"
-            maybe_sudo apt-get remove -y yara || {
-                error_message "Failed to remove apt-installed YARA"
-                exit 1
-            }
-            maybe_sudo apt-get autoremove -y
-            success_message "Apt-installed YARA removed"
-        else
-            info_message "No apt-installed YARA found"
+    if command -v yara >/dev/null 2>&1; then
+        if command -v dpkg >/dev/null 2>&1; then
+            if dpkg -s yara >/dev/null 2>&1; then
+                info_message "Detected apt-installed YARA; uninstalling via apt"
+                maybe_sudo apt-get remove -y yara || {
+                    error_message "Failed to remove apt-installed YARA"
+                    exit 1
+                }
+                maybe_sudo apt-get autoremove -y
+                success_message "Apt-installed YARA removed"
+            else
+                info_message "No apt-installed YARA found"
+            fi
         fi
+        # Check for prebuilt installation
+        remove_prebuilt_yara
+    else
+        info_message "No YARA installation detected, skipping."
     fi
-    # Check for prebuilt installation
-    remove_prebuilt_yara
+    
 }
 
 # Uninstall YARA for RedHat-based systems
