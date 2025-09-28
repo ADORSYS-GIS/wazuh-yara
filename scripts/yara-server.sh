@@ -48,6 +48,7 @@ if [ -z "$FILENAME" ]; then
     exit 1
 fi
 
+
 if [ "$(uname)" = "Darwin" ]; then
     YARA_PATH="/opt/yara/bin"
     YARA_RULES="/Library/Ossec/ruleset/yara/rules/yara_rules.yar"
@@ -60,6 +61,17 @@ elif [ "$(uname)" = "Linux" ]; then
     LOG_FILE="/var/ossec/logs/active-responses.log"
 else
     echo "wazuh-yara: ERROR - Unsupported OS: $(uname). This script only supports macOS and Linux." >> "${LOG_FILE}"
+    exit 1
+fi
+
+# Determine which yara binary to use
+YARA_BIN=""
+if [ -x "$YARA_PATH/yara" ]; then
+    YARA_BIN="$YARA_PATH/yara"
+elif command -v yara >/dev/null 2>&1; then
+    YARA_BIN="$(command -v yara)"
+else
+    echo "wazuh-yara: ERROR - No yara binary found in $YARA_PATH or in PATH." >> "${LOG_FILE}"
     exit 1
 fi
 
@@ -89,11 +101,13 @@ fi
 echo "wazuh-yara: DEBUG - Starting Yara scan..." >> "${LOG_FILE}"
 
 #------------------------- Main workflow --------------------------#
-if ! "${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME" &> /dev/null; then
+
+# Use the selected YARA_BIN for scanning
+if ! "$YARA_BIN" -w -r "$YARA_RULES" "$FILENAME" &> /dev/null; then
     echo "wazuh-yara: DEBUG - Yara scan failed for '$FILENAME' (could not open file or other issue). Skipping further processing." >> "${LOG_FILE}"
     exit 0
 fi
-yara_output="$(${YARA_PATH}/yara -w -r "$YARA_RULES" "$FILENAME")"
+yara_output="$($YARA_BIN -w -r "$YARA_RULES" "$FILENAME")"
 
 if [[ $yara_output != "" ]]; then
     # Iterate every detected rule and append it to the LOG_FILE
