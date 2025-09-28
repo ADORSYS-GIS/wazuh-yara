@@ -709,19 +709,6 @@ yara_prebuilt_installation() {
                 return 0
             fi
         fi
-
-        # Different version or wrong installation method, clean up
-        info_message "Different YARA version or installation method detected. Cleaning up..."
-        if [ "$OS" = "darwin" ]; then
-            remove_brew_yara
-            remove_prebuilt_yara
-        fi
-    else
-        # No YARA found, clean up any existing installations
-        if [ "$OS" = "darwin" ]; then
-            remove_brew_yara
-            remove_prebuilt_yara
-        fi
     fi
 
     # Step 2: Install YARA from prebuilt binaries
