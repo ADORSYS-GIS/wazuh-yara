@@ -134,6 +134,8 @@ uninstall_yara_ubuntu() {
             info_message "No apt-installed YARA found"
         fi
     fi
+    # Check for prebuilt installation
+    remove_prebuilt_yara
 }
 
 # Uninstall YARA for RedHat-based systems
