@@ -790,7 +790,7 @@ yara_prebuilt_installation() {
 
 # Install YARA using yum on RedHat-based systems
 install_yara_redhat() {
-    info_message "Installing YARA v${YARA_VERSION} using yum on RedHat-based Linux"
+    info_message "Installing YARA using yum on RedHat-based Linux"
     print_step 1 "Preparing environment..."
     if ! yum repolist | grep -q epel; then
         info_message "Enabling EPEL repository..."

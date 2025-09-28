@@ -160,6 +160,30 @@ uninstall_yara_ubuntu() {
     remove_source_yara
 }
 
+# Uninstall YARA for RedHat-based systems
+uninstall_yara_rhel() {
+    info_message "Checking for YARA installation on RedHat-based system..."
+    if command -v rpm >/dev/null 2>&1; then
+        if rpm -q yara >/dev/null 2>&1; then
+            info_message "Detected yum/dnf-installed YARA; uninstalling via yum/dnf"
+            if command -v dnf >/dev/null 2>&1; then
+                maybe_sudo dnf remove -y yara || {
+                    error_message "Failed to remove dnf-installed YARA"
+                    exit 1
+                }
+            else
+                maybe_sudo yum remove -y yara || {
+                    error_message "Failed to remove yum-installed YARA"
+                    exit 1
+                }
+            fi
+            success_message "Yum/dnf-installed YARA removed"
+        else
+            info_message "No yum/dnf-installed YARA found"
+        fi
+    fi
+}
+
 # Uninstall YARA for macOS
 uninstall_yara_macos() {
     info_message "Checking for YARA installation..."
@@ -188,7 +212,24 @@ uninstall_yara_macos() {
 uninstall_yara() {
     case "$(uname -s)" in
         Linux)
-            uninstall_yara_ubuntu
+            # Detect RedHat-based
+            if [ -f /etc/os-release ]; then
+                . /etc/os-release
+                case "$ID" in
+                    centos|rhel|redhat|rocky|almalinux|fedora)
+                        uninstall_yara_rhel
+                        ;;
+                    ubuntu|debian)
+                        uninstall_yara_ubuntu
+                        ;;
+                    *)
+                        error_message "Unsupported Linux distribution: $ID"
+                        exit 1
+                        ;;
+                esac
+            else
+                uninstall_yara_ubuntu # fallback if cannot detect
+            fi
             ;;
         Darwin)
             uninstall_yara_macos
