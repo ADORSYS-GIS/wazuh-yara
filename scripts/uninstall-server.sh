@@ -25,10 +25,9 @@ NORMAL='\033[0m'
 
 # Function for logging with timestamp
 log() {
-    local LEVEL="$1"
+    LEVEL="$1"
     shift
-    local MESSAGE="$*"
-    local TIMESTAMP
+    MESSAGE="$*"
     TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
     echo -e "${TIMESTAMP} ${LEVEL} ${MESSAGE}"
 }
