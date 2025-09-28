@@ -690,15 +690,9 @@ yara_prebuilt_installation() {
                 download_yara_rules
                 print_step 5 "Downloading yara.sh script..."
                 download_yara_script
-                print_step 6 "Updating Wazuh agent configuration..."
-                if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
-                    reverse_update_ossec_conf
-                else
-                    warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
-                fi
-                print_step 7 "Restarting Wazuh agent..."
+                print_step 6 "Restarting Wazuh agent..."
                 restart_wazuh_agent
-                print_step 8 "Validating installation..."
+                print_step 7 "Validating installation..."
                 validate_installation
                 return 0
             elif [ "$OS" = "darwin" ] && [ -d "/opt/yara" ]; then
@@ -708,15 +702,9 @@ yara_prebuilt_installation() {
                 download_yara_rules
                 print_step 5 "Downloading yara.sh script..."
                 download_yara_script
-                print_step 6 "Updating Wazuh agent configuration..."
-                if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
-                    reverse_update_ossec_conf
-                else
-                    warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
-                fi
-                print_step 7 "Restarting Wazuh agent..."
+                print_step 6 "Restarting Wazuh agent..."
                 restart_wazuh_agent
-                print_step 8 "Validating installation..."
+                print_step 7 "Validating installation..."
                 validate_installation
                 return 0
             fi
@@ -765,23 +753,15 @@ yara_prebuilt_installation() {
     print_step 4 "Downloading yara.sh script..."
     download_yara_script
 
-    # Step 6: Update Wazuh agent configuration file
-    print_step 5 "Updating Wazuh agent configuration file..."
-    if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
-        reverse_update_ossec_conf
-    else
-        warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
-    fi
-
-    # Step 7: Restart Wazuh agent
+    # Step 6: Restart Wazuh agent
     print_step 6 "Restarting Wazuh agent..."
     restart_wazuh_agent
 
-    # Step 8: Cleanup (handled by trap)
+    # Step 7: Cleanup (handled by trap)
     print_step 7 "Cleaning up temporary files..."
     info_message "Temporary files cleaned up."
 
-    # Step 9: Validate installation and configuration
+    # Step 8: Validate installation and configuration
     print_step 8 "Validating installation and configuration..."
     validate_installation
 
