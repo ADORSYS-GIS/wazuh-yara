@@ -1,20 +1,5 @@
 #!/bin/sh
 
-# Check if we're running in bash; if not, adjust behavior
-if [ -n "$BASH_VERSION" ]; then
-    set -euo pipefail
-else
-    set -eu
-fi
-
-LOG_LEVEL=${LOG_LEVEL:-INFO}
-LOGGED_IN_USER=""
-VERSION="${1:-4.5.4}"
-
-if [ "$(uname -s)" = "Darwin" ]; then
-    LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
-fi
-
 # Define text formatting
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -38,6 +23,65 @@ info_message() { log "${BLUE}${BOLD}[INFO]${NORMAL}" "$*"; }
 warn_message() { log "${YELLOW}${BOLD}[WARNING]${NORMAL}" "$*"; }
 error_message() { log "${RED}${BOLD}[ERROR]${NORMAL}" "$*"; }
 success_message() { log "${GREEN}${BOLD}[SUCCESS]${NORMAL}" "$*"; }
+
+# Check if we're running in bash; if not, adjust behavior
+if [ -n "$BASH_VERSION" ]; then
+    set -euo pipefail
+else
+    set -eu
+fi
+
+LOG_LEVEL=${LOG_LEVEL:-INFO}
+LOGGED_IN_USER=""
+VERSION="${1:-4.5.4}"
+
+if [ "$(uname -s)" = "Darwin" ]; then
+    LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
+fi
+
+# OS and Distribution Detection
+case "$(uname)" in
+Linux)
+    OS="linux"
+    ;;
+Darwin)
+    OS="darwin"
+    ;;
+*)
+    error_message "Unsupported operating system: $(uname)"
+    exit 1
+    ;;
+esac
+
+# Detect Linux Distribution
+if [ "$OS" = "linux" ]; then
+    detect_distro() {
+        if [ -f /etc/os-release ]; then
+            # shellcheck source=/dev/null
+            . /etc/os-release
+            echo "$ID"
+        elif [ -f /etc/redhat-release ]; then
+            echo "redhat"
+        elif [ -f /etc/debian_version ]; then
+            echo "debian"
+        else
+            error_message "Unable to detect Linux distribution"
+            exit 1
+        fi
+    }
+    DISTRO=$(detect_distro)
+
+    # Check for unsupported RPM-based distributions
+    case "$DISTRO" in
+        centos|rhel|redhat|rocky|almalinux|fedora)
+            error_message "Unsupported Linux distribution: $DISTRO"
+            error_message "This script only supports Ubuntu and Debian distributions"
+            exit 1
+            ;;
+    esac
+fi
+
+
 
 # Check if sudo is available or if the script is run as root
 maybe_sudo() {
@@ -139,9 +183,9 @@ remove_source_yara() {
     fi
 }
 
-# Uninstall YARA for Ubuntu
+# Uninstall YARA for Ubuntu/Debian
 uninstall_yara_ubuntu() {
-    info_message "Checking for YARA installation..."
+    info_message "Checking for YARA installation on Ubuntu/Debian..."
     # Check for apt-installed YARA
     if command -v dpkg >/dev/null 2>&1; then
         if dpkg -s yara >/dev/null 2>&1; then
@@ -156,6 +200,8 @@ uninstall_yara_ubuntu() {
             info_message "No apt-installed YARA found"
         fi
     fi
+    # Check for prebuilt installation
+    remove_prebuilt_yara
     # Check for source-installed YARA
     remove_source_yara
 }
@@ -208,7 +254,7 @@ uninstall_yara_macos() {
     fi
 }
 
-# Uninstall YARA based on OS
+# Uninstall YARA based on OS and distribution
 uninstall_yara() {
     case "$(uname -s)" in
         Linux)
@@ -235,7 +281,7 @@ uninstall_yara() {
             uninstall_yara_macos
             ;;
         *)
-            error_message "Unsupported operating system."
+            error_message "Unsupported operating system: $OS"
             exit 1
             ;;
     esac
@@ -330,6 +376,10 @@ remove_ossec_configuration() {
 
 # Main uninstallation steps
 info_message "Starting YARA uninstallation process..."
+info_message "Detected OS: ${OS}"
+if [ "$OS" = "linux" ]; then
+    info_message "Detected Linux distribution: ${DISTRO}"
+fi
 uninstall_yara
 remove_yara_components
 remove_ossec_configuration
