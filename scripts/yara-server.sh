@@ -1,5 +1,5 @@
 #!/bin/bash
-# Wazuh - Yara server-side active response (auto-delete on detection)
+# Wazuh - Yara server-side active response
 # Copyright (C) 2025, ADORSYS GmbH & CO KG.
 #
 # This program is free software; you can redistribute it
@@ -117,14 +117,6 @@ if [[ $yara_output != "" ]]; then
         # Extract the rule and file from the Yara output
         rule="${line%% *}"
         detected_file="${line#* }"
-
-        # Delete the detected file
-        rm -f "$detected_file"
-        if [ $? -eq 0 ]; then
-            echo "wazuh-yara: SUCCESS - Delete file: $detected_file" >> "${LOG_FILE}"
-        else
-            echo "wazuh-yara: ERROR - Delete file: $detected_file" >> "${LOG_FILE}"
-        fi
     done <<< "$yara_output"
 else
     echo "wazuh-yara: DEBUG - No Yara rules matched for scanned files." >> "${LOG_FILE}"
