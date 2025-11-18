@@ -109,6 +109,19 @@ remove_prebuilt_yara() {
         fi
         # Remove installation directory
         maybe_sudo rm -rf "$install_dir"
+
+        # On Linux, remove ld.so configuration for bundled OpenSSL (if present)
+        if [ "$(uname -s)" = "Linux" ]; then
+            local ld_conf="/etc/ld.so.conf.d/yara-openssl.conf"
+            if maybe_sudo [ -f "$ld_conf" ]; then
+                info_message "Removing OpenSSL ld.so configuration: $ld_conf"
+                maybe_sudo rm -f "$ld_conf" || warn_message "Failed to remove $ld_conf"
+                if command -v ldconfig >/dev/null 2>&1; then
+                    maybe_sudo ldconfig || warn_message "ldconfig refresh failed"
+                fi
+            fi
+        fi
+
         success_message "Removed prebuilt YARA installation"
     else
         info_message "No prebuilt YARA installation found at ${install_dir}"
