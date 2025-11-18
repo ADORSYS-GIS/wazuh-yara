@@ -782,7 +782,7 @@ yara_prebuilt_installation() {
     print_step 2 "Installing YARA v${YARA_VERSION} from prebuilt binaries"
     case "$OS" in
         linux)
-            # If Ubuntu and version < 20.04, use local archive path
+            # If Ubuntu and version < 22.04, use local archive path (covers 18.04 and 20.04)
             if [ "${DISTRO:-}" = "ubuntu" ]; then
                 ubuntu_version=""
                 if command_exists lsb_release; then
@@ -793,9 +793,9 @@ yara_prebuilt_installation() {
                     . /etc/os-release
                     ubuntu_version="${VERSION_ID:-}"
                 fi
-                # Strictly less than 20.04
-                if [ -n "$ubuntu_version" ] && printf '%s\n%s\n' "20.04" "$ubuntu_version" | sort -V | head -n1 | grep -qx "$ubuntu_version" && [ "$ubuntu_version" != "20.04" ]; then
-                    info_message "Ubuntu $ubuntu_version detected (< 20.04); using local archive installer"
+                # Strictly less than 22.04
+                if [ -n "$ubuntu_version" ] && printf '%s\n%s\n' "22.04" "$ubuntu_version" | sort -V | head -n1 | grep -qx "$ubuntu_version" && [ "$ubuntu_version" != "22.04" ]; then
+                    info_message "Ubuntu $ubuntu_version detected (< 22.04); using local archive installer"
                     install_yara_from_local_archive || exit 1
                 else
                     install_yara_ubuntu_prebuilt
