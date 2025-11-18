@@ -436,15 +436,34 @@ install_yara_from_local_archive() {
     fi
     local repo_root
     repo_root="$(cd "$script_dir/.." && pwd)"
-    local archive_path="$repo_root/archives/adorsys-yara-18_20.tar.gz"
+    local archive_path
+    local default_local_path="$repo_root/archives/adorsys-yara-18_20.tar.gz"
+    local cwd_local_path="$(pwd)/adorsys-yara-18_20.tar.gz"
 
-    if [ ! -f "$archive_path" ]; then
-        error_message "Local archive not found: $archive_path"
-        return 1
+    # 1) Prefer archive in repo; 2) then in current dir; 3) else download
+    if [ -f "$default_local_path" ]; then
+        archive_path="$default_local_path"
+    elif [ -f "$cwd_local_path" ]; then
+        archive_path="$cwd_local_path"
+    else
+        print_step "1" "Local archive not found. Downloading..."
+        # Allow override via env var; otherwise use branch raw URL
+        local download_url
+        if [ -n "${YARA_ARCHIVE_URL:-}" ]; then
+            download_url="$YARA_ARCHIVE_URL"
+        else
+            download_url="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/feature/yara-ubuntu18-20/archives/adorsys-yara-18_20.tar.gz"
+        fi
+        local download_path="${TMP_DIR}/adorsys-yara-18_20.tar.gz"
+        if ! curl -fsSL --progress-bar -o "$download_path" "$download_url"; then
+            error_message "Failed to download YARA archive from: $download_url"
+            return 1
+        fi
+        archive_path="$download_path"
     fi
 
     local temp_extract="${TMP_DIR}/yara_local_extract"
-    print_step "1" "Extracting local archive to temporary location"
+    print_step "2" "Extracting archive to temporary location"
     mkdir -p "$temp_extract"
 
     if ! tar -xzf "$archive_path" -C "$temp_extract"; then
@@ -460,7 +479,7 @@ install_yara_from_local_archive() {
         return 1
     fi
 
-    print_step "2" "Running embedded installer (install.sh)"
+    print_step "3" "Running embedded installer (install.sh)"
     maybe_sudo chmod +x "$pkg_dir/install.sh"
     (
         cd "$pkg_dir" && maybe_sudo bash ./install.sh
