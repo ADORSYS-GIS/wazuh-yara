@@ -424,7 +424,6 @@ install_yara_macos_prebuilt() {
     success_message "YARA v${YARA_VERSION} installed successfully from prebuilt binaries"
 }
 
-# Install YARA from local bundled archive for legacy Ubuntu (< 20.04)
 install_yara_from_local_archive() {
     info_message "Installing YARA from local archive for legacy Ubuntu (< 20.04)"
 
@@ -444,7 +443,6 @@ install_yara_from_local_archive() {
         return 1
     fi
 
-    local install_dir="/opt/yara"
     local temp_extract="${TMP_DIR}/yara_local_extract"
     print_step "1" "Extracting local archive to temporary location"
     mkdir -p "$temp_extract"
@@ -454,70 +452,24 @@ install_yara_from_local_archive() {
         return 1
     fi
 
-    # Identify extracted root
-    local extracted_dir
-    extracted_dir=$(find "$temp_extract" -maxdepth 1 -mindepth 1 -type d | head -n1)
-    if [ -z "$extracted_dir" ]; then
-        error_message "Could not locate extracted directory in $temp_extract"
+    # Find embedded installer
+    local pkg_dir
+    pkg_dir=$(find "$temp_extract" -type f -name install.sh -printf '%h\n' | head -n1)
+    if [ -z "$pkg_dir" ]; then
+        error_message "Embedded install.sh not found in archive"
         return 1
     fi
 
-    print_step "2" "Installing YARA into ${install_dir}"
-    if ! maybe_sudo mkdir -p "$install_dir"; then
-        error_message "Failed to create installation directory: ${install_dir}"
+    print_step "2" "Running embedded installer (install.sh)"
+    maybe_sudo chmod +x "$pkg_dir/install.sh"
+    (
+        cd "$pkg_dir" && maybe_sudo bash ./install.sh
+    ) || {
+        error_message "Embedded installer failed"
         return 1
-    fi
+    }
 
-    # Clear and copy
-    maybe_sudo rm -rf "$install_dir"/*
-    if [ -d "$extracted_dir/bin" ]; then
-        maybe_sudo cp -R "$extracted_dir"/* "$install_dir/"
-    else
-        maybe_sudo cp -R "$temp_extract"/* "$install_dir/"
-    fi
-
-    # If bundled OpenSSL libs are present, register them with the dynamic linker
-    if [ -d "$install_dir/openssl-libs" ]; then
-        print_step "3" "Registering bundled OpenSSL libraries"
-        local ld_conf="/etc/ld.so.conf.d/yara-openssl.conf"
-        echo "/opt/yara/openssl-libs" | maybe_sudo tee "$ld_conf" >/dev/null
-        if command_exists ldconfig; then
-            maybe_sudo ldconfig
-        fi
-    fi
-
-    # Permissions and symlinks
-    print_step "4" "Setting permissions and creating symlinks"
-    maybe_sudo chmod -R 755 "$install_dir"
-    maybe_sudo mkdir -p /usr/local/bin
-
-    if [ -f "$install_dir/bin/yara" ]; then
-        maybe_sudo ln -sf "$install_dir/bin/yara" /usr/local/bin/yara
-        success_message "Created symlink for yara"
-    else
-        error_message "yara executable not found in $install_dir/bin/"
-        return 1
-    fi
-
-    if [ -f "$install_dir/bin/yarac" ]; then
-        maybe_sudo ln -sf "$install_dir/bin/yarac" /usr/local/bin/yarac
-        success_message "Created symlink for yarac"
-    else
-        warn_message "yarac executable not found in $install_dir/bin/ (optional)"
-    fi
-
-    # Verify
-    print_step "5" "Verifying YARA installation"
-    if command_exists yara; then
-        local installed_version
-        installed_version=$(yara --version || true)
-        info_message "YARA installed. Version: ${installed_version:-unknown}"
-    else
-        error_message "YARA installation verification failed"
-        return 1
-    fi
-
-    success_message "YARA installed successfully from local archive"
+    success_message "Embedded installer completed successfully"
 }
 
 install_yara_ubuntu_prebuilt() {
@@ -822,10 +774,10 @@ yara_prebuilt_installation() {
                     . /etc/os-release
                     ubuntu_version="${VERSION_ID:-}"
                 fi
-                if [ -n "$ubuntu_version" ] && printf '%s\n%s\n' "20.04" "$ubuntu_version" | sort -V | head -n1 | grep -qx "$ubuntu_version"; then
+                # Strictly less than 20.04
+                if [ -n "$ubuntu_version" ] && printf '%s\n%s\n' "20.04" "$ubuntu_version" | sort -V | head -n1 | grep -qx "$ubuntu_version" && [ "$ubuntu_version" != "20.04" ]; then
                     info_message "Ubuntu $ubuntu_version detected (< 20.04); using local archive installer"
                     install_yara_from_local_archive || exit 1
-                    # Skip remote prebuilt install
                 else
                     install_yara_ubuntu_prebuilt
                 fi
