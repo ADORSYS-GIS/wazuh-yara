@@ -7,7 +7,11 @@
 set -uo pipefail
 
 # Read Wazuh JSON input from stdin
-read INPUT_JSON
+if ! read -r INPUT_JSON; then
+    echo "wazuh-yara: ERROR - No JSON received on stdin" >&2
+    exit 1
+fi
+
 SCAN_PATH=$(echo "$INPUT_JSON" | jq -r .parameters.alert.syscheck.path)
 
 # Define paths
@@ -103,14 +107,15 @@ else
         if (( dir_counter % 500 == 0 )); then
             echo "...still scanning (${dir_counter} directories so far)..."
         fi
-    done < <(find "$SCAN_PATH" -type d 2>/dev/null)
+    done < <(find "$SCAN_PATH" -type d 2>/dev/null || true)
 fi
 
 # --- Log results to active-responses.log ---
 if [[ -n "$yara_output" ]]; then
-    echo "wazuh-yara: ALERT - Yara detections in '$SCAN_PATH':" >> "$LOG_FILE"
+    # One line per detection in the requested format:
+    # wazuh-yara: INFO - Scan result: RULE PATH
     while IFS= read -r line; do
-        [[ -n "$line" ]] && echo "wazuh-yara:   $line" >> "$LOG_FILE"
+        [[ -n "$line" ]] && echo "wazuh-yara: INFO - Scan result: $line" >> "$LOG_FILE"
     done <<< "$yara_output"
 else
     echo "wazuh-yara: INFO - No detections in '$SCAN_PATH'" >> "$LOG_FILE"
