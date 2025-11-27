@@ -4,7 +4,7 @@
 # Logs detection output to active-responses.log
 # Prints scan estimation and real-time progress to terminal
 
-set -euo pipefail
+set -uo pipefail
 
 # Read Wazuh JSON input from stdin
 read INPUT_JSON
