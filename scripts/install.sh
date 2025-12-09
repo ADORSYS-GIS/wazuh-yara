@@ -767,7 +767,3 @@ yara_macos_installation() {
     
     success_message "YARA installation completed successfully
 ```
-
-```
-
-```
