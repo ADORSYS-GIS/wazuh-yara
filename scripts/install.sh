@@ -383,7 +383,8 @@ download_file() {
         return 1
     fi
     
-    if curl -fsSL -o "$output" "$url"; then
+    # Use sudo to download the file to system directories
+    if curl -fsSL "$url" | maybe_sudo tee "$output" > /dev/null; then
         success_message "$description downloaded successfully"
         return 0
     else
