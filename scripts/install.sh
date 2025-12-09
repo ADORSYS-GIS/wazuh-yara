@@ -765,5 +765,4 @@ yara_macos_installation() {
     validate_installation
     restart_wazuh_agent
     
-    success_message "YARA installation completed successfully
-```
+    success_message "YARA installation completed successfully"
