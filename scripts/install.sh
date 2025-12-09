@@ -745,9 +745,7 @@ main() {
 }
 
 # Execute main function
-main "$@"!"
-    info_message "You can now use YARA with Wazuh for malware detection"
-}
+main "$@"
 
 # Main YARA installation for macOS
 yara_macos_installation() {
@@ -768,3 +766,8 @@ yara_macos_installation() {
     restart_wazuh_agent
     
     success_message "YARA installation completed successfully
+```
+
+```
+
+```
