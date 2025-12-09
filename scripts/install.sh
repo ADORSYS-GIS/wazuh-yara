@@ -181,7 +181,7 @@ sed_inplace() {
 # PRE-INSTALLATION CHECKS
 #=============================================================================
 
-# Detect YARA installation type - focus on modern package installations only
+# Detect YARA installation type - distinguish between modern and legacy installations
 detect_yara_installation() {
     local installation_type=""
     local yara_path=""
@@ -193,30 +193,41 @@ detect_yara_installation() {
         yara_path=$(command -v yara)
         info_message "Found YARA command at: $yara_path"
         
-        # Only care about our modern package installation
-        case "$yara_path" in
-            /opt/wazuh/yara/*|/usr/local/bin/yara)
-                # Check if it's our installation
-                if [ -L "$yara_path" ]; then
-                    local link_target
-                    link_target=$(readlink "$yara_path")
-                    if [[ "$link_target" == *"/opt/wazuh/yara"* ]]; then
-                        installation_type="modern"
-                    fi
-                elif [ -d "/opt/wazuh/yara" ]; then
-                    installation_type="modern"
-                fi
-                ;;
-        esac
+        # Check for modern installation in /opt/wazuh/yara
+        if [ -d "/opt/wazuh/yara" ]; then
+            installation_type="modern"
+            info_message "Found modern YARA installation directory: /opt/wazuh/yara"
+        # Check for legacy installation in /opt/yara
+        elif [ -d "/opt/yara" ]; then
+            installation_type="legacy"
+            info_message "Found legacy YARA installation directory: /opt/yara"
+        # Check if yara is a symlink pointing to legacy installation
+        elif [ -L "$yara_path" ]; then
+            local link_target
+            link_target=$(readlink "$yara_path")
+            if [[ "$link_target" == *"/opt/yara"* ]]; then
+                installation_type="legacy"
+                info_message "Found legacy YARA installation via symlink: $yara_path -> $link_target"
+            elif [[ "$link_target" == *"/opt/wazuh/yara"* ]]; then
+                installation_type="modern"
+                info_message "Found modern YARA installation via symlink: $yara_path -> $link_target"
+            fi
+        fi
     fi
     
-    # Check for modern installation directory
-    if [ -d "/opt/wazuh/yara" ]; then
+    # Check for modern installation directory directly
+    if [ -z "$installation_type" ] && [ -d "/opt/wazuh/yara" ]; then
         installation_type="modern"
         info_message "Found modern YARA installation directory: /opt/wazuh/yara"
     fi
     
-    # Check if YARA is installed via package manager
+    # Check for legacy installation directory directly
+    if [ -z "$installation_type" ] && [ -d "/opt/yara" ]; then
+        installation_type="legacy"
+        info_message "Found legacy YARA installation directory: /opt/yara"
+    fi
+    
+    # Check if YARA is installed via package manager (modern)
     if [ "$OS" = "linux" ]; then
         case "$DISTRO" in
             centos|rhel|redhat|rocky|almalinux|fedora)
