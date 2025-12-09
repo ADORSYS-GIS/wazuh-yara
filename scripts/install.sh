@@ -248,6 +248,30 @@ detect_yara_installation() {
     echo "$installation_type"
 }
 
+# Download and execute legacy cleanup script
+run_legacy_cleanup() {
+    local cleanup_script="$TMP_DIR/cleanup-legacy.sh"
+    
+    info_message "Downloading legacy YARA cleanup script..."
+    
+    if ! curl -fsSL -o "$cleanup_script" "$CLEANUP_LEGACY_URL"; then
+        error_message "Failed to download legacy cleanup script"
+        error_message "Manual cleanup of legacy installation may be required"
+        return 1
+    fi
+    
+    chmod +x "$cleanup_script"
+    
+    info_message "Running legacy cleanup script..."
+    if bash "$cleanup_script"; then
+        success_message "Legacy cleanup completed successfully"
+        return 0
+    else
+        error_message "Legacy cleanup script failed"
+        return 1
+    fi
+}
+
 # Download and execute uninstaller - only modern uninstaller
 run_uninstaller() {
     local uninstall_script="$TMP_DIR/uninstall-modern.sh"
@@ -287,7 +311,7 @@ run_uninstaller() {
     fi
 }
 
-# Pre-installation check and cleanup - only handle modern installations
+# Pre-installation check and cleanup - handle both modern and legacy installations
 pre_installation_check() {
     info_message "Performing pre-installation checks..."
     
@@ -301,25 +325,50 @@ pre_installation_check() {
     fi
     
     echo ""
-    warn_message "Existing YARA installation detected!"
-    warn_message "Installation type: Modern package-based installation"
-    warn_message "Location: /opt/wazuh/yara"
-    echo ""
-    
-    info_message "The existing installation will be removed and replaced with the new version"
-    read -p "Would you like to remove the existing installation and proceed? [Y/n] " -n 1 -r
-    echo ""
-    
-    if [[ $REPLY =~ ^[Nn]$ ]]; then
-        info_message "Installation cancelled by user"
-        exit 0
-    fi
-    
-    if ! run_uninstaller; then
-        error_message "Failed to remove existing installation"
-        error_message "Please manually remove YARA or fix the issues and try again"
-        exit 1
-    fi
+    case "$installation_type" in
+        modern)
+            warn_message "Existing modern YARA installation detected!"
+            warn_message "Installation type: Modern package-based installation"
+            warn_message "Location: /opt/wazuh/yara"
+            echo ""
+            
+            info_message "The existing installation will be removed and replaced with the new version"
+            read -p "Would you like to remove the existing installation and proceed? [Y/n] " -n 1 -r
+            echo ""
+            
+            if [[ $REPLY =~ ^[Nn]$ ]]; then
+                info_message "Installation cancelled by user"
+                exit 0
+            fi
+            
+            if ! run_uninstaller; then
+                error_message "Failed to remove existing installation"
+                error_message "Please manually remove YARA or fix the issues and try again"
+                exit 1
+            fi
+            ;;
+        legacy)
+            warn_message "Existing legacy YARA installation detected!"
+            warn_message "Installation type: Legacy installation"
+            warn_message "Location: /opt/yara or linked from /usr/local/bin/yara"
+            echo ""
+            
+            info_message "The existing legacy installation will be removed using the legacy cleanup script"
+            read -p "Would you like to remove the existing legacy installation and proceed? [Y/n] " -n 1 -r
+            echo ""
+            
+            if [[ $REPLY =~ ^[Nn]$ ]]; then
+                info_message "Installation cancelled by user"
+                exit 0
+            fi
+            
+            if ! run_legacy_cleanup; then
+                error_message "Failed to remove existing legacy installation"
+                error_message "Please manually remove YARA or fix the issues and try again"
+                exit 1
+            fi
+            ;;
+    esac
     
     echo ""
     success_message "Pre-installation cleanup completed"
