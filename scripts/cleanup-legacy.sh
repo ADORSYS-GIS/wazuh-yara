@@ -209,7 +209,12 @@ remove_legacy_source_dirs() {
     
     # Check /tmp for yara-* directories
     if [ -d "/tmp" ]; then
-        find /tmp -maxdepth 1 -name "yara-*" -type d 2>/dev/null | while read -r dir; do
+        local tmp_dirs=()
+        while IFS= read -r -d '' dir; do
+            tmp_dirs+=("$dir")
+        done < <(find /tmp -maxdepth 1 -name "yara-*" -type d -print0 2>/dev/null)
+        
+        for dir in "${tmp_dirs[@]}"; do
             if [ -d "$dir" ]; then
                 info_message "Removing source directory: $dir"
                 if maybe_sudo rm -rf "$dir" 2>/dev/null; then
@@ -221,7 +226,12 @@ remove_legacy_source_dirs() {
     
     # Check /opt for yara-* directories (not /opt/yara or /opt/wazuh/yara)
     if [ -d "/opt" ]; then
-        find /opt -maxdepth 1 -name "yara-*" -type d 2>/dev/null | while read -r dir; do
+        local opt_dirs=()
+        while IFS= read -r -d '' dir; do
+            opt_dirs+=("$dir")
+        done < <(find /opt -maxdepth 1 -name "yara-*" -type d -print0 2>/dev/null)
+        
+        for dir in "${opt_dirs[@]}"; do
             if [ -d "$dir" ]; then
                 info_message "Removing source directory: $dir"
                 if maybe_sudo rm -rf "$dir" 2>/dev/null; then
@@ -310,7 +320,7 @@ main() {
     fi
     
     if [ $silent_mode -eq 0 ]; then
-        info_message "Starting silent legacy YARA cleanup..."
+        info_message "Starting legacy YARA cleanup..."
         info_message "Detected OS: ${OS}"
         
         if [ "$OS" = "linux" ]; then
@@ -318,7 +328,7 @@ main() {
         fi
     fi
     
-    # Perform cleanup steps silently
+    # Perform cleanup steps
     remove_legacy_yara_binaries
     remove_legacy_yara_headers
     remove_legacy_pkgconfig
