@@ -56,7 +56,7 @@ fi
 
 # Configuration
 YARA_VERSION="${1:-4.5.5}"
-YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara-server.sh"
+YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/yara.sh"
 YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/rules/yara_rules.yar"
 
 # GitHub Release configuration for packages
@@ -65,8 +65,8 @@ LINUX_RELEASE_TAG="yara-v0.3.17"
 MACOS_RELEASE_TAG="yara-v0.5.1"
 
 # Cleanup script URLs
-CLEANUP_LEGACY_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/cleanup-legacy.sh"
-UNINSTALL_MODERN_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/uninstall.sh"
+CLEANUP_LEGACY_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/cleanup-legacy.sh"
+UNINSTALL_MODERN_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/uninstall.sh"
 
 TMP_DIR=$(mktemp -d)
 LOGGED_IN_USER=""
