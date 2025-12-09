@@ -2,15 +2,8 @@
 
 #=============================================================================
 # Enhanced YARA Installation Script with Pre-Installation Detection
-# Detects existing YARA installations and offers automatic cleanup
+# Detects existing YARA installations and performs automatic cleanup
 #=============================================================================
-
-# Check if running as root or with sudo
-if [ "$(id -u)" -ne 0 ]; then
-    echo "This script must be run as root or with sudo privileges."
-    echo "Please run: sudo $0"
-    exit 1
-fi
 
 # Define text formatting
 RED='\033[0;31m'
@@ -167,13 +160,9 @@ maybe_sudo() {
 # Cross-platform sed function
 sed_inplace() {
     if [ "$OS" = "darwin" ]; then
-        if ! maybe_sudo sed -i '' "$@" 2>/dev/null; then
-            warn_message "Failed to update file with sed (macOS)"
-        fi
+        maybe_sudo sed -i '' "$@" 2>/dev/null || true
     else
-        if ! maybe_sudo sed -i "$@" 2>/dev/null; then
-            warn_message "Failed to update file with sed (Linux)"
-        fi
+        maybe_sudo sed -i "$@" 2>/dev/null || true
     fi
 }
 
@@ -181,184 +170,115 @@ sed_inplace() {
 # PRE-INSTALLATION CHECKS
 #=============================================================================
 
-# Detect YARA installation type - distinguish between modern and legacy installations
+# Detect YARA installations - check for both legacy and modern
 detect_yara_installation() {
-    local installation_type=""
-    local yara_path=""
+    local has_legacy=0
+    local has_modern=0
     
     info_message "Checking for existing YARA installations..."
     
-    # Check for modern installation directory first (higher priority)
-    if [ -d "/opt/wazuh/yara" ]; then
-        installation_type="modern"
-        info_message "Found modern YARA installation directory: /opt/wazuh/yara"
-    # Check for legacy installation directory
-    elif [ -d "/opt/yara" ]; then
-        installation_type="legacy"
-        info_message "Found legacy YARA installation directory: /opt/yara"
+    # Check for legacy installation in /opt/yara
+    if [ -d "/opt/yara" ]; then
+        has_legacy=1
+        info_message "Found legacy YARA directory: /opt/yara"
     fi
     
-    # Check if yara command exists
-    if command_exists yara && [ -z "$installation_type" ]; then
-        yara_path=$(command -v yara)
-        info_message "Found YARA command at: $yara_path"
-        
-        # Check if yara is a symlink pointing to legacy installation
-        if [ -L "$yara_path" ]; then
-            local link_target
-            link_target=$(readlink "$yara_path")
-            if [[ "$link_target" == *"/opt/yara"* ]] && [ "$installation_type" != "modern" ]; then
-                installation_type="legacy"
-                info_message "Found legacy YARA installation via symlink: $yara_path -> $link_target"
-            elif [[ "$link_target" == *"/opt/wazuh/yara"* ]]; then
-                installation_type="modern"
-                info_message "Found modern YARA installation via symlink: $yara_path -> $link_target"
-            fi
-        fi
+    # Check for legacy installation in /usr/bin
+    if [ -f "/usr/bin/yara" ]; then
+        has_legacy=1
+        info_message "Found legacy YARA binary: /usr/bin/yara"
+    fi
+    
+    # Check for modern installation in /opt/wazuh/yara
+    if [ -d "/opt/wazuh/yara" ]; then
+        has_modern=1
+        info_message "Found modern YARA directory: /opt/wazuh/yara"
     fi
     
     # Check if YARA is installed via package manager (modern)
-    if [ "$OS" = "linux" ] && [ -z "$installation_type" ]; then
+    if [ "$OS" = "linux" ]; then
         case "$DISTRO" in
             centos|rhel|redhat|rocky|almalinux|fedora)
                 if command_exists rpm && rpm -q yara >/dev/null 2>&1; then
-                    installation_type="modern"
+                    has_modern=1
                     info_message "Found YARA installed via RPM package manager"
                 fi
                 ;;
             ubuntu|debian)
                 if command_exists dpkg && dpkg -s yara >/dev/null 2>&1; then
-                    installation_type="modern"
+                    has_modern=1
                     info_message "Found YARA installed via DEB package manager"
                 fi
                 ;;
         esac
     fi
     
-    echo "$installation_type"
+    # Return result as "legacy,modern" format
+    echo "${has_legacy},${has_modern}"
 }
 
-# Download and execute legacy cleanup script
-run_legacy_cleanup() {
-    local cleanup_script="$TMP_DIR/cleanup-legacy.sh"
+# Download and execute cleanup script silently
+run_cleanup_script() {
+    local script_url="$1"
+    local script_name="$2"
+    local cleanup_script="$TMP_DIR/$script_name"
     
-    info_message "Downloading legacy YARA cleanup script..."
+    info_message "Downloading $script_name..."
     
-    if ! curl -fsSL -o "$cleanup_script" "$CLEANUP_LEGACY_URL"; then
-        error_message "Failed to download legacy cleanup script"
-        error_message "Manual cleanup of legacy installation may be required"
+    if ! curl -fsSL -o "$cleanup_script" "$script_url" 2>/dev/null; then
+        error_message "Failed to download $script_name from $script_url"
         return 1
     fi
     
     chmod +x "$cleanup_script"
     
-    info_message "Running legacy cleanup script..."
-    if bash "$cleanup_script"; then
-        success_message "Legacy cleanup completed successfully"
+    info_message "Running $script_name silently..."
+    if bash "$cleanup_script" --silent; then
+        success_message "Cleanup completed successfully"
         return 0
     else
-        error_message "Legacy cleanup script failed"
+        error_message "$script_name failed"
         return 1
     fi
 }
 
-# Download and execute uninstaller - only modern uninstaller
-run_uninstaller() {
-    local uninstall_script="$TMP_DIR/uninstall-modern.sh"
-    
-    info_message "Downloading modern YARA uninstaller..."
-    
-    if ! curl -fsSL -o "$uninstall_script" "$UNINSTALL_MODERN_URL"; then
-        error_message "Failed to download uninstaller"
-        error_message "Attempting manual cleanup..."
-        
-        # Fallback: Basic cleanup if download fails
-        warn_message "Performing basic cleanup manually..."
-        
-        if [ -d "/opt/wazuh/yara" ]; then
-            info_message "Removing /opt/wazuh/yara..."
-            maybe_sudo rm -rf "/opt/wazuh/yara"
-        fi
-        
-        if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
-            info_message "Removing /usr/local/bin/yara..."
-            maybe_sudo rm -f "/usr/local/bin/yara"
-        fi
-        
-        success_message "Basic cleanup completed"
-        return 0
-    fi
-    
-    chmod +x "$uninstall_script"
-    
-    info_message "Running uninstaller..."
-    if bash "$uninstall_script"; then
-        success_message "Uninstaller completed successfully"
-        return 0
-    else
-        warn_message "Uninstaller had issues, but continuing with installation"
-        return 0
-    fi
-}
-
-# Pre-installation check and cleanup - handle both modern and legacy installations
+# Pre-installation check and automatic cleanup
 pre_installation_check() {
     info_message "Performing pre-installation checks..."
     
-    local installation_type
-    installation_type=$(detect_yara_installation)
+    local detection_result
+    detection_result=$(detect_yara_installation)
     
-    if [ -z "$installation_type" ]; then
+    # Parse the detection result
+    IFS=',' read -r has_legacy has_modern <<< "$detection_result"
+    
+    # If no installations detected, proceed with fresh install
+    if [ "$has_legacy" -eq 0 ] && [ "$has_modern" -eq 0 ]; then
         success_message "No existing YARA installation detected"
         success_message "System is ready for fresh installation"
         return 0
     fi
     
     echo ""
-    case "$installation_type" in
-        modern)
-            warn_message "Existing modern YARA installation detected!"
-            warn_message "Installation type: Modern package-based installation"
-            warn_message "Location: /opt/wazuh/yara"
-            echo ""
-            
-            info_message "The existing installation will be removed and replaced with the new version"
-            read -p "Would you like to remove the existing installation and proceed? [Y/n] " -n 1 -r
-            echo ""
-            
-            if [[ $REPLY =~ ^[Nn]$ ]]; then
-                info_message "Installation cancelled by user"
-                exit 0
-            fi
-            
-            if ! run_uninstaller; then
-                error_message "Failed to remove existing installation"
-                error_message "Please manually remove YARA or fix the issues and try again"
-                exit 1
-            fi
-            ;;
-        legacy)
-            warn_message "Existing legacy YARA installation detected!"
-            warn_message "Installation type: Legacy installation"
-            warn_message "Location: /opt/yara or linked from /usr/local/bin/yara"
-            echo ""
-            
-            info_message "The existing legacy installation will be removed using the legacy cleanup script"
-            read -p "Would you like to remove the existing legacy installation and proceed? [Y/n] " -n 1 -r
-            echo ""
-            
-            if [[ $REPLY =~ ^[Nn]$ ]]; then
-                info_message "Installation cancelled by user"
-                exit 0
-            fi
-            
-            if ! run_legacy_cleanup; then
-                error_message "Failed to remove existing legacy installation"
-                error_message "Please manually remove YARA or fix the issues and try again"
-                exit 1
-            fi
-            ;;
-    esac
+    warn_message "Existing YARA installation(s) detected!"
+    
+    # Automatically remove legacy installation if found
+    if [ "$has_legacy" -eq 1 ]; then
+        info_message "Legacy YARA installation detected - removing automatically..."
+        if ! run_cleanup_script "$CLEANUP_LEGACY_URL" "cleanup-legacy.sh"; then
+            error_message "Failed to remove legacy YARA installation"
+            exit 1
+        fi
+    fi
+    
+    # Automatically remove modern installation if found
+    if [ "$has_modern" -eq 1 ]; then
+        info_message "Modern YARA installation detected - removing automatically..."
+        if ! run_cleanup_script "$UNINSTALL_MODERN_URL" "uninstall.sh"; then
+            error_message "Failed to remove modern YARA installation"
+            exit 1
+        fi
+    fi
     
     echo ""
     success_message "Pre-installation cleanup completed"
@@ -370,12 +290,13 @@ pre_installation_check() {
 }
 
 #=============================================================================
-# INSTALLATION FUNCTIONS (from your updated script)
+# INSTALLATION FUNCTIONS
 #=============================================================================
 
-# Restart Wazuh agent
+# Restart Wazuh agent (show output to user)
 restart_wazuh_agent() {
-    if maybe_sudo "$WAZUH_CONTROL_BIN_PATH" restart >/dev/null 2>&1; then
+    info_message "Restarting Wazuh agent..."
+    if maybe_sudo "$WAZUH_CONTROL_BIN_PATH" restart; then
         success_message "Wazuh agent restarted successfully."
     else
         error_message "Error occurred during Wazuh agent restart."
@@ -384,11 +305,8 @@ restart_wazuh_agent() {
 
 # Remove file limit from ossec.conf
 remove_file_limit() {
-    if maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
-        sed_inplace "/<file_limit>/,/<\/file_limit>/d" "$OSSEC_CONF_PATH" || {
-            error_message "Error occurred during the removal of the file_limit block."
-            return 1
-        }
+    if maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH" 2>/dev/null; then
+        sed_inplace "/<file_limit>/,/<\/file_limit>/d" "$OSSEC_CONF_PATH"
         info_message "The file limit block was removed successfully."
     else
         info_message "The file limit block does not exist. No changes were made."
@@ -774,7 +692,8 @@ yara_macos_installation() {
     validate_installation
     restart_wazuh_agent
     
-    success_message "YARA installation completed successfully"
+    success_message "YARA installation completed successfully!"
+    info_message "You can now use YARA with Wazuh for malware detection"
 }
 
 # Main function
@@ -797,7 +716,7 @@ main() {
         fi
     fi
     
-    # Run pre-installation checks and cleanup if needed
+    # Run pre-installation checks and automatic cleanup
     pre_installation_check
     
     # Proceed with installation
