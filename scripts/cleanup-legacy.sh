@@ -207,13 +207,9 @@ remove_legacy_source_dirs() {
     info_message "Removing legacy YARA source directories..."
     local removed_count=0
     
-    local source_dirs=(
-        "/tmp/yara-*"
-        "/opt/yara-*"
-    )
-    
-    for dir_pattern in "${source_dirs[@]}"; do
-        for dir in $dir_pattern 2>/dev/null; do
+    # Check /tmp for yara-* directories
+    if [ -d "/tmp" ]; then
+        find /tmp -maxdepth 1 -name "yara-*" -type d 2>/dev/null | while read -r dir; do
             if [ -d "$dir" ]; then
                 info_message "Removing source directory: $dir"
                 if maybe_sudo rm -rf "$dir" 2>/dev/null; then
@@ -221,10 +217,30 @@ remove_legacy_source_dirs() {
                 fi
             fi
         done
-    done
+    fi
+    
+    # Check /opt for yara-* directories (not /opt/yara or /opt/wazuh/yara)
+    if [ -d "/opt" ]; then
+        find /opt -maxdepth 1 -name "yara-*" -type d 2>/dev/null | while read -r dir; do
+            if [ -d "$dir" ]; then
+                info_message "Removing source directory: $dir"
+                if maybe_sudo rm -rf "$dir" 2>/dev/null; then
+                    removed_count=$((removed_count + 1))
+                fi
+            fi
+        done
+    fi
+    
+    # Remove /opt/yara if it exists (legacy installation directory)
+    if [ -d "/opt/yara" ]; then
+        info_message "Removing legacy installation directory: /opt/yara"
+        if maybe_sudo rm -rf "/opt/yara" 2>/dev/null; then
+            removed_count=$((removed_count + 1))
+        fi
+    fi
     
     if [ $removed_count -gt 0 ]; then
-        success_message "Removed $removed_count source directory(ies)"
+        success_message "Removed legacy directories"
     else
         info_message "No legacy source directories found"
     fi
@@ -287,11 +303,19 @@ restore_ossec_configuration() {
 
 # Main cleanup function
 main() {
-    info_message "Starting silent legacy YARA cleanup..."
-    info_message "Detected OS: ${OS}"
+    # Check if called with --silent flag
+    local silent_mode=0
+    if [ "${1:-}" = "--silent" ]; then
+        silent_mode=1
+    fi
     
-    if [ "$OS" = "linux" ]; then
-        info_message "Detected Linux distribution: ${DISTRO}"
+    if [ $silent_mode -eq 0 ]; then
+        info_message "Starting silent legacy YARA cleanup..."
+        info_message "Detected OS: ${OS}"
+        
+        if [ "$OS" = "linux" ]; then
+            info_message "Detected Linux distribution: ${DISTRO}"
+        fi
     fi
     
     # Perform cleanup steps silently
@@ -303,7 +327,9 @@ main() {
     update_ldconfig
     remove_legacy_source_dirs
     
-    success_message "Legacy YARA cleanup completed successfully!"
+    if [ $silent_mode -eq 0 ]; then
+        success_message "Legacy YARA cleanup completed successfully!"
+    fi
     exit 0
 }
 
