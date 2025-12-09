@@ -243,7 +243,7 @@ run_uninstaller() {
     
     info_message "Downloading modern YARA uninstaller..."
     
-    if ! curl -fsSL -o "$uninstall_script" "$MODERN_UNINSTALL_URL"; then
+    if ! curl -fsSL -o "$uninstall_script" "$UNINSTALL_MODERN_URL"; then
         error_message "Failed to download uninstaller"
         error_message "Attempting manual cleanup..."
         
@@ -706,6 +706,27 @@ yara_installation() {
     info_message "You can now use YARA with Wazuh for malware detection"
 }
 
+# Main YARA installation for macOS
+yara_macos_installation() {
+    info_message "Starting YARA installation for macOS..."
+    
+    check_disk_space
+    
+    local arch
+    arch=$(detect_architecture)
+    info_message "Detected macOS architecture: $arch"
+    
+    install_dependencies
+    download_yara_macos_dmg "$arch"
+    install_yara_macos_dmg "$arch"
+    setup_yara_components
+    remove_file_limit
+    validate_installation
+    restart_wazuh_agent
+    
+    success_message "YARA installation completed successfully"
+}
+
 # Main function
 main() {
     info_message "Starting YARA installation script v${YARA_VERSION}"
@@ -746,23 +767,3 @@ main() {
 
 # Execute main function
 main "$@"
-
-# Main YARA installation for macOS
-yara_macos_installation() {
-    info_message "Starting YARA installation for macOS..."
-    
-    check_disk_space
-    
-    local arch
-    arch=$(detect_architecture)
-    info_message "Detected macOS architecture: $arch"
-    
-    install_dependencies
-    download_yara_macos_dmg "$arch"
-    install_yara_macos_dmg "$arch"
-    setup_yara_components
-    remove_file_limit
-    validate_installation
-    restart_wazuh_agent
-    
-    success_message "YARA installation completed successfully"
