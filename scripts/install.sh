@@ -58,7 +58,7 @@ LINUX_RELEASE_TAG="yara-v0.3.17"
 MACOS_RELEASE_TAG="yara-v0.5.1"
 
 # Cleanup script URLs
-CLEANUP_LEGACY_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/cleanup-legacy.sh"
+UNINSTALL_LEGACY_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/v0.3.14/scripts/uninstall.sh"
 UNINSTALL_MODERN_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/uninstall.sh"
 
 TMP_DIR=$(mktemp -d)
@@ -189,6 +189,11 @@ detect_yara_installation() {
         has_legacy=1
     fi
     
+    # Check for legacy installation in /usr/local/bin (common for source installations)
+    if [ -f "/usr/local/bin/yara" ]; then
+        has_legacy=1
+    fi
+    
     # Check for modern installation in /opt/wazuh/yara
     if [ -d "/opt/wazuh/yara" ]; then
         has_modern=1
@@ -218,7 +223,7 @@ detect_yara_installation() {
     echo "${has_legacy},${has_modern}"
 }
 
-# Download and execute cleanup script silently
+# Download and execute cleanup script
 run_cleanup_script() {
     local script_url="$1"
     local script_name="$2"
@@ -233,8 +238,8 @@ run_cleanup_script() {
     
     chmod +x "$cleanup_script"
     
-    info_message "Running $script_name silently..."
-    if bash "$cleanup_script" --silent; then
+    info_message "Running $script_name..."
+    if bash "$cleanup_script"; then
         success_message "Cleanup completed successfully"
         return 0
     else
@@ -266,6 +271,11 @@ pre_installation_check() {
         # Check for legacy installation in /usr/bin
         if [ -f "/usr/bin/yara" ]; then
             info_message "Found legacy YARA binary: /usr/bin/yara"
+        fi
+        
+        # Check for legacy installation in /usr/local/bin
+        if [ -f "/usr/local/bin/yara" ]; then
+            info_message "Found legacy YARA binary: /usr/local/bin/yara"
         fi
         
         # Check for modern installation in /opt/wazuh/yara
@@ -300,7 +310,7 @@ pre_installation_check() {
     # Automatically remove legacy installation if found
     if [ "$has_legacy" -eq 1 ]; then
         info_message "Legacy YARA installation detected - removing automatically..."
-        if ! run_cleanup_script "$CLEANUP_LEGACY_URL" "cleanup-legacy.sh"; then
+        if ! run_cleanup_script "$UNINSTALL_LEGACY_URL" "uninstall.sh"; then
             error_message "Failed to remove legacy YARA installation"
             exit 1
         fi
