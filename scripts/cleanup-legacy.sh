@@ -313,20 +313,8 @@ restore_ossec_configuration() {
 
 # Main cleanup function
 main() {
-    # Check if called with --silent flag
-    local silent_mode=0
-    if [ "${1:-}" = "--silent" ]; then
-        silent_mode=1
-    fi
-    
-    if [ $silent_mode -eq 0 ]; then
-        info_message "Starting legacy YARA cleanup..."
-        info_message "Detected OS: ${OS}"
-        
-        if [ "$OS" = "linux" ]; then
-            info_message "Detected Linux distribution: ${DISTRO}"
-        fi
-    fi
+    # Always run in automatic mode (no user confirmation)
+    local silent_mode=1
     
     # Perform cleanup steps
     remove_legacy_yara_binaries
@@ -337,9 +325,7 @@ main() {
     update_ldconfig
     remove_legacy_source_dirs
     
-    if [ $silent_mode -eq 0 ]; then
-        success_message "Legacy YARA cleanup completed successfully!"
-    fi
+    success_message "Legacy YARA cleanup completed successfully!"
     exit 0
 }
 
