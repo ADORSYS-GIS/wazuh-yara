@@ -40,6 +40,38 @@ print_step() {
     log "${BLUE}${BOLD}[STEP]${NORMAL}" "$1: $2"
 }
 
+# Prompt user for installation type
+prompt_installation_type() {
+    echo ""
+    info_message "Please select the installation type:"
+    echo "  1) Desktop/Workstation (with user notifications)"
+    echo "  2) Server (no user notifications, logging only)"
+    echo ""
+    while true; do
+        read -p "Enter your choice [1-2] (default: 1): " choice
+        choice=${choice:-1}
+        case "$choice" in
+            1)
+                INSTALLATION_TYPE="desktop"
+                YARA_SCRIPT_NAME="yara.sh"
+                YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/yara.sh"
+                info_message "Selected: Desktop/Workstation installation"
+                return 0
+                ;;
+            2)
+                INSTALLATION_TYPE="server"
+                YARA_SCRIPT_NAME="yara-server.sh"
+                YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara-server.sh"
+                info_message "Selected: Server installation"
+                return 0
+                ;;
+            *)
+                warn_message "Invalid choice. Please enter 1 or 2."
+                ;;
+        esac
+    done
+}
+
 # Check if we're running in bash; if not, adjust behavior
 if [ -n "$BASH_VERSION" ]; then
     set -euo pipefail
@@ -49,7 +81,7 @@ fi
 
 # Configuration
 YARA_VERSION="${1:-4.5.5}"
-YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/yara.sh"
+# YARA_SH_URL and YARA_SCRIPT_NAME will be set by prompt_installation_type()
 YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/rules/yara_rules.yar"
 
 # GitHub Release configuration for packages
@@ -566,11 +598,11 @@ setup_yara_components() {
     local base_path yara_script_path yara_rules_path
     if [ "$OS" = "darwin" ]; then
         base_path="/Library/Ossec"
-        yara_script_path="/Library/Ossec/active-response/bin/yara.sh"
+        yara_script_path="/Library/Ossec/active-response/bin/${YARA_SCRIPT_NAME}"
         yara_rules_path="/Library/Ossec/ruleset/yara/rules"
     else
         base_path="/var/ossec"
-        yara_script_path="/var/ossec/active-response/bin/yara.sh"
+        yara_script_path="/var/ossec/active-response/bin/${YARA_SCRIPT_NAME}"
         yara_rules_path="/var/ossec/ruleset/yara/rules"
     fi
     
@@ -591,8 +623,11 @@ setup_yara_components() {
         exit 1
     fi
     
-    sed_inplace 's|YARA_PATH="/usr/local/bin"|YARA_PATH="/opt/wazuh/yara/bin"|g' "$yara_script_path"
-    sed_inplace 's|YARA_PATH="/opt/yara/bin"|YARA_PATH="/opt/wazuh/yara/bin"|g' "$yara_script_path"
+    # Only apply path replacements for desktop version (yara.sh)
+    if [ "$INSTALLATION_TYPE" = "desktop" ]; then
+        sed_inplace 's|YARA_PATH="/usr/local/bin"|YARA_PATH="/opt/wazuh/yara/bin"|g' "$yara_script_path"
+        sed_inplace 's|YARA_PATH="/opt/yara/bin"|YARA_PATH="/opt/wazuh/yara/bin"|g' "$yara_script_path"
+    fi
     
     print_step 3 "Downloading YARA rules"
     if ! download_file "$YARA_RULES_URL" "$yara_rules_path/yara_rules.yar" "YARA rules"; then
@@ -648,10 +683,10 @@ validate_installation() {
     local yara_rules_path yara_script_path
     if [ "$OS" = "darwin" ]; then
         yara_rules_path="/Library/Ossec/ruleset/yara/rules/yara_rules.yar"
-        yara_script_path="/Library/Ossec/active-response/bin/yara.sh"
+        yara_script_path="/Library/Ossec/active-response/bin/${YARA_SCRIPT_NAME}"
     else
         yara_rules_path="/var/ossec/ruleset/yara/rules/yara_rules.yar"
-        yara_script_path="/var/ossec/active-response/bin/yara.sh"
+        yara_script_path="/var/ossec/active-response/bin/${YARA_SCRIPT_NAME}"
     fi
     
     if ! maybe_sudo test -f "$yara_rules_path"; then
@@ -765,6 +800,9 @@ main() {
             exit 1
         fi
     fi
+    
+    # Prompt user for installation type (desktop or server)
+    prompt_installation_type
     
     # Run pre-installation checks and automatic cleanup
     pre_installation_check
