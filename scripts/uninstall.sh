@@ -348,11 +348,8 @@ validate_removal() {
 
 # Main uninstallation function
 main() {
-    # Check if called with --silent flag (from install script)
-    local silent_mode=0
-    if [ "${1:-}" = "--silent" ]; then
-        silent_mode=1
-    fi
+    # Always run in automatic mode (no user confirmation)
+    local silent_mode=1
     
     info_message "Starting modern YARA uninstallation..."
     info_message "Detected OS: ${OS}"
@@ -361,18 +358,10 @@ main() {
         info_message "Detected Linux distribution: ${DISTRO}"
     fi
     
-    # Only show confirmation prompt if NOT in silent mode
-    if [ $silent_mode -eq 0 ]; then
-        echo ""
-        warn_message "This script will remove YARA installations from /opt/wazuh/yara"
-        warn_message "This includes the YARA package, binaries, rules, and Wazuh integration"
-        read -p "Do you want to continue? [y/N] " -n 1 -r
-        echo ""
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            info_message "Uninstallation cancelled by user"
-            exit 0
-        fi
-    fi
+    # Skip confirmation prompt - always proceed with uninstallation
+    info_message "Automatically proceeding with YARA uninstallation..."
+    info_message "This will remove YARA installations from /opt/wazuh/yara"
+    info_message "This includes the YARA package, binaries, rules, and Wazuh integration"
     
     # Perform uninstallation steps
     remove_yara_packages
@@ -384,10 +373,7 @@ main() {
     
     echo ""
     success_message "Modern YARA uninstallation process completed!"
-    
-    if [ $silent_mode -eq 0 ]; then
-        info_message "Your system is now clean and ready for a fresh installation"
-    fi
+    info_message "Your system is now clean and ready for a fresh installation"
 }
 
 # Execute main function
