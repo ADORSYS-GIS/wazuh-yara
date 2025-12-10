@@ -175,24 +175,23 @@ detect_yara_installation() {
     local has_legacy=0
     local has_modern=0
     
-    info_message "Checking for existing YARA installations..."
+    # Suppress info messages during detection to avoid interference with return values
+    exec 3>&1 4>&2  # Save stdout and stderr
+    exec 1>/dev/null 2>/dev/null  # Redirect stdout and stderr to /dev/null
     
     # Check for legacy installation in /opt/yara
     if [ -d "/opt/yara" ]; then
         has_legacy=1
-        info_message "Found legacy YARA directory: /opt/yara"
     fi
     
     # Check for legacy installation in /usr/bin
     if [ -f "/usr/bin/yara" ]; then
         has_legacy=1
-        info_message "Found legacy YARA binary: /usr/bin/yara"
     fi
     
     # Check for modern installation in /opt/wazuh/yara
     if [ -d "/opt/wazuh/yara" ]; then
         has_modern=1
-        info_message "Found modern YARA directory: /opt/wazuh/yara"
     fi
     
     # Check if YARA is installed via package manager (modern)
@@ -201,17 +200,19 @@ detect_yara_installation() {
             centos|rhel|redhat|rocky|almalinux|fedora)
                 if command_exists rpm && rpm -q yara >/dev/null 2>&1; then
                     has_modern=1
-                    info_message "Found YARA installed via RPM package manager"
                 fi
                 ;;
             ubuntu|debian)
                 if command_exists dpkg && dpkg -s yara >/dev/null 2>&1; then
                     has_modern=1
-                    info_message "Found YARA installed via DEB package manager"
                 fi
                 ;;
         esac
     fi
+    
+    # Restore stdout and stderr
+    exec 1>&3 2>&4
+    exec 3>&- 4>&-
     
     # Return result as "legacy,modern" format
     echo "${has_legacy},${has_modern}"
@@ -252,15 +253,49 @@ pre_installation_check() {
     # Parse the detection result
     IFS=',' read -r has_legacy has_modern <<< "$detection_result"
     
+    # Display detection results
+    if [ "$has_legacy" -eq 1 ] || [ "$has_modern" -eq 1 ]; then
+        echo ""
+        warn_message "Existing YARA installation(s) detected!"
+        
+        # Check for legacy installation in /opt/yara
+        if [ -d "/opt/yara" ]; then
+            info_message "Found legacy YARA directory: /opt/yara"
+        fi
+        
+        # Check for legacy installation in /usr/bin
+        if [ -f "/usr/bin/yara" ]; then
+            info_message "Found legacy YARA binary: /usr/bin/yara"
+        fi
+        
+        # Check for modern installation in /opt/wazuh/yara
+        if [ -d "/opt/wazuh/yara" ]; then
+            info_message "Found modern YARA directory: /opt/wazuh/yara"
+        fi
+        
+        # Check if YARA is installed via package manager (modern)
+        if [ "$OS" = "linux" ]; then
+            case "$DISTRO" in
+                centos|rhel|redhat|rocky|almalinux|fedora)
+                    if command_exists rpm && rpm -q yara >/dev/null 2>&1; then
+                        info_message "Found YARA installed via RPM package manager"
+                    fi
+                    ;;
+                ubuntu|debian)
+                    if command_exists dpkg && dpkg -s yara >/dev/null 2>&1; then
+                        info_message "Found YARA installed via DEB package manager"
+                    fi
+                    ;;
+            esac
+        fi
+    fi
+    
     # If no installations detected, proceed with fresh install
     if [ "$has_legacy" -eq 0 ] && [ "$has_modern" -eq 0 ]; then
         success_message "No existing YARA installation detected"
         success_message "System is ready for fresh installation"
         return 0
     fi
-    
-    echo ""
-    warn_message "Existing YARA installation(s) detected!"
     
     # Automatically remove legacy installation if found
     if [ "$has_legacy" -eq 1 ]; then
