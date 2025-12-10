@@ -499,13 +499,17 @@ install_yara_macos_dmg() {
     maybe_sudo hdiutil detach "$mount_point" -quiet
     
     print_step 3 "Setting permissions"
-    maybe_sudo chmod 750 "/opt/wazuh/yara/bin/yara"
+    # Set executable permissions for all users to ensure it can be run without sudo
+    maybe_sudo chmod 755 "/opt/wazuh/yara/bin/yara"
     maybe_sudo chown root:wheel "/opt/wazuh/yara/bin/yara" 2>/dev/null || \
     maybe_sudo chown root:staff "/opt/wazuh/yara/bin/yara" 2>/dev/null || \
     maybe_sudo chown root:root "/opt/wazuh/yara/bin/yara"
     
+    # Ensure /usr/local/bin exists and create symlink
     maybe_sudo mkdir -p /usr/local/bin
     maybe_sudo ln -sf "/opt/wazuh/yara/bin/yara" /usr/local/bin/yara
+    # Also ensure the symlink has proper permissions
+    maybe_sudo chmod 755 /usr/local/bin/yara
     
     success_message "YARA installed successfully from DMG on macOS"
 }
