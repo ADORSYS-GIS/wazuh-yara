@@ -42,6 +42,21 @@ print_step() {
 
 # Prompt user for installation type
 prompt_installation_type() {
+    # Check if installation type is already set via environment variable or argument
+    if [[ -n "${INSTALLATION_TYPE:-}" ]]; then
+        if [[ "$INSTALLATION_TYPE" == "desktop" ]]; then
+            YARA_SCRIPT_NAME="yara.sh"
+            YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/yara.sh"
+            info_message "Using Desktop/Workstation installation (non-interactive mode)"
+            return 0
+        elif [[ "$INSTALLATION_TYPE" == "server" ]]; then
+            YARA_SCRIPT_NAME="yara-server.sh"
+            YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara-server.sh"
+            info_message "Using Server installation (non-interactive mode)"
+            return 0
+        fi
+    fi
+    
     echo ""
     info_message "Please select the installation type:"
     echo "  1) Desktop/Workstation (with user notifications)"
@@ -80,7 +95,8 @@ else
 fi
 
 # Configuration
-YARA_VERSION="${1:-4.5.5}"
+YARA_VERSION="4.5.5"
+YARA_VERSION_SET=0
 # YARA_SH_URL and YARA_SCRIPT_NAME will be set by prompt_installation_type()
 YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/rules/yara_rules.yar"
 
@@ -783,6 +799,42 @@ yara_macos_installation() {
 
 # Main function
 main() {
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --type)
+                if [[ -n "$2" && "$2" =~ ^(desktop|server)$ ]]; then
+                    INSTALLATION_TYPE="$2"
+                    shift 2
+                else
+                    error_message "Invalid installation type. Use 'desktop' or 'server'."
+                    exit 1
+                fi
+                ;;
+            --help|-h)
+                echo "Usage: $0 [YARA_VERSION] [--type desktop|server]"
+                echo "  YARA_VERSION: Version of YARA to install (default: 4.5.5)"
+                echo "  --type: Installation type (desktop or server)"
+                exit 0
+                ;;
+            -*)
+                error_message "Unknown option: $1"
+                exit 1
+                ;;
+            *)
+                # First positional argument is YARA version
+                if [[ -z "${YARA_VERSION_SET:-}" ]]; then
+                    YARA_VERSION="$1"
+                    YARA_VERSION_SET=1
+                    shift
+                else
+                    error_message "Unexpected argument: $1"
+                    exit 1
+                fi
+                ;;
+        esac
+    done
+    
     info_message "Starting YARA installation script v${YARA_VERSION}"
     info_message "Detected OS: ${OS}"
     
@@ -801,7 +853,7 @@ main() {
         fi
     fi
     
-    # Prompt user for installation type (desktop or server)
+    # Prompt user for installation type (desktop or server) if not set
     prompt_installation_type
     
     # Run pre-installation checks and automatic cleanup
