@@ -45,13 +45,11 @@ prompt_installation_type() {
     # Check if installation type is already set via environment variable or argument
     if [[ -n "${INSTALLATION_TYPE:-}" ]]; then
         if [[ "$INSTALLATION_TYPE" == "desktop" ]]; then
-            YARA_SCRIPT_NAME="yara.sh"
-            YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/yara.sh"
+            YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/yara.sh"
             info_message "Using Desktop/Workstation installation (non-interactive mode)"
             return 0
         elif [[ "$INSTALLATION_TYPE" == "server" ]]; then
-            YARA_SCRIPT_NAME="yara-server.sh"
-            YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara-server.sh"
+            YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara-server.sh"
             info_message "Using Server installation (non-interactive mode)"
             return 0
         fi
@@ -68,15 +66,13 @@ prompt_installation_type() {
         case "$choice" in
             1)
                 INSTALLATION_TYPE="desktop"
-                YARA_SCRIPT_NAME="yara.sh"
-                YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/yara.sh"
+                YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/yara.sh"
                 info_message "Selected: Desktop/Workstation installation"
                 return 0
                 ;;
             2)
                 INSTALLATION_TYPE="server"
-                YARA_SCRIPT_NAME="yara-server.sh"
-                YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara-server.sh"
+                YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara-server.sh"
                 info_message "Selected: Server installation"
                 return 0
                 ;;
@@ -97,7 +93,8 @@ fi
 # Configuration
 YARA_VERSION="4.5.5"
 YARA_VERSION_SET=0
-# YARA_SH_URL and YARA_SCRIPT_NAME will be set by prompt_installation_type()
+# Destination script name is always yara.sh; YARA_SOURCE_URL is set by prompt_installation_type()
+YARA_SCRIPT_NAME="yara.sh"
 YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/rules/yara_rules.yar"
 
 # GitHub Release configuration for packages
@@ -634,7 +631,7 @@ setup_yara_components() {
     fi
     
     print_step 2 "Downloading and configuring YARA script"
-    if ! download_file "$YARA_SH_URL" "$yara_script_path" "YARA script"; then
+    if ! download_file "$YARA_SOURCE_URL" "$yara_script_path" "YARA script"; then
         error_message "Failed to download YARA script"
         exit 1
     fi
