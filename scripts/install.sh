@@ -604,6 +604,19 @@ install_yara_macos_dmg() {
     success_message "YARA installed successfully from DMG on macOS"
 }
 
+# Ensure wazuh group exists on Linux
+ensure_wazuh_group_linux() {
+    if [ "$OS" = "linux" ]; then
+        if ! getent group wazuh >/dev/null 2>&1; then
+            info_message "Creating 'wazuh' group..."
+            maybe_sudo groupadd -f wazuh || {
+                error_message "Failed to create 'wazuh' group"
+                exit 1
+            }
+        fi
+    fi
+}
+
 # Setup YARA directories and components
 setup_yara_components() {
     info_message "Setting up YARA components..."
@@ -649,6 +662,9 @@ setup_yara_components() {
     fi
     
     print_step 4 "Setting permissions"
+    # Ensure rules directory has proper perms before ownership
+    maybe_sudo chmod 750 "$yara_rules_path" 2>/dev/null || true
+    maybe_sudo chmod 750 "$(dirname "$yara_rules_path")" 2>/dev/null || true
     if ! maybe_sudo chmod 750 "$yara_script_path"; then
         error_message "Failed to set permissions on $yara_script_path"
         exit 1
@@ -658,9 +674,21 @@ setup_yara_components() {
         maybe_sudo chown root:wheel "$yara_script_path" 2>/dev/null || \
         maybe_sudo chown root:staff "$yara_script_path" 2>/dev/null || \
         maybe_sudo chown root:root "$yara_script_path"
+        # Set ownership for rules directory and file on macOS
+        maybe_sudo chown -R root:wheel "$yara_rules_path" 2>/dev/null || \
+        maybe_sudo chown -R root:staff "$yara_rules_path" 2>/dev/null || \
+        maybe_sudo chown -R root:root "$yara_rules_path"
+        maybe_sudo chown root:wheel "$(dirname "$yara_rules_path")" 2>/dev/null || \
+        maybe_sudo chown root:staff "$(dirname "$yara_rules_path")" 2>/dev/null || \
+        maybe_sudo chown root:root "$(dirname "$yara_rules_path")"
     else
         maybe_sudo chown root:wazuh "$yara_script_path" 2>/dev/null || \
         maybe_sudo chown root:root "$yara_script_path"
+        # Set ownership for rules directory and file on Linux
+        maybe_sudo chown -R root:wazuh "$yara_rules_path" 2>/dev/null || \
+        maybe_sudo chown -R root:root "$yara_rules_path"
+        maybe_sudo chown root:wazuh "$(dirname "$yara_rules_path")" 2>/dev/null || \
+        maybe_sudo chown root:root "$(dirname "$yara_rules_path")"
     fi
     
     success_message "YARA components set up successfully"
@@ -761,6 +789,7 @@ yara_installation() {
     esac
     
     install_dependencies
+    ensure_wazuh_group_linux
     download_yara_package "$DISTRO" "$arch"
     install_yara_package "$DISTRO"
     setup_yara_components
