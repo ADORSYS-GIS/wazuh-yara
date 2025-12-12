@@ -595,11 +595,24 @@ install_yara_macos_dmg() {
     maybe_sudo chown root:staff "/opt/wazuh/yara/bin/yara" 2>/dev/null || \
     maybe_sudo chown root:root "/opt/wazuh/yara/bin/yara"
     
-    # Ensure /usr/local/bin exists and create symlink
+    # Remove quarantine attribute in case Gatekeeper blocks execution
+    if command_exists xattr; then
+        maybe_sudo xattr -dr com.apple.quarantine "/opt/wazuh/yara/bin/yara" 2>/dev/null || true
+    fi
+    
+    # Ensure /usr/local/bin exists and create a wrapper script (more robust than symlink)
     maybe_sudo mkdir -p /usr/local/bin
-    maybe_sudo ln -sf "/opt/wazuh/yara/bin/yara" /usr/local/bin/yara
-    # Also ensure the symlink has proper permissions
+    maybe_sudo tee /usr/local/bin/yara > /dev/null << 'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+# Ensure lib path for dynamically linked builds
+export DYLD_LIBRARY_PATH="/opt/wazuh/yara/lib:${DYLD_LIBRARY_PATH:-}"
+exec "/opt/wazuh/yara/bin/yara" "$@"
+EOF
     maybe_sudo chmod 755 /usr/local/bin/yara
+    if command_exists xattr; then
+        maybe_sudo xattr -dr com.apple.quarantine /usr/local/bin/yara 2>/dev/null || true
+    fi
     
     success_message "YARA installed successfully from DMG on macOS"
 }
@@ -701,10 +714,25 @@ validate_installation() {
     
     local yara_found=0 actual_version=""
     
+    # Try PATH first
     if command_exists yara; then
         actual_version=$(yara --version 2>/dev/null || echo "")
         yara_found=1
-    elif [ -f "/opt/wazuh/yara/bin/yara" ]; then
+    fi
+    
+    # Try common macOS locations
+    if [ $yara_found -eq 0 ] && [ "$OS" = "darwin" ]; then
+        if [ -x "/opt/homebrew/bin/yara" ]; then
+            actual_version=$(/opt/homebrew/bin/yara --version 2>/dev/null || echo "")
+            yara_found=1
+        elif [ -x "/usr/local/bin/yara" ]; then
+            actual_version=$(/usr/local/bin/yara --version 2>/dev/null || echo "")
+            yara_found=1
+        fi
+    fi
+    
+    # Try Wazuh-managed path
+    if [ $yara_found -eq 0 ] && [ -x "/opt/wazuh/yara/bin/yara" ]; then
         actual_version=$(/opt/wazuh/yara/bin/yara --version 2>/dev/null || echo "")
         yara_found=1
     fi
