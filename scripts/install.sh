@@ -61,7 +61,7 @@ prompt_installation_type() {
     echo "  2) Server (no user notifications, logging only)"
     echo ""
     while true; do
-        read -p "Enter your choice [1-2] (default: 1): " choice
+        read -r -p "Enter your choice [1-2] (default: 1): " choice
         choice=${choice:-1}
         case "$choice" in
             1)
@@ -115,13 +115,12 @@ Linux)
     OS="linux"
     OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
     WAZUH_CONTROL_BIN_PATH="/var/ossec/bin/wazuh-control"
-    YARA_SH_PATH="/var/ossec/active-response/bin/yara.sh"
     ;;
+
 Darwin)
     OS="darwin"
     OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
     WAZUH_CONTROL_BIN_PATH="/Library/Ossec/bin/wazuh-control"
-    YARA_SH_PATH="/Library/Ossec/active-response/bin/yara.sh"
     LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
     ;;
 *)
@@ -134,6 +133,7 @@ esac
 if [ "$OS" = "linux" ]; then
     detect_distro() {
         if [ -f /etc/os-release ]; then
+            # shellcheck source=/etc/os-release
             . /etc/os-release
             echo "$ID"
         elif [ -f /etc/redhat-release ]; then
