@@ -447,15 +447,20 @@ install_dependencies() {
         if command_exists brew; then
             if [ "$(id -u)" -eq 0 ] && [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "loginwindow" ]; then
                 sudo -u "$LOGGED_IN_USER" brew install jq 2>/dev/null || warn_message "Could not install jq via Homebrew"
+                # Install libmagic to satisfy YARA runtime dependency
+                sudo -u "$LOGGED_IN_USER" brew install libmagic 2>/dev/null || sudo -u "$LOGGED_IN_USER" brew install file 2>/dev/null || warn_message "Could not install libmagic via Homebrew"
             elif [ "$(id -u)" -ne 0 ]; then
                 brew install jq 2>/dev/null || warn_message "Could not install jq via Homebrew"
+                # Install libmagic to satisfy YARA runtime dependency
+                brew install libmagic 2>/dev/null || brew install file 2>/dev/null || warn_message "Could not install libmagic via Homebrew"
             else
-                warn_message "Cannot install jq via Homebrew as root without a logged in user"
+                warn_message "Cannot install jq/libmagic via Homebrew as root without a logged in user"
             fi
         elif command_exists port; then
             maybe_sudo port install jq 2>/dev/null || warn_message "Could not install jq via MacPorts"
+            maybe_sudo port install file 2>/dev/null || warn_message "Could not install libmagic via MacPorts"
         else
-            warn_message "Neither Homebrew nor MacPorts found. Please install jq manually."
+            warn_message "Neither Homebrew nor MacPorts found. Please install jq and libmagic manually."
         fi
     fi
     
