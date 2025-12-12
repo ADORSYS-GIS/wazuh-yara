@@ -778,20 +778,15 @@ validate_installation() {
     fi
 
     if [ $yara_found -eq 1 ]; then
-        if [ -n "$actual_version" ] && version_is_4_5_x "$actual_version"; then
-            success_message "YARA version $actual_version is installed (4.5.x series)."
-        elif [ -n "$actual_version" ]; then
-            warn_message "YARA version $actual_version is not compatible. Version 4.5.x is required."
-            validation_failed=1
+        if [ -n "$actual_version" ]; then
+            if version_is_4_5_x "$actual_version"; then
+                success_message "YARA version $actual_version is installed (4.5.x series)."
+            else
+                warn_message "YARA version $actual_version is not compatible. Version 4.5.x is required."
+                validation_failed=1
+            fi
         else
             info_message "YARA binary detected but version could not be determined; continuing on macOS."
-        fi
-    else
-        if version_is_4_5_x "$actual_version"; then
-            success_message "YARA version $actual_version is installed (4.5.x series)."
-        else
-            warn_message "YARA version $actual_version is not compatible. Version 4.5.x is required."
-            validation_failed=1
         fi
     else
         error_message "YARA command is not available. Please check the installation."
