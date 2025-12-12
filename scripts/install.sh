@@ -753,6 +753,15 @@ validate_installation() {
         try_yara_version "/opt/wazuh/yara/bin/yara" || true
     fi
     
+    if [ $yara_found -eq 0 ]; then
+        # Debug information on macOS to help diagnose PATH/permission issues
+        if [ "$OS" = "darwin" ]; then
+            info_message "Debug: which yara: $(command -v yara 2>/dev/null || echo 'not found')"
+            info_message "Debug: ls -l /usr/local/bin/yara: $(ls -l /usr/local/bin/yara 2>/dev/null || echo 'missing')"
+            info_message "Debug: ls -l /opt/wazuh/yara/bin/yara: $(ls -l /opt/wazuh/yara/bin/yara 2>/dev/null || echo 'missing')"
+        fi
+    fi
+
     if [ $yara_found -eq 1 ] && [ -n "$actual_version" ]; then
         if version_is_4_5_x "$actual_version"; then
             success_message "YARA version $actual_version is installed (4.5.x series)."
