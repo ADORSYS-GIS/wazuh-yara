@@ -715,29 +715,42 @@ validate_installation() {
     info_message "Validating YARA installation..."
     local validation_failed=0
     
+    # Refresh shell command cache in case new binaries were added
+    hash -r 2>/dev/null || true
+    
     local yara_found=0 actual_version=""
+    
+    # Helper to try getting version from a specific path with proper env
+    try_yara_version() {
+        local bin_path="$1"
+        if [ -x "$bin_path" ]; then
+            if [ "$OS" = "darwin" ]; then
+                actual_version=$(DYLD_LIBRARY_PATH="/opt/wazuh/yara/lib:${DYLD_LIBRARY_PATH:-}" "$bin_path" --version 2>/dev/null || echo "")
+            else
+                actual_version=$(LD_LIBRARY_PATH="/opt/wazuh/yara/lib:${LD_LIBRARY_PATH:-}" "$bin_path" --version 2>/dev/null || echo "")
+            fi
+            if [ -n "$actual_version" ]; then
+                yara_found=1
+                return 0
+            fi
+        fi
+        return 1
+    }
     
     # Try PATH first
     if command_exists yara; then
-        actual_version=$(yara --version 2>/dev/null || echo "")
-        yara_found=1
+        try_yara_version "$(command -v yara)" || true
     fi
     
     # Try common macOS locations
     if [ $yara_found -eq 0 ] && [ "$OS" = "darwin" ]; then
-        if [ -x "/opt/homebrew/bin/yara" ]; then
-            actual_version=$(/opt/homebrew/bin/yara --version 2>/dev/null || echo "")
-            yara_found=1
-        elif [ -x "/usr/local/bin/yara" ]; then
-            actual_version=$(/usr/local/bin/yara --version 2>/dev/null || echo "")
-            yara_found=1
-        fi
+        try_yara_version "/opt/homebrew/bin/yara" || \
+        try_yara_version "/usr/local/bin/yara" || true
     fi
     
     # Try Wazuh-managed path
-    if [ $yara_found -eq 0 ] && [ -x "/opt/wazuh/yara/bin/yara" ]; then
-        actual_version=$(/opt/wazuh/yara/bin/yara --version 2>/dev/null || echo "")
-        yara_found=1
+    if [ $yara_found -eq 0 ]; then
+        try_yara_version "/opt/wazuh/yara/bin/yara" || true
     fi
     
     if [ $yara_found -eq 1 ] && [ -n "$actual_version" ]; then
