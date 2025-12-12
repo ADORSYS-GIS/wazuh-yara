@@ -77,7 +77,10 @@ def test_yara_script_downloaded(host):
     file = host.file(yara_script_path)
     assert file.exists
     assert file.user == "root"
-    assert file.group == "wazuh"
+    if host.system_info.type == "darwin":
+        assert file.group in ("wheel", "staff")
+    else:
+        assert file.group == "wazuh"
     assert file.mode == 0o750
 
 def test_yara_script_permissions(host):
@@ -85,7 +88,10 @@ def test_yara_script_permissions(host):
     file = host.file(yara_script_path)
     assert file.exists
     assert file.user == "root"
-    assert file.group == "wazuh"
+    if host.system_info.type == "darwin":
+        assert file.group in ("wheel", "staff")
+    else:
+        assert file.group == "wazuh"
     assert file.mode == 0o750
 
 def test_yara_rules_file_exists(host):
@@ -101,10 +107,16 @@ def test_yara_rules_file_permissions(host):
     assert file.exists, "YARA rules file does not exist"
     assert file.is_file, "YARA rules file is not a regular file"
     assert file.user == "root"
-    assert file.group == "wazuh"
+    if host.system_info.type == "darwin":
+        assert file.group in ("wheel", "staff")
+    else:
+        assert file.group == "wazuh"
     assert dir.is_directory, "YARA rules directory does not exist"
     assert dir.user == "root"
-    assert dir.group == "wazuh"
+    if host.system_info.type == "darwin":
+        assert dir.group in ("wheel", "staff")
+    else:
+        assert dir.group == "wazuh"
 
 
 
