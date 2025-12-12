@@ -109,6 +109,9 @@ UNINSTALL_MODERN_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/y
 TMP_DIR=$(mktemp -d)
 LOGGED_IN_USER=""
 
+# Ensure common binary paths are available in PATH for macOS validation and runtime
+export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+
 # OS and Distribution Detection
 case "$(uname)" in
 Linux)
