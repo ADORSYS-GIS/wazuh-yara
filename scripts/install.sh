@@ -572,6 +572,15 @@ install_yara_macos_dmg() {
     # Also ensure the symlink has proper permissions
     maybe_sudo chmod 755 /usr/local/bin/yara
     
+    # DEBUG: Check if file exists right after install
+    if [ -f "/opt/wazuh/yara/bin/yara" ]; then
+        info_message "DEBUG: YARA binary verified at /opt/wazuh/yara/bin/yara"
+        maybe_sudo ls -l "/opt/wazuh/yara/bin/yara"
+    else
+        error_message "DEBUG: YARA binary MISSING at /opt/wazuh/yara/bin/yara immediately after install"
+        maybe_sudo ls -R "/opt/wazuh/yara/"
+    fi
+    
     success_message "YARA installed successfully from DMG on macOS"
 }
 
@@ -670,6 +679,13 @@ validate_installation() {
         fi
     else
         error_message "YARA command is not available. Please check the installation."
+        info_message "DEBUG: Checking /opt/wazuh/yara/bin/yara..."
+        if [ -f "/opt/wazuh/yara/bin/yara" ]; then
+            info_message "DEBUG: File exists."
+        else
+            error_message "DEBUG: File does NOT exist."
+            maybe_sudo ls -la /opt/wazuh/yara/bin/ || echo "Cannot ls /opt/wazuh/yara/bin/"
+        fi
         validation_failed=1
     fi
     
