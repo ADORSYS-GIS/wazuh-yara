@@ -61,7 +61,7 @@ prompt_installation_type() {
     echo "  2) Server (no user notifications, logging only)"
     echo ""
     while true; do
-        read -r -p "Enter your choice [1-2] (default: 1): " choice
+        read -p "Enter your choice [1-2] (default: 1): " choice
         choice=${choice:-1}
         case "$choice" in
             1)
@@ -109,21 +109,19 @@ UNINSTALL_MODERN_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/y
 TMP_DIR=$(mktemp -d)
 LOGGED_IN_USER=""
 
-# Ensure common binary paths are available in PATH for macOS validation and runtime
-export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
-
 # OS and Distribution Detection
 case "$(uname)" in
 Linux)
     OS="linux"
     OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
     WAZUH_CONTROL_BIN_PATH="/var/ossec/bin/wazuh-control"
+    YARA_SH_PATH="/var/ossec/active-response/bin/yara.sh"
     ;;
-
 Darwin)
     OS="darwin"
     OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
     WAZUH_CONTROL_BIN_PATH="/Library/Ossec/bin/wazuh-control"
+    YARA_SH_PATH="/Library/Ossec/active-response/bin/yara.sh"
     LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
     ;;
 *)
@@ -136,7 +134,6 @@ esac
 if [ "$OS" = "linux" ]; then
     detect_distro() {
         if [ -f /etc/os-release ]; then
-            # shellcheck disable=SC1091
             . /etc/os-release
             echo "$ID"
         elif [ -f /etc/redhat-release ]; then
@@ -232,16 +229,6 @@ detect_yara_installation() {
         has_legacy=1
     fi
     
-    # Check for legacy installation in /usr/bin
-    if [ -f "/usr/bin/yara" ]; then
-        has_legacy=1
-    fi
-    
-    # Check for legacy installation in /usr/local/bin (common for source installations)
-    if [ -f "/usr/local/bin/yara" ]; then
-        has_legacy=1
-    fi
-    
     # Check for modern installation in /opt/wazuh/yara
     if [ -d "/opt/wazuh/yara" ]; then
         has_modern=1
@@ -314,16 +301,6 @@ pre_installation_check() {
         # Check for legacy installation in /opt/yara
         if [ -d "/opt/yara" ]; then
             info_message "Found legacy YARA directory: /opt/yara"
-        fi
-        
-        # Check for legacy installation in /usr/bin
-        if [ -f "/usr/bin/yara" ]; then
-            info_message "Found legacy YARA binary: /usr/bin/yara"
-        fi
-        
-        # Check for legacy installation in /usr/local/bin
-        if [ -f "/usr/local/bin/yara" ]; then
-            info_message "Found legacy YARA binary: /usr/local/bin/yara"
         fi
         
         # Check for modern installation in /opt/wazuh/yara
@@ -447,20 +424,15 @@ install_dependencies() {
         if command_exists brew; then
             if [ "$(id -u)" -eq 0 ] && [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "loginwindow" ]; then
                 sudo -u "$LOGGED_IN_USER" brew install jq 2>/dev/null || warn_message "Could not install jq via Homebrew"
-                # Install libmagic to satisfy YARA runtime dependency
-                sudo -u "$LOGGED_IN_USER" brew install libmagic 2>/dev/null || sudo -u "$LOGGED_IN_USER" brew install file 2>/dev/null || warn_message "Could not install libmagic via Homebrew"
             elif [ "$(id -u)" -ne 0 ]; then
                 brew install jq 2>/dev/null || warn_message "Could not install jq via Homebrew"
-                # Install libmagic to satisfy YARA runtime dependency
-                brew install libmagic 2>/dev/null || brew install file 2>/dev/null || warn_message "Could not install libmagic via Homebrew"
             else
-                warn_message "Cannot install jq/libmagic via Homebrew as root without a logged in user"
+                warn_message "Cannot install jq via Homebrew as root without a logged in user"
             fi
         elif command_exists port; then
             maybe_sudo port install jq 2>/dev/null || warn_message "Could not install jq via MacPorts"
-            maybe_sudo port install file 2>/dev/null || warn_message "Could not install libmagic via MacPorts"
         else
-            warn_message "Neither Homebrew nor MacPorts found. Please install jq and libmagic manually."
+            warn_message "Neither Homebrew nor MacPorts found. Please install jq manually."
         fi
     fi
     
@@ -603,39 +575,13 @@ install_yara_macos_dmg() {
     maybe_sudo chown root:staff "/opt/wazuh/yara/bin/yara" 2>/dev/null || \
     maybe_sudo chown root:root "/opt/wazuh/yara/bin/yara"
     
-    # Remove quarantine attribute in case Gatekeeper blocks execution
-    if command_exists xattr; then
-        maybe_sudo xattr -dr com.apple.quarantine "/opt/wazuh/yara/bin/yara" 2>/dev/null || true
-    fi
-    
-    # Ensure /usr/local/bin exists and create a wrapper script (more robust than symlink)
+    # Ensure /usr/local/bin exists and create symlink
     maybe_sudo mkdir -p /usr/local/bin
-    maybe_sudo tee /usr/local/bin/yara > /dev/null << 'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-# Ensure lib path for dynamically linked builds
-export DYLD_LIBRARY_PATH="/opt/wazuh/yara/lib:${DYLD_LIBRARY_PATH:-}"
-exec "/opt/wazuh/yara/bin/yara" "$@"
-EOF
+    maybe_sudo ln -sf "/opt/wazuh/yara/bin/yara" /usr/local/bin/yara
+    # Also ensure the symlink has proper permissions
     maybe_sudo chmod 755 /usr/local/bin/yara
-    if command_exists xattr; then
-        maybe_sudo xattr -dr com.apple.quarantine /usr/local/bin/yara 2>/dev/null || true
-    fi
     
     success_message "YARA installed successfully from DMG on macOS"
-}
-
-# Ensure wazuh group exists on Linux
-ensure_wazuh_group_linux() {
-    if [ "$OS" = "linux" ]; then
-        if ! getent group wazuh >/dev/null 2>&1; then
-            info_message "Creating 'wazuh' group..."
-            maybe_sudo groupadd -f wazuh || {
-                error_message "Failed to create 'wazuh' group"
-                exit 1
-            }
-        fi
-    fi
 }
 
 # Setup YARA directories and components
@@ -683,9 +629,6 @@ setup_yara_components() {
     fi
     
     print_step 4 "Setting permissions"
-    # Ensure rules directory has proper perms before ownership
-    maybe_sudo chmod 750 "$yara_rules_path" 2>/dev/null || true
-    maybe_sudo chmod 750 "$(dirname "$yara_rules_path")" 2>/dev/null || true
     if ! maybe_sudo chmod 750 "$yara_script_path"; then
         error_message "Failed to set permissions on $yara_script_path"
         exit 1
@@ -695,21 +638,9 @@ setup_yara_components() {
         maybe_sudo chown root:wheel "$yara_script_path" 2>/dev/null || \
         maybe_sudo chown root:staff "$yara_script_path" 2>/dev/null || \
         maybe_sudo chown root:root "$yara_script_path"
-        # Set ownership for rules directory and file on macOS
-        maybe_sudo chown -R root:wheel "$yara_rules_path" 2>/dev/null || \
-        maybe_sudo chown -R root:staff "$yara_rules_path" 2>/dev/null || \
-        maybe_sudo chown -R root:root "$yara_rules_path"
-        maybe_sudo chown root:wheel "$(dirname "$yara_rules_path")" 2>/dev/null || \
-        maybe_sudo chown root:staff "$(dirname "$yara_rules_path")" 2>/dev/null || \
-        maybe_sudo chown root:root "$(dirname "$yara_rules_path")"
     else
         maybe_sudo chown root:wazuh "$yara_script_path" 2>/dev/null || \
         maybe_sudo chown root:root "$yara_script_path"
-        # Set ownership for rules directory and file on Linux
-        maybe_sudo chown -R root:wazuh "$yara_rules_path" 2>/dev/null || \
-        maybe_sudo chown -R root:root "$yara_rules_path"
-        maybe_sudo chown root:wazuh "$(dirname "$yara_rules_path")" 2>/dev/null || \
-        maybe_sudo chown root:root "$(dirname "$yara_rules_path")"
     fi
     
     success_message "YARA components set up successfully"
@@ -720,78 +651,22 @@ validate_installation() {
     info_message "Validating YARA installation..."
     local validation_failed=0
     
-    # Refresh shell command cache in case new binaries were added
-    hash -r 2>/dev/null || true
-    
     local yara_found=0 actual_version=""
     
-    # Helper to try getting version from a specific path with proper env
-    try_yara_version() {
-        local bin_path="$1"
-        if [ -x "$bin_path" ]; then
-            local output exit_code
-            if [ "$OS" = "darwin" ]; then
-                output=$(DYLD_LIBRARY_PATH="/opt/wazuh/yara/lib:${DYLD_LIBRARY_PATH:-}" "$bin_path" --version 2>&1)
-                exit_code=$?
-            else
-                output=$(LD_LIBRARY_PATH="/opt/wazuh/yara/lib:${LD_LIBRARY_PATH:-}" "$bin_path" --version 2>&1)
-                exit_code=$?
-            fi
-            if [ $exit_code -eq 0 ] && [ -n "$output" ]; then
-                actual_version="$output"
-                yara_found=1
-                return 0
-            else
-                # Emit diagnostic output to help debug why the binary didn't run
-                warn_message "Attempt to run $bin_path failed (exit $exit_code). Output: $output"
-                return 1
-            fi
-        fi
-        return 1
-    }
-    
-    # Try PATH first
     if command_exists yara; then
-        try_yara_version "$(command -v yara)" || true
-    fi
-    
-    # Try common macOS locations
-    if [ $yara_found -eq 0 ] && [ "$OS" = "darwin" ]; then
-        try_yara_version "/opt/homebrew/bin/yara" || \
-        try_yara_version "/usr/local/bin/yara" || true
-    fi
-    
-    # Try Wazuh-managed path
-    if [ $yara_found -eq 0 ]; then
-        try_yara_version "/opt/wazuh/yara/bin/yara" || true
-    fi
-    
-    # Final macOS fallback: if wrapper exists and is executable, accept as installed
-    if [ $yara_found -eq 0 ] && [ "$OS" = "darwin" ] && [ -x "/usr/local/bin/yara" ]; then
-        warn_message "YARA version check failed; wrapper present at /usr/local/bin/yara. Proceeding on macOS."
+        actual_version=$(yara --version 2>/dev/null || echo "")
         yara_found=1
-        actual_version=$(/usr/local/bin/yara --version 2>/dev/null || echo "")
+    elif [ -f "/opt/wazuh/yara/bin/yara" ]; then
+        actual_version=$(/opt/wazuh/yara/bin/yara --version 2>/dev/null || echo "")
+        yara_found=1
     fi
     
-    if [ $yara_found -eq 0 ]; then
-        # Debug information on macOS to help diagnose PATH/permission issues
-        if [ "$OS" = "darwin" ]; then
-            info_message "Debug: which yara: $(command -v yara 2>/dev/null || echo 'not found')"
-            info_message "Debug: ls -l /usr/local/bin/yara: $(ls -l /usr/local/bin/yara 2>/dev/null || echo 'missing')"
-            info_message "Debug: ls -l /opt/wazuh/yara/bin/yara: $(ls -l /opt/wazuh/yara/bin/yara 2>/dev/null || echo 'missing')"
-        fi
-    fi
-
-    if [ $yara_found -eq 1 ]; then
-        if [ -n "$actual_version" ]; then
-            if version_is_4_5_x "$actual_version"; then
-                success_message "YARA version $actual_version is installed (4.5.x series)."
-            else
-                warn_message "YARA version $actual_version is not compatible. Version 4.5.x is required."
-                validation_failed=1
-            fi
+    if [ $yara_found -eq 1 ] && [ -n "$actual_version" ]; then
+        if version_is_4_5_x "$actual_version"; then
+            success_message "YARA version $actual_version is installed (4.5.x series)."
         else
-            info_message "YARA binary detected but version could not be determined; continuing on macOS."
+            warn_message "YARA version $actual_version is not compatible. Version 4.5.x is required."
+            validation_failed=1
         fi
     else
         error_message "YARA command is not available. Please check the installation."
@@ -866,7 +741,6 @@ yara_installation() {
     esac
     
     install_dependencies
-    ensure_wazuh_group_linux
     download_yara_package "$DISTRO" "$arch"
     install_yara_package "$DISTRO"
     setup_yara_components
