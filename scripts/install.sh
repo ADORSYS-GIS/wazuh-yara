@@ -667,14 +667,17 @@ validate_installation() {
     local yara_found=0 actual_version=""
     
     if command_exists yara; then
-        actual_version=$(yara --version 2>/dev/null || echo "")
+        actual_version=$(yara --version 2>&1 || echo "")
         yara_found=1
     elif [ -f "/opt/wazuh/yara/bin/yara" ]; then
-        actual_version=$(/opt/wazuh/yara/bin/yara --version 2>/dev/null || echo "")
+        # Capture both stdout and stderr to debug execution failure
+        actual_version=$(/opt/wazuh/yara/bin/yara --version 2>&1 || echo "")
         yara_found=1
     fi
     
-    if [ $yara_found -eq 1 ] && [ -n "$actual_version" ]; then
+    # Check if actual_version looks like a version number (contains dots)
+    # If not, it might contain an error message
+    if [ $yara_found -eq 1 ] && [[ "$actual_version" =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
         if version_is_4_5_x "$actual_version"; then
             success_message "YARA version $actual_version is installed (4.5.x series)."
         else
@@ -682,13 +685,23 @@ validate_installation() {
             validation_failed=1
         fi
     else
-        error_message "YARA command is not available. Please check the installation."
+        error_message "YARA command is not available or failed to run."
+        error_message "Output was: $actual_version"
+        
         info_message "DEBUG: Checking /opt/wazuh/yara/bin/yara..."
         if [ -f "/opt/wazuh/yara/bin/yara" ]; then
             info_message "DEBUG: File exists."
+            info_message "DEBUG: Trying to run it directly to see error:"
+            maybe_sudo /opt/wazuh/yara/bin/yara --version || true
+            
+            if [ "$OS" = "darwin" ]; then
+                info_message "DEBUG: Checking file type:"
+                file /opt/wazuh/yara/bin/yara || true
+                info_message "DEBUG: Checking shared libraries:"
+                otool -L /opt/wazuh/yara/bin/yara || true
+            fi
         else
             error_message "DEBUG: File does NOT exist."
-            maybe_sudo ls -la /opt/wazuh/yara/bin/ || echo "Cannot ls /opt/wazuh/yara/bin/"
         fi
         validation_failed=1
     fi
