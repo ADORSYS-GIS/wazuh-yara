@@ -629,9 +629,18 @@ setup_yara_components() {
         maybe_sudo chown root:wheel "$yara_script_path" 2>/dev/null || \
         maybe_sudo chown root:staff "$yara_script_path" 2>/dev/null || \
         maybe_sudo chown root:root "$yara_script_path"
+        
+        # Also set ownership for YARA rules on macOS
+        maybe_sudo chown root:wheel "$yara_rules_path/yara_rules.yar" 2>/dev/null || \
+        maybe_sudo chown root:staff "$yara_rules_path/yara_rules.yar" 2>/dev/null || \
+        maybe_sudo chown root:root "$yara_rules_path/yara_rules.yar"
     else
         maybe_sudo chown root:wazuh "$yara_script_path" 2>/dev/null || \
         maybe_sudo chown root:root "$yara_script_path"
+        
+        # Also set ownership for YARA rules on Linux (expected to be root:wazuh)
+        maybe_sudo chown root:wazuh "$yara_rules_path/yara_rules.yar" 2>/dev/null || \
+        maybe_sudo chown root:root "$yara_rules_path/yara_rules.yar"
     fi
     
     success_message "YARA components set up successfully"
