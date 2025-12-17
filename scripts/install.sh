@@ -650,6 +650,10 @@ setup_yara_components() {
         # Also set ownership for YARA rules on Linux (expected to be root:wazuh)
         maybe_sudo chown root:wazuh "$yara_rules_path/yara_rules.yar" 2>/dev/null || \
         maybe_sudo chown root:root "$yara_rules_path/yara_rules.yar"
+        
+        # FIX: Ensure directory itself has correct group ownership (failed in tests)
+        maybe_sudo chown root:wazuh "$yara_rules_path" 2>/dev/null || \
+        maybe_sudo chown root:root "$yara_rules_path"
     fi
     
     success_message "YARA components set up successfully"
