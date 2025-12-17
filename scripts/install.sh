@@ -643,6 +643,11 @@ setup_yara_components() {
         maybe_sudo chown root:wheel "$yara_rules_path/yara_rules.yar" 2>/dev/null || \
         maybe_sudo chown root:staff "$yara_rules_path/yara_rules.yar" 2>/dev/null || \
         maybe_sudo chown root:root "$yara_rules_path/yara_rules.yar"
+        
+        # FIX: Ensure directory itself has correct group ownership on macOS
+        maybe_sudo chown root:wheel "$yara_rules_path" 2>/dev/null || \
+        maybe_sudo chown root:staff "$yara_rules_path" 2>/dev/null || \
+        maybe_sudo chown root:root "$yara_rules_path"
     else
         maybe_sudo chown root:wazuh "$yara_script_path" 2>/dev/null || \
         maybe_sudo chown root:root "$yara_script_path"
