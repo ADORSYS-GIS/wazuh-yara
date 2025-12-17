@@ -411,19 +411,19 @@ install_dependencies() {
                 ;;
         esac
     elif [ "$OS" = "darwin" ]; then
-        print_step 1 "Installing jq on macOS"
+        print_step 1 "Installing dependencies on macOS"
         if command_exists brew; then
             if [ "$(id -u)" -eq 0 ] && [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "loginwindow" ]; then
-                sudo -u "$LOGGED_IN_USER" brew install jq 2>/dev/null || warn_message "Could not install jq via Homebrew"
+                sudo -u "$LOGGED_IN_USER" brew install jq libmagic openssl@3 2>/dev/null || warn_message "Could not install dependencies via Homebrew"
             elif [ "$(id -u)" -ne 0 ]; then
-                brew install jq 2>/dev/null || warn_message "Could not install jq via Homebrew"
+                brew install jq libmagic openssl@3 2>/dev/null || warn_message "Could not install dependencies via Homebrew"
             else
-                warn_message "Cannot install jq via Homebrew as root without a logged in user"
+                warn_message "Cannot install dependencies via Homebrew as root without a logged in user"
             fi
         elif command_exists port; then
-            maybe_sudo port install jq 2>/dev/null || warn_message "Could not install jq via MacPorts"
+            maybe_sudo port install jq libmagic openssl3 2>/dev/null || warn_message "Could not install dependencies via MacPorts"
         else
-            warn_message "Neither Homebrew nor MacPorts found. Please install jq manually."
+            warn_message "Neither Homebrew nor MacPorts found. Please install jq, libmagic, and openssl manually."
         fi
     fi
     
