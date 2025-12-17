@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
 #=============================================================================
-# Modern YARA Uninstallation Script
-# Removes YARA packages installed via the new package-based installation
-# Handles installations in /opt/wazuh/yara
+# YARA Uninstallation Script
+# Automatically detects and removes YARA installations from:
+# - /opt/yara (legacy installation)
+# - /opt/wazuh/yara (modern installation)
+# - /usr/local/bin/yara (softlink)
 #=============================================================================
 
 # Define text formatting
@@ -67,6 +69,7 @@ esac
 if [ "$OS" = "linux" ]; then
     detect_distro() {
         if [ -f /etc/os-release ]; then
+            # shellcheck source=/dev/null
             . /etc/os-release
             echo "$ID"
         elif [ -f /etc/redhat-release ]; then
@@ -116,6 +119,47 @@ restart_wazuh_agent() {
     else
         warn_message "Could not restart Wazuh agent (may not be running)."
     fi
+}
+
+# Detect YARA installations - check for legacy, modern, and softlink
+detect_yara_installation() {
+    local has_legacy=0
+    local has_modern=0
+    local has_softlink=0
+    
+    # Check for legacy installation in /opt/yara
+    if [ -d "/opt/yara" ]; then
+        has_legacy=1
+    fi
+    
+    # Check for modern installation in /opt/wazuh/yara
+    if [ -d "/opt/wazuh/yara" ]; then
+        has_modern=1
+    fi
+    
+    # Check for softlink at /usr/local/bin/yara
+    if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
+        has_softlink=1
+    fi
+    
+    # Check if YARA is installed via package manager (modern)
+    if [ "$OS" = "linux" ]; then
+        case "$DISTRO" in
+            centos|rhel|redhat|rocky|almalinux|fedora)
+                if command_exists rpm && rpm -q yara > /dev/null 2>&1; then
+                    has_modern=1
+                fi
+                ;;
+            ubuntu|debian)
+                if command_exists dpkg && dpkg -s yara > /dev/null 2>&1; then
+                    has_modern=1
+                fi
+                ;;
+        esac
+    fi
+    
+    # Return result as "legacy,modern,softlink" format
+    echo "${has_legacy},${has_modern},${has_softlink}"
 }
 
 # Remove YARA packages installed via package managers
@@ -226,19 +270,41 @@ remove_custom_yara_installation() {
     fi
 }
 
+# Remove legacy YARA installation from /opt/yara
+remove_legacy_yara_installation() {
+    info_message "Removing legacy YARA installation..."
+    local removed=0
+    
+    # Remove legacy YARA directory
+    local legacy_yara_dir="/opt/yara"
+    if [ -d "$legacy_yara_dir" ]; then
+        info_message "Removing legacy YARA directory: $legacy_yara_dir"
+        if maybe_sudo rm -rf "$legacy_yara_dir"; then
+            success_message "Removed legacy YARA directory"
+            removed=1
+        else
+            error_message "Failed to remove legacy YARA directory"
+        fi
+    else
+        info_message "Legacy YARA directory not found: $legacy_yara_dir"
+    fi
+    
+    if [ $removed -eq 0 ]; then
+        info_message "No legacy YARA installation found"
+    fi
+}
+
 # Remove YARA rules and scripts from Wazuh
 remove_yara_wazuh_components() {
     info_message "Removing YARA rules and scripts from Wazuh..."
     local removed=0
     
     # Determine paths based on OS
-    local base_path yara_script_path yara_rules_path
+    local yara_script_path yara_rules_path
     if [ "$OS" = "darwin" ]; then
-        base_path="/Library/Ossec"
         yara_script_path="/Library/Ossec/active-response/bin/yara.sh"
         yara_rules_path="/Library/Ossec/ruleset/yara"
     else
-        base_path="/var/ossec"
         yara_script_path="/var/ossec/active-response/bin/yara.sh"
         yara_rules_path="/var/ossec/ruleset/yara"
     fi
@@ -304,7 +370,13 @@ validate_removal() {
         found_items=$((found_items + 1))
     fi
     
-    # Check custom installation path
+    # Check legacy installation path
+    if [ -d "/opt/yara" ]; then
+        warn_message "Legacy YARA directory still exists: /opt/yara"
+        found_items=$((found_items + 1))
+    fi
+    
+    # Check modern installation path
     if [ -d "/opt/wazuh/yara" ]; then
         warn_message "YARA installation directory still exists: /opt/wazuh/yara"
         found_items=$((found_items + 1))
@@ -348,31 +420,66 @@ validate_removal() {
 
 # Main uninstallation function
 main() {
-    # Always run in automatic mode (no user confirmation)
-    local silent_mode=1
-    
-    info_message "Starting modern YARA uninstallation..."
+    info_message "Starting YARA uninstallation..."
     info_message "Detected OS: ${OS}"
     
     if [ "$OS" = "linux" ]; then
         info_message "Detected Linux distribution: ${DISTRO}"
     fi
     
-    # Skip confirmation prompt - always proceed with uninstallation
-    info_message "Automatically proceeding with YARA uninstallation..."
-    info_message "This will remove YARA installations from /opt/wazuh/yara"
-    info_message "This includes the YARA package, binaries, rules, and Wazuh integration"
+    # Detect what's installed
+    local detection_result
+    detection_result=$(detect_yara_installation)
+    IFS=',' read -r has_legacy has_modern has_softlink <<< "$detection_result"
     
-    # Perform uninstallation steps
+    # Display what was detected
+    if [ "$has_legacy" -eq 1 ] || [ "$has_modern" -eq 1 ] || [ "$has_softlink" -eq 1 ]; then
+        echo ""
+        info_message "Detected YARA installations:"
+        
+        if [ -d "/opt/yara" ]; then
+            info_message "  - Legacy installation: /opt/yara"
+        fi
+        
+        if [ -d "/opt/wazuh/yara" ]; then
+            info_message "  - Modern installation: /opt/wazuh/yara"
+        fi
+        
+        if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
+            info_message "  - Softlink: /usr/local/bin/yara"
+        fi
+        
+        echo ""
+        info_message "Proceeding with automatic uninstallation..."
+    else
+        info_message "No YARA installations detected"
+        success_message "System is already clean"
+        return 0
+    fi
+    
+    # Remove package manager installations (if any)
     remove_yara_packages
-    remove_custom_yara_installation
+    
+    # Remove legacy installation if detected
+    if [ "$has_legacy" -eq 1 ]; then
+        remove_legacy_yara_installation
+    fi
+    
+    # Remove modern installation if detected
+    if [ "$has_modern" -eq 1 ]; then
+        remove_custom_yara_installation
+    fi
+    
+    # Always clean up Wazuh components and configuration
     remove_yara_wazuh_components
     restore_ossec_configuration
+    
+    # Validate complete removal
     validate_removal
     restart_wazuh_agent
     
     echo ""
-    success_message "Modern YARA uninstallation process completed!"
+    success_message "YARA uninstallation process completed!"
     info_message "Your system is now clean and ready for a fresh installation"
 }
 
