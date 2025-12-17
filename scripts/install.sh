@@ -61,7 +61,7 @@ prompt_installation_type() {
     echo "  2) Server (no user notifications, logging only)"
     echo ""
     while true; do
-        read -p "Enter your choice [1-2] (default: 1): " choice
+        read -rp "Enter your choice [1-2] (default: 1): " choice
         choice=${choice:-1}
         case "$choice" in
             1)
@@ -102,10 +102,6 @@ GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-plugins/releases/d
 LINUX_RELEASE_TAG="yara-v0.3.17"
 MACOS_RELEASE_TAG="yara-v0.5.1"
 
-# Cleanup script URLs
-UNINSTALL_LEGACY_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/v0.3.14/scripts/uninstall.sh"
-UNINSTALL_MODERN_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/uninstall.sh"
-
 TMP_DIR=$(mktemp -d)
 LOGGED_IN_USER=""
 
@@ -115,13 +111,11 @@ Linux)
     OS="linux"
     OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
     WAZUH_CONTROL_BIN_PATH="/var/ossec/bin/wazuh-control"
-    YARA_SH_PATH="/var/ossec/active-response/bin/yara.sh"
     ;;
 Darwin)
     OS="darwin"
     OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
     WAZUH_CONTROL_BIN_PATH="/Library/Ossec/bin/wazuh-control"
-    YARA_SH_PATH="/Library/Ossec/active-response/bin/yara.sh"
     LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
     ;;
 *)
@@ -134,6 +128,7 @@ esac
 if [ "$OS" = "linux" ]; then
     detect_distro() {
         if [ -f /etc/os-release ]; then
+            # shellcheck source=/dev/null
             . /etc/os-release
             echo "$ID"
         elif [ -f /etc/redhat-release ]; then
@@ -215,10 +210,11 @@ sed_inplace() {
 # PRE-INSTALLATION CHECKS
 #=============================================================================
 
-# Detect YARA installations - check for both legacy and modern
+# Detect YARA installations - check for legacy, modern, and softlink
 detect_yara_installation() {
     local has_legacy=0
     local has_modern=0
+    local has_softlink=0
     
     # Suppress info messages during detection to avoid interference with return values
     exec 3>&1 4>&2  # Save stdout and stderr
@@ -232,6 +228,11 @@ detect_yara_installation() {
     # Check for modern installation in /opt/wazuh/yara
     if [ -d "/opt/wazuh/yara" ]; then
         has_modern=1
+    fi
+    
+    # Check for softlink at /usr/local/bin/yara
+    if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
+        has_softlink=1
     fi
     
     # Check if YARA is installed via package manager (modern)
@@ -254,31 +255,27 @@ detect_yara_installation() {
     exec 1>&3 2>&4
     exec 3>&- 4>&-
     
-    # Return result as "legacy,modern" format
-    echo "${has_legacy},${has_modern}"
+    # Return result as "legacy,modern,softlink" format
+    echo "${has_legacy},${has_modern},${has_softlink}"
 }
 
-# Download and execute cleanup script
-run_cleanup_script() {
-    local script_url="$1"
-    local script_name="$2"
-    local cleanup_script="$TMP_DIR/$script_name"
+# Run local uninstallation script
+run_local_uninstall() {
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local uninstall_script="$script_dir/uninstall.sh"
     
-    info_message "Downloading $script_name..."
-    
-    if ! curl -fsSL -o "$cleanup_script" "$script_url" 2>/dev/null; then
-        error_message "Failed to download $script_name from $script_url"
+    if [ ! -f "$uninstall_script" ]; then
+        error_message "Uninstall script not found at: $uninstall_script"
         return 1
     fi
     
-    chmod +x "$cleanup_script"
-    
-    info_message "Running $script_name..."
-    if bash "$cleanup_script"; then
-        success_message "Cleanup completed successfully"
+    info_message "Running local uninstallation script..."
+    if bash "$uninstall_script"; then
+        success_message "Uninstallation completed successfully"
         return 0
     else
-        error_message "$script_name failed"
+        error_message "Uninstallation script failed"
         return 1
     fi
 }
@@ -291,39 +288,7 @@ pre_installation_check() {
     detection_result=$(detect_yara_installation)
     
     # Parse the detection result
-    IFS=',' read -r has_legacy has_modern <<< "$detection_result"
-    
-    # Display detection results
-    if [ "$has_legacy" -eq 1 ] || [ "$has_modern" -eq 1 ]; then
-        echo ""
-        warn_message "Existing YARA installation(s) detected!"
-        
-        # Check for legacy installation in /opt/yara
-        if [ -d "/opt/yara" ]; then
-            info_message "Found legacy YARA directory: /opt/yara"
-        fi
-        
-        # Check for modern installation in /opt/wazuh/yara
-        if [ -d "/opt/wazuh/yara" ]; then
-            info_message "Found modern YARA directory: /opt/wazuh/yara"
-        fi
-        
-        # Check if YARA is installed via package manager (modern)
-        if [ "$OS" = "linux" ]; then
-            case "$DISTRO" in
-                centos|rhel|redhat|rocky|almalinux|fedora)
-                    if command_exists rpm && rpm -q yara >/dev/null 2>&1; then
-                        info_message "Found YARA installed via RPM package manager"
-                    fi
-                    ;;
-                ubuntu|debian)
-                    if command_exists dpkg && dpkg -s yara >/dev/null 2>&1; then
-                        info_message "Found YARA installed via DEB package manager"
-                    fi
-                    ;;
-            esac
-        fi
-    fi
+    IFS=',' read -r has_legacy has_modern has_softlink <<< "$detection_result"
     
     # If no installations detected, proceed with fresh install
     if [ "$has_legacy" -eq 0 ] && [ "$has_modern" -eq 0 ]; then
@@ -332,22 +297,48 @@ pre_installation_check() {
         return 0
     fi
     
-    # Automatically remove legacy installation if found
-    if [ "$has_legacy" -eq 1 ]; then
-        info_message "Legacy YARA installation detected - removing automatically..."
-        if ! run_cleanup_script "$UNINSTALL_LEGACY_URL" "uninstall.sh"; then
-            error_message "Failed to remove legacy YARA installation"
-            exit 1
-        fi
+    # Display detection results
+    echo ""
+    warn_message "Existing YARA installation(s) detected!"
+    
+    # Check for legacy installation in /opt/yara
+    if [ -d "/opt/yara" ]; then
+        info_message "Found YARA in path: /opt/yara"
     fi
     
-    # Automatically remove modern installation if found
-    if [ "$has_modern" -eq 1 ]; then
-        info_message "Modern YARA installation detected - removing automatically..."
-        if ! run_cleanup_script "$UNINSTALL_MODERN_URL" "uninstall.sh"; then
-            error_message "Failed to remove modern YARA installation"
-            exit 1
-        fi
+    # Check for modern installation in /opt/wazuh/yara
+    if [ -d "/opt/wazuh/yara" ]; then
+        info_message "Found YARA in path: /opt/wazuh/yara"
+    fi
+    
+    # Check for softlink at /usr/local/bin/yara
+    if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
+        info_message "Found YARA in path: /usr/local/bin/yara"
+    fi
+    
+    # Check if YARA is installed via package manager (modern)
+    if [ "$OS" = "linux" ]; then
+        case "$DISTRO" in
+            centos|rhel|redhat|rocky|almalinux|fedora)
+                if command_exists rpm && rpm -q yara > /dev/null 2>&1; then
+                    info_message "Found YARA installed via RPM package manager"
+                fi
+                ;;
+            ubuntu|debian)
+                if command_exists dpkg && dpkg -s yara > /dev/null 2>&1; then
+                    info_message "Found YARA installed via DEB package manager"
+                fi
+                ;;
+        esac
+    fi
+    
+    echo ""
+    info_message "Running uninstallation script to clean up existing installations..."
+    
+    # Run the local uninstall script (it will detect and remove everything)
+    if ! run_local_uninstall; then
+        error_message "Failed to remove existing YARA installation(s)"
+        exit 1
     fi
     
     echo ""
