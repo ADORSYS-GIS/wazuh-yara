@@ -800,6 +800,7 @@ yara_installation() {
     install_dependencies
     download_yara_package "$DISTRO" "$arch"
     install_yara_package "$DISTRO"
+    
     setup_yara_components
     remove_file_limit
     validate_installation
@@ -822,6 +823,7 @@ yara_macos_installation() {
     install_dependencies
     download_yara_macos_dmg "$arch"
     install_yara_macos_dmg "$arch"
+    
     setup_yara_components
     remove_file_limit
     validate_installation
@@ -896,9 +898,11 @@ main() {
     local check_status=0
     pre_installation_check || check_status=$?
     
-    local skip_pkg_install=0
     if [ "$check_status" -eq 2 ]; then
-        skip_pkg_install=1
+        info_message "Verifying existing installation..."
+        validate_installation
+        success_message "YARA is already installed and configured correctly. Exiting."
+        exit 0
     elif [ "$check_status" -ne 0 ]; then
         error_message "Pre-installation checks failed"
         exit 1
@@ -907,10 +911,10 @@ main() {
     # Proceed with installation
     case "$OS" in
         linux)
-            yara_installation "$skip_pkg_install"
+            yara_installation
             ;;
         darwin)
-            yara_macos_installation "$skip_pkg_install"
+            yara_macos_installation
             ;;
         *)
             error_message "Unsupported operating system: $OS"
