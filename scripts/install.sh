@@ -290,6 +290,23 @@ pre_installation_check() {
     # Parse the detection result
     IFS=',' read -r has_legacy has_modern has_softlink <<< "$detection_result"
     
+    # Check if modern installation has the correct version
+    if [ "$has_modern" -eq 1 ]; then
+        if [ -f "/opt/wazuh/yara/bin/yara" ]; then
+            # Capture output and check version
+            local current_version
+            current_version=$(/opt/wazuh/yara/bin/yara --version 2>/dev/null || echo "")
+            
+            if [ -n "$current_version" ] && version_is_4_5_x "$current_version"; then
+                success_message "Valid YARA installation found (v${current_version})"
+                info_message "Skipping new installation, will proceed to configuration checks..."
+                return 2  # Special return code for skipping install
+            fi
+            
+            info_message "Existing YARA version ($current_version) does not match target v${YARA_VERSION}"
+        fi
+    fi
+    
     # If no installations detected, proceed with fresh install
     if [ "$has_legacy" -eq 0 ] && [ "$has_modern" -eq 0 ]; then
         success_message "No existing YARA installation detected"
@@ -348,6 +365,8 @@ pre_installation_check() {
     
     # Brief pause to let user see the messages
     sleep 2
+    
+    return 0
 }
 
 #=============================================================================
@@ -872,15 +891,26 @@ main() {
     prompt_installation_type
     
     # Run pre-installation checks and automatic cleanup
-    pre_installation_check
+    # Returns 0 for fresh install
+    # Returns 2 for skipping install (valid version found)
+    local check_status=0
+    pre_installation_check || check_status=$?
+    
+    local skip_pkg_install=0
+    if [ "$check_status" -eq 2 ]; then
+        skip_pkg_install=1
+    elif [ "$check_status" -ne 0 ]; then
+        error_message "Pre-installation checks failed"
+        exit 1
+    fi
     
     # Proceed with installation
     case "$OS" in
         linux)
-            yara_installation
+            yara_installation "$skip_pkg_install"
             ;;
         darwin)
-            yara_macos_installation
+            yara_macos_installation "$skip_pkg_install"
             ;;
         *)
             error_message "Unsupported operating system: $OS"
