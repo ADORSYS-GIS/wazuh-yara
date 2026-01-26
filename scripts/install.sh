@@ -376,16 +376,6 @@ pre_installation_check() {
 # INSTALLATION FUNCTIONS
 #=============================================================================
 
-# Restart Wazuh agent (show output to user)
-restart_wazuh_agent() {
-    info_message "Restarting Wazuh agent..."
-    if maybe_sudo "$WAZUH_CONTROL_BIN_PATH" restart; then
-        success_message "Wazuh agent restarted successfully."
-    else
-        error_message "Error occurred during Wazuh agent restart."
-    fi
-}
-
 # Remove file limit from ossec.conf
 remove_file_limit() {
     if maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH" 2>/dev/null; then
