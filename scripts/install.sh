@@ -261,12 +261,25 @@ detect_yara_installation() {
 
 # Run local uninstallation script
 run_local_uninstall() {
-    local script_dir
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local uninstall_script="$script_dir/uninstall.sh"
+    local script_dir uninstall_script
+    
+    # Try multiple methods to find the script directory
+    if [ -n "${BASH_SOURCE[0]}" ]; then
+        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    else
+        # Fallback for when BASH_SOURCE is not available
+        script_dir="$(cd "$(dirname "$0")" && pwd)"
+    fi
+    
+    uninstall_script="$script_dir/uninstall.sh"
+    
+    # Debug output
+    info_message "Looking for uninstall script at: $uninstall_script"
     
     if [ ! -f "$uninstall_script" ]; then
         error_message "Uninstall script not found at: $uninstall_script"
+        error_message "Script directory resolved to: $script_dir"
+        error_message "Please ensure uninstall.sh is in the same directory as install.sh"
         return 1
     fi
     
