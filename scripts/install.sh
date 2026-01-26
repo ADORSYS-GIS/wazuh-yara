@@ -273,17 +273,24 @@ run_local_uninstall() {
     
     uninstall_script="$script_dir/uninstall.sh"
     
-    # Debug output
-    info_message "Looking for uninstall script at: $uninstall_script"
-    
+    # If uninstall.sh is not found locally, download it
     if [ ! -f "$uninstall_script" ]; then
-        error_message "Uninstall script not found at: $uninstall_script"
-        error_message "Script directory resolved to: $script_dir"
-        error_message "Please ensure uninstall.sh is in the same directory as install.sh"
-        return 1
+        info_message "Uninstall script not found locally, downloading from GitHub..."
+        uninstall_script="$TMP_DIR/uninstall.sh"
+        
+        local uninstall_url="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/uninstall.sh"
+        
+        if ! curl -fsSL "$uninstall_url" -o "$uninstall_script"; then
+            error_message "Failed to download uninstall script from $uninstall_url"
+            return 1
+        fi
+        
+        success_message "Uninstall script downloaded successfully"
+    else
+        info_message "Using local uninstall script at: $uninstall_script"
     fi
     
-    info_message "Running local uninstallation script..."
+    info_message "Running uninstallation script..."
     if bash "$uninstall_script"; then
         success_message "Uninstallation completed successfully"
         return 0
