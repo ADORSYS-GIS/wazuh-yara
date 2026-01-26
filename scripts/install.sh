@@ -259,36 +259,19 @@ detect_yara_installation() {
     echo "${has_legacy},${has_modern},${has_softlink}"
 }
 
-# Run local uninstallation script
+# Download and run uninstallation script from GitHub
 run_local_uninstall() {
-    local script_dir uninstall_script
+    local uninstall_script="$TMP_DIR/uninstall.sh"
+    local uninstall_url="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/uninstall.sh"
     
-    # Try multiple methods to find the script directory
-    if [ -n "${BASH_SOURCE[0]}" ]; then
-        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    else
-        # Fallback for when BASH_SOURCE is not available
-        script_dir="$(cd "$(dirname "$0")" && pwd)"
+    info_message "Downloading uninstall script from GitHub..."
+    
+    if ! curl -fsSL "$uninstall_url" -o "$uninstall_script"; then
+        error_message "Failed to download uninstall script from $uninstall_url"
+        return 1
     fi
     
-    uninstall_script="$script_dir/uninstall.sh"
-    
-    # If uninstall.sh is not found locally, download it
-    if [ ! -f "$uninstall_script" ]; then
-        info_message "Uninstall script not found locally, downloading from GitHub..."
-        uninstall_script="$TMP_DIR/uninstall.sh"
-        
-        local uninstall_url="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/uninstall.sh"
-        
-        if ! curl -fsSL "$uninstall_url" -o "$uninstall_script"; then
-            error_message "Failed to download uninstall script from $uninstall_url"
-            return 1
-        fi
-        
-        success_message "Uninstall script downloaded successfully"
-    else
-        info_message "Using local uninstall script at: $uninstall_script"
-    fi
+    success_message "Uninstall script downloaded successfully"
     
     info_message "Running uninstallation script..."
     if bash "$uninstall_script"; then
@@ -824,7 +807,6 @@ yara_installation() {
     setup_yara_components
     remove_file_limit
     validate_installation
-    restart_wazuh_agent
     
     success_message "YARA installation completed successfully!"
     info_message "You can now use YARA with Wazuh for malware detection"
@@ -847,7 +829,6 @@ yara_macos_installation() {
     setup_yara_components
     remove_file_limit
     validate_installation
-    restart_wazuh_agent
     
     success_message "YARA installation completed successfully!"
     info_message "You can now use YARA with Wazuh for malware detection"
