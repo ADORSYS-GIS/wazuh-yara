@@ -147,7 +147,16 @@ fi
 cleanup() {
     info_message "Cleaning up temporary files..."
     rm -rf "$TMP_DIR"
+    
+    # Remove leftover yara-install directory if it exists in current dir or home
+    if [ -d "./yara-install" ]; then
+        rm -rf "./yara-install"
+    elif [ -n "${HOME:-}" ] && [ -d "$HOME/yara-install" ]; then
+        rm -rf "$HOME/yara-install"
+    fi
 }
+
+# Register cleanup to run on exit
 trap cleanup EXIT
 
 # Check if a command exists
