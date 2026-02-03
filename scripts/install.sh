@@ -110,12 +110,10 @@ case "$(uname)" in
 Linux)
     OS="linux"
     OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
-    WAZUH_CONTROL_BIN_PATH="/var/ossec/bin/wazuh-control"
     ;;
 Darwin)
     OS="darwin"
     OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
-    WAZUH_CONTROL_BIN_PATH="/Library/Ossec/bin/wazuh-control"
     LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
     ;;
 *)
