@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 #=============================================================================
-# LOGGING HELPERS
+# Enhanced YARA Installation Script with Pre-Installation Detection
+# Detects existing YARA installations and performs automatic cleanup
 #=============================================================================
 
 # Define text formatting
@@ -26,21 +27,60 @@ log() {
 info_message() {
     log "${BLUE}${BOLD}[INFO]${NORMAL}" "$*"
 }
-
 warn_message() {
     log "${YELLOW}${BOLD}[WARNING]${NORMAL}" "$*"
 }
-
 error_message() {
     log "${RED}${BOLD}[ERROR]${NORMAL}" "$*"
 }
-
 success_message() {
     log "${GREEN}${BOLD}[SUCCESS]${NORMAL}" "$*"
 }
-
 print_step() {
     log "${BLUE}${BOLD}[STEP]${NORMAL}" "$1: $2"
+}
+
+# Prompt user for installation type
+prompt_installation_type() {
+    # Check if installation type is already set via environment variable or argument
+    if [[ -n "${INSTALLATION_TYPE:-}" ]]; then
+        if [[ "$INSTALLATION_TYPE" == "desktop" ]]; then
+            YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/yara.sh"
+            info_message "Using Desktop/Workstation installation (non-interactive mode)"
+            return 0
+        elif [[ "$INSTALLATION_TYPE" == "server" ]]; then
+            YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara-server.sh"
+            info_message "Using Server installation (non-interactive mode)"
+            return 0
+        fi
+    fi
+    
+    echo ""
+    info_message "Please select the installation type:"
+    echo "  1) Desktop/Workstation (with user notifications)"
+    echo "  2) Server (no user notifications, logging only)"
+    echo ""
+    while true; do
+        read -rp "Enter your choice [1-2] (default: 1): " choice
+        choice=${choice:-1}
+        case "$choice" in
+            1)
+                INSTALLATION_TYPE="desktop"
+                YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/yara.sh"
+                info_message "Selected: Desktop/Workstation installation"
+                return 0
+                ;;
+            2)
+                INSTALLATION_TYPE="server"
+                YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara-server.sh"
+                info_message "Selected: Server installation"
+                return 0
+                ;;
+            *)
+                warn_message "Invalid choice. Please enter 1 or 2."
+                ;;
+        esac
+    done
 }
 
 # Check if we're running in bash; if not, adjust behavior
@@ -50,47 +90,31 @@ else
     set -eu
 fi
 
-LOG_LEVEL=${LOG_LEVEL:-INFO}
-USER="root"
-GROUP="wazuh"
+# Configuration
+YARA_VERSION="4.5.5"
+YARA_VERSION_SET=0
+# Destination script name is always yara.sh; YARA_SOURCE_URL is set by prompt_installation_type()
+YARA_SCRIPT_NAME="yara.sh"
+YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/rules/yara_rules.yar"
 
-YARA_VERSION="${1:-4.5.4}"
-YARA_SH_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/yara.sh"
+# GitHub Release configuration for packages
+GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-plugins/releases/download"
+LINUX_RELEASE_TAG="yara-v0.3.17"
+MACOS_RELEASE_TAG="yara-v0.5.1"
 
-# GitHub Release configuration for prebuilt binaries
-GITHUB_RELEASE_TAG="v${YARA_VERSION}-adorsys.2.rc1"
-GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-yara-package/releases/download"
-
-DOWNLOADS_DIR="${HOME}/yara-install"
-
-# shellcheck disable=SC2034
-YARA_URL="https://github.com/VirusTotal/yara/archive/refs/tags/v${YARA_VERSION}.tar.gz"
-# shellcheck disable=SC2034
-TAR_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}.tar.gz"
-# shellcheck disable=SC2034
-EXTRACT_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}"
-
-NOTIFY_SEND_VERSION=0.8.3
+TMP_DIR=$(mktemp -d)
 LOGGED_IN_USER=""
-
-
-if [ "$(uname -s)" = "Darwin" ]; then
-    LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
-fi
 
 # OS and Distribution Detection
 case "$(uname)" in
 Linux)
     OS="linux"
     OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
-    WAZUH_CONTROL_BIN_PATH="/var/ossec/bin/wazuh-control"
-    YARA_SH_PATH="/var/ossec/active-response/bin/yara.sh"
     ;;
 Darwin)
     OS="darwin"
     OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
-    WAZUH_CONTROL_BIN_PATH="/Library/Ossec/bin/wazuh-control"
-    YARA_SH_PATH="/Library/Ossec/active-response/bin/yara.sh"
+    LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
     ;;
 *)
     error_message "Unsupported operating system: $(uname)"
@@ -98,7 +122,7 @@ Darwin)
     ;;
 esac
 
-# Detect Linux Distribution
+# Detect Linux Distribution (only on Linux)
 if [ "$OS" = "linux" ]; then
     detect_distro() {
         if [ -f /etc/os-release ]; then
@@ -115,45 +139,61 @@ if [ "$OS" = "linux" ]; then
         fi
     }
     DISTRO=$(detect_distro)
-
-    # Check for unsupported RPM-based distributions
-    case "$DISTRO" in
-        centos|rhel|redhat|rocky|almalinux|fedora)
-            error_message "Unsupported Linux distribution: $DISTRO"
-            error_message "This script only supports Ubuntu and Debian distributions"
-            exit 1
-            ;;
-    esac
 fi
 
+# Cleanup function
+cleanup() {
+    info_message "Cleaning up temporary files..."
+    rm -rf "$TMP_DIR"
+    
+    # Remove leftover yara-install directory if it exists in current dir or home
+    if [ -d "./yara-install" ]; then
+        rm -rf "./yara-install"
+    elif [ -n "${HOME:-}" ] && [ -d "$HOME/yara-install" ]; then
+        rm -rf "$HOME/yara-install"
+    fi
+}
+
+# Register cleanup to run on exit
+trap cleanup EXIT
 
 # Check if a command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Detect system architecture (unified for Linux and macOS)
+detect_architecture() {
+    local arch
+    arch=$(uname -m)
+    case "$arch" in
+        x86_64|amd64)
+            echo "amd64"
+            ;;
+        aarch64|arm64)
+            echo "arm64"
+            ;;
+        *)
+            error_message "Unsupported architecture: $arch"
+            exit 1
+            ;;
+    esac
+}
+
 # Check if version matches 4.5.x pattern
 version_is_4_5_x() {
     local version="$1"
-
-    # Extract major and minor version numbers
-    local major
-    local minor
+    local major minor
     major=$(echo "$version" | cut -d'.' -f1)
     minor=$(echo "$version" | cut -d'.' -f2)
-
-    # Check if it's 4.5.x
-    if [ "$major" = "4" ] && [ "$minor" = "5" ]; then
-        return 0
-    else
-        return 1
-    fi
+    
+    [ "$major" = "4" ] && [ "$minor" = "5" ]
 }
 
 # Check if sudo is available or if the script is run as root
 maybe_sudo() {
     if [ "$(id -u)" -ne 0 ]; then
-        if command -v sudo >/dev/null 2>&1; then
+        if command_exists sudo; then
             sudo "$@"
         else
             error_message "This script requires root privileges. Please run with sudo or as root."
@@ -164,914 +204,715 @@ maybe_sudo() {
     fi
 }
 
-sed_alternative() {
-    if command_exists gsed; then
-        maybe_sudo gsed "$@"
+# Cross-platform sed function
+sed_inplace() {
+    if [ "$OS" = "darwin" ]; then
+        maybe_sudo sed -i '' "$@" 2>/dev/null || true
     else
-        maybe_sudo sed "$@"
+        maybe_sudo sed -i "$@" 2>/dev/null || true
     fi
 }
-
-#Get the logged-in user on macOS
-brew_command() {
-    sudo -u "$LOGGED_IN_USER" -i brew "$@"
-}
-
-# Create a temporary directory and ensure it's cleaned up on exit
-TMP_DIR=$(mktemp -d)
-cleanup() {
-    info_message "Cleaning up temporary files..."
-    rm -rf "$TMP_DIR"
-}
-trap cleanup EXIT
-
-# Create Downloads directory for source builds
-mkdir -p "$DOWNLOADS_DIR"
 
 #=============================================================================
-# SHARED UTILITY FUNCTIONS
+# PRE-INSTALLATION CHECKS
 #=============================================================================
 
-# Ensure that the root:wazuh user and group exist, creating them if necessary
-ensure_user_group() {
-    info_message "Ensuring that the $USER:$GROUP user and group exist..."
-
-    if ! id -u "$USER" >/dev/null 2>&1; then
-        info_message "Creating user $USER..."
-        if [ "$OS" = "linux" ] && command -v groupadd >/dev/null 2>&1; then
-            maybe_sudo useradd -m "$USER"
-        elif [ "$(which apk)" = "/sbin/apk" ]; then
-            maybe_sudo adduser -D "$USER"
-        elif [ "$OS" = "darwin" ]; then
-            # macOS
-            if ! dscl . -list /Users | grep -q "^$USER$"; then
-                info_message "Creating user $USER on macOS..."
-                maybe_sudo sysadminctl -addUser "$USER" -fullName "$USER" || {
-                    error_message "Failed to create user $USER"
-                }
-            fi
-        else
-            error_message "Unsupported OS for creating user."
-            exit 1
-        fi
+# Detect YARA installations - check for legacy, modern, and softlink
+detect_yara_installation() {
+    local has_legacy=0
+    local has_modern=0
+    local has_softlink=0
+    
+    # Suppress info messages during detection to avoid interference with return values
+    exec 3>&1 4>&2  # Save stdout and stderr
+    exec 1>/dev/null 2>/dev/null  # Redirect stdout and stderr to /dev/null
+    
+    # Check for legacy installation in /opt/yara
+    if [ -d "/opt/yara" ]; then
+        has_legacy=1
     fi
-
-    if ! getent group "$GROUP" >/dev/null 2>&1; then
-        info_message "Creating group $GROUP..."
-        if [ "$OS" = "linux" ] && command -v groupadd >/dev/null 2>&1; then
-            maybe_sudo groupadd "$GROUP"
-        elif [ "$(which apk)" = "/sbin/apk" ]; then
-            maybe_sudo addgroup "$GROUP"
-        elif [ "$OS" = "darwin" ]; then
-            # macOS
-            if ! dscl . -list /Groups | grep -q "^$GROUP$"; then
-                info_message "Creating group $GROUP on macOS..."
-                maybe_sudo dscl . -create /Groups/"$GROUP" || {
-                    error_message "Failed to create group $GROUP"
-                }
-            fi
-        else
-            error_message "Unsupported OS for creating group."
-            exit 1
-        fi
+    
+    # Check for modern installation in /opt/wazuh/yara
+    if [ -d "/opt/wazuh/yara" ]; then
+        has_modern=1
     fi
+    
+    # Check for softlink at /usr/local/bin/yara
+    if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
+        has_softlink=1
+    fi
+    
+    # Check if YARA is installed via package manager (modern)
+    if [ "$OS" = "linux" ]; then
+        case "$DISTRO" in
+            centos|rhel|redhat|rocky|almalinux|fedora)
+                if command_exists rpm && rpm -q yara >/dev/null 2>&1; then
+                    has_modern=1
+                fi
+                ;;
+            ubuntu|debian)
+                if command_exists dpkg && dpkg -s yara >/dev/null 2>&1; then
+                    has_modern=1
+                fi
+                ;;
+        esac
+    fi
+    
+    # Restore stdout and stderr
+    exec 1>&3 2>&4
+    exec 3>&- 4>&-
+    
+    # Return result as "legacy,modern,softlink" format
+    echo "${has_legacy},${has_modern},${has_softlink}"
 }
 
-# Function to change ownership of a file or directory
-change_owner() {
-    local path="$1"
-    ensure_user_group
-    maybe_sudo chown -R "$USER:$GROUP" "$path"
-}
-
-restart_wazuh_agent() {
-    if maybe_sudo "$WAZUH_CONTROL_BIN_PATH" restart >/dev/null 2>&1; then
-        info_message "Wazuh agent restarted successfully."
+# Download and run uninstallation script from GitHub
+run_local_uninstall() {
+    local uninstall_script="$TMP_DIR/uninstall.sh"
+    local uninstall_url="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/uninstall.sh"
+    
+    info_message "Downloading uninstall script from GitHub..."
+    
+    if ! curl -fsSL "$uninstall_url" -o "$uninstall_script"; then
+        error_message "Failed to download uninstall script from $uninstall_url"
+        return 1
+    fi
+    
+    success_message "Uninstall script downloaded successfully"
+    
+    info_message "Running uninstallation script..."
+    if bash "$uninstall_script"; then
+        success_message "Uninstallation completed successfully"
+        return 0
     else
-        error_message "Error occurred during Wazuh agent restart."
+        error_message "Uninstallation script failed"
+        return 1
     fi
 }
 
+# Pre-installation check and automatic cleanup
+pre_installation_check() {
+    info_message "Performing pre-installation checks..."
+    
+    local detection_result
+    detection_result=$(detect_yara_installation)
+    
+    # Parse the detection result
+    IFS=',' read -r has_legacy has_modern has_softlink <<< "$detection_result"
+    
+    # Check if modern installation has the correct version
+    if [ "$has_modern" -eq 1 ]; then
+        if [ -f "/opt/wazuh/yara/bin/yara" ]; then
+            # Capture output and check version
+            local current_version
+            current_version=$(/opt/wazuh/yara/bin/yara --version 2>/dev/null || echo "")
+            
+            if [ -n "$current_version" ] && version_is_4_5_x "$current_version"; then
+                success_message "Valid YARA installation found (v${current_version})"
+                info_message "Skipping new installation, will proceed to configuration checks..."
+                return 2  # Special return code for skipping install
+            fi
+            
+            info_message "Existing YARA version ($current_version) does not match target v${YARA_VERSION}"
+        fi
+    fi
+    
+    # If no installations detected, proceed with fresh install
+    if [ "$has_legacy" -eq 0 ] && [ "$has_modern" -eq 0 ]; then
+        success_message "No existing YARA installation detected"
+        success_message "System is ready for fresh installation"
+        return 0
+    fi
+    
+    # Display detection results
+    echo ""
+    warn_message "Existing YARA installation(s) detected!"
+    
+    # Check for legacy installation in /opt/yara
+    if [ -d "/opt/yara" ]; then
+        info_message "Found YARA in path: /opt/yara"
+    fi
+    
+    # Check for modern installation in /opt/wazuh/yara
+    if [ -d "/opt/wazuh/yara" ]; then
+        info_message "Found YARA in path: /opt/wazuh/yara"
+    fi
+    
+    # Check for softlink at /usr/local/bin/yara
+    if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
+        info_message "Found YARA in path: /usr/local/bin/yara"
+    fi
+    
+    # Check if YARA is installed via package manager (modern)
+    if [ "$OS" = "linux" ]; then
+        case "$DISTRO" in
+            centos|rhel|redhat|rocky|almalinux|fedora)
+                if command_exists rpm && rpm -q yara > /dev/null 2>&1; then
+                    info_message "Found YARA installed via RPM package manager"
+                fi
+                ;;
+            ubuntu|debian)
+                if command_exists dpkg && dpkg -s yara > /dev/null 2>&1; then
+                    info_message "Found YARA installed via DEB package manager"
+                fi
+                ;;
+        esac
+    fi
+    
+    echo ""
+    info_message "Running uninstallation script to clean up existing installations..."
+    
+    # Run the local uninstall script (it will detect and remove everything)
+    if ! run_local_uninstall; then
+        error_message "Failed to remove existing YARA installation(s)"
+        exit 1
+    fi
+    
+    echo ""
+    success_message "Pre-installation cleanup completed"
+    success_message "System is ready for fresh YARA installation"
+    echo ""
+    
+    # Brief pause to let user see the messages
+    sleep 2
+    
+    return 0
+}
+
+#=============================================================================
+# INSTALLATION FUNCTIONS
+#=============================================================================
+
+# Remove file limit from ossec.conf
 remove_file_limit() {
-    if maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
-        # Remove the file_limit block
-        sed_alternative -i "/<file_limit>/,/<\/file_limit>/d" "$OSSEC_CONF_PATH" || {
-            error_message "Error occurred during the removal of the file_limit block."
-        }
+    if maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH" 2>/dev/null; then
+        sed_inplace "/<file_limit>/,/<\/file_limit>/d" "$OSSEC_CONF_PATH"
         info_message "The file limit block was removed successfully."
     else
         info_message "The file limit block does not exist. No changes were made."
     fi
 }
 
-#=============================================================================
-# YARA REMOVAL FUNCTIONS
-#=============================================================================
-
-remove_apt_yara() {
-    # only on Debian/Ubuntu
-    if command_exists dpkg; then
-        if dpkg -s yara >/dev/null 2>&1; then
-            info_message "Detected apt-installed YARA; uninstalling via apt"
-            maybe_sudo apt remove -y yara || {
-                error_message "Failed to remove apt-installed YARA"
-            }
-            maybe_sudo apt autoremove -y
-            success_message "Apt-installed YARA removed"
-        fi
-    fi
-}
-
-
-remove_brew_yara() {
-    # only on macOS/Homebrew
-    if command_exists brew; then
-        if brew_command list yara >/dev/null 2>&1; then
-            info_message "Detected Homebrew version of YARA; uninstalling via brew"
-            brew_command unpin yara 2>/dev/null || true
-            if brew_command uninstall --force yara; then
-                success_message "Homebrew-installed YARA removed"
-            else
-                warn_message "Homebrew uninstall had issues but continuing anyway"
-            fi
-        fi
-    fi
-}
-
-remove_prebuilt_yara() {
-    # Remove prebuilt YARA installation from /opt/yara
-    local install_dir="/opt/yara"
-
-    if [ -d "$install_dir" ]; then
-        info_message "Removing existing prebuilt YARA installation from ${install_dir}"
-
-        # Remove symlinks
-        if [ -L "/usr/local/bin/yara" ]; then
-            maybe_sudo rm -f /usr/local/bin/yara
-            info_message "Removed yara symlink"
-        fi
-
-        if [ -L "/usr/local/bin/yarac" ]; then
-            maybe_sudo rm -f /usr/local/bin/yarac
-            info_message "Removed yarac symlink"
-        fi
-
-        # Remove installation directory
-        maybe_sudo rm -rf "$install_dir"
-        success_message "Removed prebuilt YARA installation"
-    fi
-}
-
-remove_source_yara() {
-    # Remove source-built YARA installation (typically installed to /usr/local)
-    if command_exists yara; then
-        local yara_path
-        yara_path=$(which yara 2>/dev/null)
-
-        # Skip if YARA is already our prebuilt installation (symlink to /opt/yara)
-        if [ -L "$yara_path" ] && [ "$(readlink -f "$yara_path" 2>/dev/null)" = "/opt/yara/bin/yara" ]; then
-            info_message "Detected existing prebuilt YARA installation - skipping source removal"
-            return 0
-        fi
-
-        # Check if this looks like a source installation
-        # Source installations are typically in /usr/local and not symlinks to /opt/yara
-        if [ -n "$yara_path" ] && [ "$yara_path" = "/usr/local/bin/yara" ] && [ ! -L "$yara_path" ]; then
-            info_message "Detected source-built YARA installation at $yara_path"
-
-            # Common source-built installation paths
-            local common_paths=(
-                "/usr/local/bin/yara"
-                "/usr/local/bin/yarac"
-                "/usr/local/lib/libyara.so*"
-                "/usr/local/lib/pkgconfig/yara.pc"
-                "/usr/local/include/yara.h"
-                "/usr/local/include/yara"
-            )
-
-            info_message "Removing source-built YARA files from /usr/local"
-            for path_pattern in "${common_paths[@]}"; do
-                if [ "${path_pattern}" = "${path_pattern%\*}" ]; then
-                    # No wildcard - exact path
-                    if [ -e "$path_pattern" ] || [ -L "$path_pattern" ]; then
-                        maybe_sudo rm -rf "$path_pattern"
-                        info_message "Removed $path_pattern"
-                    fi
-                else
-                    # Wildcard pattern - use find
-                    local base_path="${path_pattern%\*}"
-                    local matches
-                    matches=$(find "$(dirname "$base_path")" -name "$(basename "$path_pattern")" 2>/dev/null || true)
-                    if [ -n "$matches" ]; then
-                        echo "$matches" | while read -r match; do
-                            maybe_sudo rm -rf "$match"
-                            info_message "Removed $match"
-                        done
-                    fi
-                fi
-            done
-
-            # Update library cache
-            if command_exists ldconfig; then
-                maybe_sudo ldconfig
-                info_message "Updated library cache"
-            fi
-
-            success_message "Source-built YARA installation removed"
-        else
-            info_message "No source-built YARA installation detected"
-        fi
-    fi
-}
-
-#=============================================================================
-# PREBUILT BINARY INSTALLATION FUNCTIONS
-#=============================================================================
-
-check_and_update_bash() {
-    if [ "$OS" = "darwin" ]; then
-        if command_exists brew; then
-            local current_version
-            current_version=$(bash --version | head -n1 | cut -d' ' -f4 | cut -d'.' -f1)
-            local min_version=4
-
-            if [ "$current_version" -lt "$min_version" ]; then
-                info_message "Outdated Bash version detected (${current_version}), installing newer version..."
-                brew_command install bash || {
-                    error_message "Failed to install newer Bash version"
-                    return 1
-                }
-                success_message "Bash updated successfully"
-            else
-                info_message "Bash version is up to date (${current_version})"
-            fi
-        else
-            warn_message "Homebrew is not installed. Cannot update Bash version."
-        fi
-    fi
-}
-
-install_notify_send() {
-    deb_dir="$TMP_DIR/notify-send-debs"
-    mkdir -p "$deb_dir"
-    deb_url1="https://launchpad.net/ubuntu/+archive/primary/+files/libnotify4_0.8.3-1_amd64.deb"
-    deb_url2="https://launchpad.net/ubuntu/+archive/primary/+files/libnotify-bin_0.8.3-1_amd64.deb"
-    deb_file1="$deb_dir/$(basename "$deb_url1")"
-    deb_file2="$deb_dir/$(basename "$deb_url2")"
-    info_message "Downloading $deb_url1 ..."
-    curl -fsSL -o "$deb_file1" "$deb_url1" || {
-        error_message "Failed to download $deb_url1"
-        exit 1
-    }
-    info_message "Installing $(basename "$deb_url1") ..."
-    maybe_sudo apt install -y "$deb_file1" || {
-        error_message "Failed to install $deb_file1"
-        exit 1
-    }
-    info_message "Downloading $deb_url2 ..."
-    curl -fsSL -o "$deb_file2" "$deb_url2" || {
-        error_message "Failed to download $deb_url2"
-        exit 1
-    }
-    info_message "Installing $(basename "$deb_url2") ..."
-    maybe_sudo apt install -y "$deb_file2" || {
-        error_message "Failed to install $deb_file2"
-        exit 1
-    }
-    info_message "notify-send and dependencies installed/upgraded to $NOTIFY_SEND_VERSION."
-}
-
-# For Ubuntu: Ensure notify-send is at least expected version, else upgrade to it
-ensure_notify_send_version() {
-    if command_exists notify-send; then
-        version=$(notify-send --version 2>&1 | awk '{print $NF}')
-        if dpkg --compare-versions "$version" ge "$NOTIFY_SEND_VERSION"; then
-            info_message "notify-send version $version is already installed."
-        else
-            warn_message "notify-send version $version found. Upgrading to $NOTIFY_SEND_VERSION..."
-            install_notify_send
-        fi
-    else
-        warn_message "notify-send not found. Installing version $NOTIFY_SEND_VERSION..."
-        install_notify_send
-    fi
-}
-
-ensure_zenity_is_installed() {
-    if command_exists zenity; then
-        info_message "Zenity is already installed."
-    else
-        warn_message "Zenity is not installed. Installing it now..."
-        maybe_sudo apt install -y zenity || {
-            error_message "Failed to install Zenity."
-            exit 1
-        }
-    fi
-}
-
-ensure_macos_dependencies() {
-    info_message "Ensuring required dependencies are installed..."
-
-    if ! command_exists brew; then
-        error_message "Homebrew is required to install dependencies. Please install Homebrew first: https://brew.sh/"
-        exit 1
-    fi
-
-    local deps=("openssl@3" "pcre2" "libmagic" "jansson" "protobuf-c")
-    local missing_deps=()
-
-    # Check which dependencies are missing
-    for dep in "${deps[@]}"; do
-        if ! brew_command list "$dep" >/dev/null 2>&1; then
-            missing_deps+=("$dep")
-        fi
-    done
-
-    # Install missing dependencies
-    if [ ${#missing_deps[@]} -gt 0 ]; then
-        info_message "Installing missing dependencies: ${missing_deps[*]}"
-        for dep in "${missing_deps[@]}"; do
-            info_message "Installing $dep..."
-            if brew_command install "$dep"; then
-                success_message "Installed $dep"
-            else
-                error_message "Failed to install $dep"
-                exit 1
-            fi
-        done
-    else
-        info_message "All required dependencies are already installed"
-    fi
-}
-
-install_yara_macos_prebuilt() {
-    info_message "Installing YARA v${YARA_VERSION} from prebuilt binaries on macOS"
-
-    # Ensure dependencies are installed
-    ensure_macos_dependencies
-
-    # Detect architecture
-    local arch
-    arch=$(uname -m)
-    local binary_arch
-
-    if [ "$arch" = "arm64" ]; then
-        binary_arch="arm64"
-        info_message "Detected ARM64 architecture"
-    elif [ "$arch" = "x86_64" ]; then
-        binary_arch="x86_64"
-        info_message "Detected x86_64 architecture"
-    else
-        error_message "Unsupported architecture: $arch"
-        exit 1
-    fi
-
-    # Construct download URL
-    local binary_name="yara-${GITHUB_RELEASE_TAG}-macos-${binary_arch}.tar.gz"
-    local download_url="${GITHUB_RELEASE_BASE_URL}/${GITHUB_RELEASE_TAG}/${binary_name}"
-
-    info_message "Download URL: $download_url"
-
-    # Download to temp directory
-    local download_path="${TMP_DIR}/${binary_name}"
-    print_step "1" "Downloading YARA prebuilt binary for ${binary_arch}"
-
-    if ! curl -fsSL --progress-bar -o "$download_path" "$download_url"; then
-        error_message "Failed to download YARA binary from: $download_url"
-        error_message "Please check if the release exists and the tag is correct: ${GITHUB_RELEASE_TAG}"
-        exit 1
-    fi
-
-    success_message "Downloaded YARA binary successfully"
-
-    # Create installation directory
-    local install_dir="/opt/yara"
-    print_step "2" "Creating installation directory at ${install_dir}"
-
-    if ! maybe_sudo mkdir -p "$install_dir"; then
-        error_message "Failed to create installation directory: ${install_dir}"
-        exit 1
-    fi
-
-    # Extract the tarball
-    print_step "3" "Extracting YARA binary to ${install_dir}"
-
-    # First extract to temp to check structure
-    local temp_extract="${TMP_DIR}/yara_extract"
-    mkdir -p "$temp_extract"
-
-    if ! tar -xzf "$download_path" -C "$temp_extract"; then
-        error_message "Failed to extract YARA binary"
-        exit 1
-    fi
-
-    # Check if there's a nested directory and move contents appropriately
-    local extracted_dir
-    extracted_dir=$(find "$temp_extract" -maxdepth 1 -mindepth 1 -type d | head -n1)
-
-    if [ -d "$extracted_dir/bin" ]; then
-        # Contents are in a subdirectory, move them directly to install_dir
-        info_message "Moving extracted contents directly to ${install_dir}"
-        # Clear the install directory first to avoid nested structures
-        maybe_sudo rm -rf "$install_dir"/*
-        # Move the contents of the nested directory directly to install_dir
-        maybe_sudo cp -R "$extracted_dir"/* "$install_dir/"
-    else
-        # Contents are directly extracted, move everything
-        maybe_sudo cp -R "$temp_extract"/* "$install_dir/"
-    fi
-
-    success_message "Extracted YARA binary successfully"
-
-    # Remove quarantine attributes from all extracted files
-    print_step "4" "Removing macOS quarantine attributes"
-
-    # Find all files and remove quarantine attribute
-    if maybe_sudo find "$install_dir" -type f -exec xattr -d com.apple.quarantine {} \; 2>/dev/null; then
-        success_message "Removed quarantine attributes from YARA files"
-    else
-        warn_message "No quarantine attributes found or already removed"
-    fi
-
-    # Set proper permissions
-    print_step "5" "Setting proper permissions"
-
-    maybe_sudo chmod -R 755 "$install_dir"
-
-    # Create symlinks in /usr/local/bin for easier access
-    print_step "6" "Creating symlinks for YARA executables"
-
-    maybe_sudo mkdir -p /usr/local/bin
-
-    # Create symlinks for yara and yarac
-    if [ -f "$install_dir/bin/yara" ]; then
-        maybe_sudo ln -sf "$install_dir/bin/yara" /usr/local/bin/yara
-        success_message "Created symlink for yara"
-    else
-        error_message "yara executable not found in $install_dir/bin/"
-        exit 1
-    fi
-
-    if [ -f "$install_dir/bin/yarac" ]; then
-        maybe_sudo ln -sf "$install_dir/bin/yarac" /usr/local/bin/yarac
-        success_message "Created symlink for yarac"
-    else
-        warn_message "yarac executable not found in $install_dir/bin/ (optional)"
-    fi
-
-    success_message "YARA v${YARA_VERSION} installed successfully from prebuilt binaries"
-}
-
-install_yara_linux_prebuilt() {
-    info_message "Installing YARA v${YARA_VERSION} from prebuilt binaries on Linux"
-
-    # Remove existing installations
-    remove_apt_yara
-    remove_prebuilt_yara
-    remove_source_yara
-
-    # Detect architecture
-    local arch
-    arch=$(uname -m)
-    local binary_arch
-
-    case "$arch" in
-        x86_64)
-            binary_arch="x86_64"
-            info_message "Detected x86_64 architecture"
-            ;;
-        aarch64|arm64)
-            binary_arch="aarch64"
-            info_message "Detected ARM64 architecture"
-            ;;
-        *)
-            error_message "Unsupported architecture: $arch"
-            return 1
-            ;;
-    esac
-
-    # Construct download URL based on release asset naming (Ubuntu/Debian only)
-    local binary_name
-    # Detect Ubuntu version for proper binary selection
-    if [ "$DISTRO" = "ubuntu" ] && command_exists lsb_release; then
-        ubuntu_version=$(lsb_release -rs 2>/dev/null || echo "")
-        if [ "$ubuntu_version" = "22.04" ]; then
-            info_message "Detected Ubuntu 22.04 - using Ubuntu 22 prebuilt binaries"
-            if [ "$binary_arch" = "x86_64" ]; then
-                binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu22-x86_64.tar.gz"
-            else
-                # Use Ubuntu 24 ARM binary for Ubuntu 22 ARM as fallback
-                binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
-            fi
-        else
-            info_message "Detected Ubuntu ${ubuntu_version:-unknown} - using Ubuntu 24 prebuilt binaries"
-            if [ "$binary_arch" = "x86_64" ]; then
-                binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu-x86_64.tar.gz"
-            else
-                # aarch64
-                binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
-            fi
-        fi
-    else
-        # Default to Ubuntu 24 binaries for Debian or when version detection fails
-        info_message "Using Ubuntu 24 prebuilt binaries for Debian"
-        if [ "$binary_arch" = "x86_64" ]; then
-            binary_name="yara-${GITHUB_RELEASE_TAG}-ubuntu-x86_64.tar.gz"
-        else
-            binary_name="yara-${GITHUB_RELEASE_TAG}-dirty-ubuntu-aarch64.tar.gz"
-        fi
-    fi
-    local download_url="${GITHUB_RELEASE_BASE_URL}/${GITHUB_RELEASE_TAG}/${binary_name}"
-
-    info_message "Download URL: $download_url"
-
-    # Download to temp directory
-    local download_path="${TMP_DIR}/${binary_name}"
-    print_step "1" "Downloading YARA prebuilt binary for ${binary_arch}"
-
-    if ! curl -fsSL --progress-bar -o "$download_path" "$download_url"; then
-        error_message "Failed to download YARA binary from: $download_url"
-        error_message "Please check if the release exists and the tag is correct: ${GITHUB_RELEASE_TAG}"
-        return 1
-    fi
-
-    success_message "Downloaded YARA binary successfully"
-
-    # Create installation directory
-    local install_dir="/opt/yara"
-    print_step "2" "Creating installation directory at ${install_dir}"
-
-    if ! maybe_sudo mkdir -p "$install_dir"; then
-        error_message "Failed to create installation directory: ${install_dir}"
-        return 1
-    fi
-
-    # Extract the tarball
-    print_step "3" "Extracting YARA binary to ${install_dir}"
-
-    # First extract to temp to check structure
-    local temp_extract="${TMP_DIR}/yara_extract_linux"
-    mkdir -p "$temp_extract"
-
-    if ! tar -xzf "$download_path" -C "$temp_extract"; then
-        error_message "Failed to extract YARA binary"
-        return 1
-    fi
-
-    # Check if there's a nested directory and move contents appropriately
-    local extracted_dir
-    extracted_dir=$(find "$temp_extract" -maxdepth 1 -mindepth 1 -type d | head -n1)
-
-    if [ -d "$extracted_dir/bin" ]; then
-        info_message "Moving extracted contents directly to ${install_dir}"
-        maybe_sudo rm -rf "$install_dir"/*
-        maybe_sudo cp -R "$extracted_dir"/* "$install_dir/"
-    else
-        maybe_sudo cp -R "$temp_extract"/* "$install_dir/"
-    fi
-
-    success_message "Extracted YARA binary successfully"
-
-    # Set proper permissions
-    print_step "4" "Setting proper permissions"
-    maybe_sudo chmod -R 755 "$install_dir"
-
-    # Create symlinks in /usr/local/bin for easier access
-    print_step "5" "Creating symlinks for YARA executables"
-    maybe_sudo mkdir -p /usr/local/bin
-
-    if [ -f "$install_dir/bin/yara" ]; then
-        maybe_sudo ln -sf "$install_dir/bin/yara" /usr/local/bin/yara
-        success_message "Created symlink for yara"
-    else
-        error_message "yara executable not found in $install_dir/bin/"
-        return 1
-    fi
-
-    if [ -f "$install_dir/bin/yarac" ]; then
-        maybe_sudo ln -sf "$install_dir/bin/yarac" /usr/local/bin/yarac
-        success_message "Created symlink for yarac"
-    else
-        warn_message "yarac executable not found in $install_dir/bin/ (optional)"
-    fi
-
-    # Verify installation
-    print_step "6" "Verifying YARA installation"
-    if command_exists yara; then
-        local installed_version
-        installed_version=$(yara --version)
-        success_message "YARA installed successfully. Version: ${installed_version}"
-    else
-        error_message "YARA installation verification failed"
-        return 1
-    fi
-
-    success_message "YARA v${YARA_VERSION} installed successfully from prebuilt binaries"
-}
-
-#=============================================================================
-# SOURCE BUILD INSTALLATION FUNCTIONS
-#=============================================================================
-
-
-#=============================================================================
-# POST-INSTALLATION FUNCTIONS (SHARED)
-#=============================================================================
-
-download_yara_script() {
-    maybe_sudo mkdir -p "$(dirname "$YARA_SH_PATH")"
-
-    maybe_sudo curl -SL --progress-bar "$YARA_SH_URL" -o "$TMP_DIR/yara.sh" || {
-        error_message "Failed to download yara.sh script."
-    }
-
-    maybe_sudo mv "$TMP_DIR/yara.sh" "$YARA_SH_PATH"
-    (change_owner "$YARA_SH_PATH" && maybe_sudo chmod 750 "$YARA_SH_PATH") || {
-        error_message "Error occurred during yara.sh file permissions change."
-    }
-    info_message "yara.sh script downloaded and installed successfully."
-}
-
-reverse_update_ossec_conf() {
-    if [ "$OS" = "darwin" ]; then
-        # macOS
-        if maybe_sudo grep -q '<directories realtime="yes">/Users, /Applications</directories>' "$OSSEC_CONF_PATH"; then
-            info_message "Removing new yara configuration for macOS..."
-            sed_alternative -i '/<directories realtime="yes">\/Users, \/Applications<\/directories>/d' "$OSSEC_CONF_PATH" || {
-                error_message "Error occurred during removal of directories to monitor."
-            }
-            info_message "New yara configuration removed successfully on macOS."
-        fi
-    else
-        # Linux
-        if maybe_sudo grep -q '<directories realtime="yes">/home, /root, /bin, /sbin</directories>' "$OSSEC_CONF_PATH"; then
-            info_message "Removing new yara configuration for Linux..."
-            sed_alternative -i '/<directories realtime="yes">\/home, \/root, \/bin, \/sbin<\/directories>/d' "$OSSEC_CONF_PATH" || {
-                error_message "Error occurred during removal of directories to monitor."
-            }
-            info_message "New yara configuration removed successfully on Linux."
-        fi
-    fi
-
-    remove_file_limit
-}
-
-download_yara_rules() {
-    YARA_RULES_FILE="$TMP_DIR/yara_rules.yar"
-    YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/main/rules/yara_rules.yar"
-    maybe_sudo curl -SL --progress-bar "$YARA_RULES_URL" -o "$YARA_RULES_FILE"
-
-    if [ "$OS" = "linux" ]; then
-        YARA_RULES_DEST_DIR="/var/ossec/ruleset/yara/rules"
-    elif [ "$OS" = "darwin" ]; then
-        YARA_RULES_DEST_DIR="/Library/Ossec/ruleset/yara/rules"
-    else
-        error_message "Unsupported OS. Exiting..."
-        exit 1
-    fi
-
-    if [ -s "$YARA_RULES_FILE" ]; then
-        maybe_sudo mkdir -p "$YARA_RULES_DEST_DIR"
-        maybe_sudo mv "$YARA_RULES_FILE" "$YARA_RULES_DEST_DIR/yara_rules.yar"
-        change_owner "$YARA_RULES_DEST_DIR"
-        info_message "YARA rules moved to $YARA_RULES_DEST_DIR."
-    else
-        error_message "Error occurred during YARA rules download."
-        exit 1
-    fi
-}
-
-validate_installation() {
-
-    VALIDATION_STATUS="TRUE"
-
-    # Only validate notify-send on Ubuntu/Debian systems where it's required
-    if [ "$OS" = "linux" ] && { [ "$DISTRO" = "ubuntu" ] || [ "$DISTRO" = "debian" ]; }; then
-        if command_exists notify-send; then
-            if [ "$(notify-send --version 2>&1 | awk '{print $NF}')" = "$NOTIFY_SEND_VERSION" ]; then
-                success_message "notify-send version $NOTIFY_SEND_VERSION is installed."
-            else
-                warn_message "notify-send version mismatch. Expected $NOTIFY_SEND_VERSION, but found $(notify-send --version 2>&1 | awk '{print $NF}')."
-                VALIDATION_STATUS="FALSE"
-            fi
-        else
-            warn_message "notify-send is not installed. Please install it to use notifications."
-            VALIDATION_STATUS="FALSE"
-        fi
-    fi
-
-    # Check YARA installation - try command first, then direct path
-    local yara_found="FALSE"
-    local actual_version=""
-
-    if command_exists yara; then
-        actual_version=$(yara --version)
-        yara_found="TRUE"
-    elif [ -f "/opt/yara/bin/yara" ]; then
-        actual_version=$(/opt/yara/bin/yara --version)
-        yara_found="TRUE"
-    fi
-
-    if [ "$yara_found" = "TRUE" ]; then
-        if version_is_4_5_x "$actual_version"; then
-            success_message "Yara version $actual_version is installed (4.5.x series)."
-        else
-            warn_message "Yara version $actual_version is not compatible. Version 4.5.x is required."
-            VALIDATION_STATUS="FALSE"
-        fi
-    else
-        error_message "Yara command is not available. Please check the installation."
-        VALIDATION_STATUS="FALSE"
-    fi
-
-    if maybe_sudo [ ! -f "$YARA_RULES_DEST_DIR/yara_rules.yar" ]; then
-        warn_message "Yara rules files not present at $YARA_RULES_DEST_DIR/yara_rules.yar."
-        VALIDATION_STATUS="FALSE"
-    else
-        success_message "Yara rules files exists at $YARA_RULES_DEST_DIR/yara_rules.yar."
-    fi
-
-    if maybe_sudo [ ! -f "$YARA_SH_PATH" ]; then
-        warn_message "Yara active response script not present at $YARA_SH_PATH."
-        VALIDATION_STATUS="FALSE"
-    else
-        success_message "Yara active response script exists at $YARA_SH_PATH."
-    fi
-
-    if [ "$VALIDATION_STATUS" = "TRUE" ]; then
-        success_message "YARA installation and configuration validation completed successfully."
-    else
-        error_message "YARA installation and configuration validation failed. Please check the warnings above."
-        exit 1
-    fi
-}
-
-#=============================================================================
-# MAIN INSTALLATION FUNCTIONS
-#=============================================================================
-
-# Main function for OS with prebuilt binaries (Ubuntu/Debian, macOS)
-main_prebuilt_installation() {
-    info_message "Starting prebuilt binary installation for ${OS} (${DISTRO:-N/A})"
-
-    # Step 1: Setup and cleanup
-    print_step 1 "Setting up environment and checking for existing installations"
-    check_and_update_bash
-
-    # Check if YARA is already correctly installed
-    if command_exists yara; then
-        current_version=$(yara --version 2>/dev/null || echo "unknown")
-        info_message "Current YARA version detected: $current_version"
-
-        # Check if it's the version we want and in the right location
-        if [ "$current_version" = "$YARA_VERSION" ]; then
-            if [ "$OS" = "linux" ] && [ -d "/opt/yara" ]; then
-                info_message "YARA prebuilt version $YARA_VERSION is already installed. Skipping installation."
-                # Skip to post-installation steps
-                print_step 4 "Downloading YARA rules..."
-                download_yara_rules
-                print_step 5 "Downloading yara.sh script..."
-                download_yara_script
-                print_step 6 "Updating Wazuh agent configuration..."
-                if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
-                    reverse_update_ossec_conf
-                else
-                    warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
-                fi
-                print_step 7 "Restarting Wazuh agent..."
-                restart_wazuh_agent
-                print_step 8 "Validating installation..."
-                validate_installation
-                return 0
-            elif [ "$OS" = "darwin" ] && [ -d "/opt/yara" ]; then
-                info_message "YARA prebuilt version $YARA_VERSION is already installed. Skipping installation."
-                # Skip to post-installation steps (same as above)
-                print_step 4 "Downloading YARA rules..."
-                download_yara_rules
-                print_step 5 "Downloading yara.sh script..."
-                download_yara_script
-                print_step 6 "Updating Wazuh agent configuration..."
-                if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
-                    reverse_update_ossec_conf
-                else
-                    warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
-                fi
-                print_step 7 "Restarting Wazuh agent..."
-                restart_wazuh_agent
-                print_step 8 "Validating installation..."
-                validate_installation
-                return 0
-            fi
-        fi
-
-        # Different version or wrong installation method, clean up
-        info_message "Different YARA version or installation method detected. Cleaning up..."
-        if [ "$OS" = "darwin" ]; then
-            remove_brew_yara
-            remove_prebuilt_yara
-        fi
-    else
-        # No YARA found, clean up any existing installations
-        if [ "$OS" = "darwin" ]; then
-            remove_brew_yara
-            remove_prebuilt_yara
-        fi
-    fi
-
-    # Step 2: Install platform-specific tools
-    print_step 2 "Installing platform-specific tools and dependencies"
+# Install dependencies based on distro
+install_dependencies() {
+    info_message "Installing dependencies..."
+    
     if [ "$OS" = "linux" ]; then
         case "$DISTRO" in
+            centos|rhel|redhat|rocky|almalinux|fedora)
+                print_step 1 "Installing jq on RPM-based system"
+                local pkg_manager=""
+                if command_exists dnf; then
+                    pkg_manager="dnf"
+                elif command_exists yum; then
+                    pkg_manager="yum"
+                else
+                    warn_message "Neither dnf nor yum found, skipping dependency installation"
+                    return 0
+                fi
+                
+                maybe_sudo "$pkg_manager" install -y epel-release 2>/dev/null || \
+                maybe_sudo "$pkg_manager" install -y oracle-epel-release-el8 2>/dev/null || \
+                maybe_sudo "$pkg_manager" install -y oracle-epel-release-el9 2>/dev/null || \
+                warn_message "Could not install EPEL repository, continuing without it"
+                
+                maybe_sudo "$pkg_manager" install -y jq 2>/dev/null || \
+                warn_message "Could not install jq, continuing without it"
+                ;;
             ubuntu|debian)
-                ensure_notify_send_version
-                ensure_zenity_is_installed
+                print_step 1 "Installing jq on DEB-based system"
+                maybe_sudo apt-get update -qq
+                maybe_sudo apt-get install -y jq
+                ;;
+            *)
+                error_message "Unsupported Linux distribution: $DISTRO"
+                exit 1
                 ;;
         esac
+    elif [ "$OS" = "darwin" ]; then
+        print_step 1 "Installing dependencies on macOS"
+        if command_exists brew; then
+            if [ "$(id -u)" -eq 0 ] && [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "loginwindow" ]; then
+                sudo -u "$LOGGED_IN_USER" brew install jq libmagic openssl@3 2>/dev/null || warn_message "Could not install dependencies via Homebrew"
+            elif [ "$(id -u)" -ne 0 ]; then
+                brew install jq libmagic openssl@3 2>/dev/null || warn_message "Could not install dependencies via Homebrew"
+            else
+                warn_message "Cannot install dependencies via Homebrew as root without a logged in user"
+            fi
+        elif command_exists port; then
+            maybe_sudo port install jq libmagic openssl3 2>/dev/null || warn_message "Could not install dependencies via MacPorts"
+        else
+            warn_message "Neither Homebrew nor MacPorts found. Please install jq, libmagic, and openssl manually."
+        fi
     fi
+    
+    success_message "Dependencies installation attempted successfully"
+}
 
-    # Step 3: Install YARA from prebuilt binaries
-    print_step 3 "Installing YARA v${YARA_VERSION} from prebuilt binaries"
-    case "$OS" in
-        linux)
-            install_yara_linux_prebuilt
+# Download file with error checking
+download_file() {
+    local url="$1"
+    local output="$2"
+    local description="$3"
+    
+    info_message "Downloading $description..."
+    local output_dir
+    output_dir=$(dirname "$output")
+    if ! maybe_sudo mkdir -p "$output_dir"; then
+        error_message "Failed to create directory for $description: $output_dir"
+        return 1
+    fi
+    
+    # Use sudo to download the file to system directories
+    if curl -fsSL "$url" | maybe_sudo tee "$output" > /dev/null; then
+        success_message "$description downloaded successfully"
+        return 0
+    else
+        error_message "Failed to download $description from $url"
+        error_message "Please check your network connection and URL validity"
+        return 1
+    fi
+}
+
+# Download YARA package based on distro and architecture
+download_yara_package() {
+    local distro="$1"
+    local arch="$2"
+    local url="" output=""
+    
+    case "$distro" in
+        centos|rhel|redhat|rocky|almalinux|fedora)
+            print_step 1 "Downloading YARA RPM package for $arch"
+            url="${GITHUB_RELEASE_BASE_URL}/${LINUX_RELEASE_TAG}/yara-v${YARA_VERSION}-linux-${arch}.rpm"
+            output="$TMP_DIR/yara.rpm"
             ;;
-        darwin)
-            install_yara_macos_prebuilt
+        ubuntu|debian)
+            print_step 1 "Downloading YARA DEB package for $arch"
+            url="${GITHUB_RELEASE_BASE_URL}/${LINUX_RELEASE_TAG}/yara-v${YARA_VERSION}-linux-${arch}.deb"
+            output="$TMP_DIR/yara.deb"
             ;;
         *)
-            error_message "Unsupported operating system for prebuilt installation. Exiting..."
+            error_message "Unsupported Linux distribution: $distro"
             exit 1
             ;;
     esac
-
-    # Cleanup downloads directory
-    if [ -d "$DOWNLOADS_DIR" ]; then
-        info_message "Cleaning up downloads directory..."
-        maybe_sudo rm -rf "$DOWNLOADS_DIR"
-    fi
-
-    # Step 4: Download YARA rules
-    print_step 4 "Downloading YARA rules..."
-    download_yara_rules
-
-    # Step 5: Download yara.sh script
-    print_step 5 "Downloading yara.sh script..."
-    download_yara_script
-
-    # Step 6: Update Wazuh agent configuration file
-    print_step 6 "Updating Wazuh agent configuration file..."
-    if maybe_sudo [ -f "$OSSEC_CONF_PATH" ]; then
-        reverse_update_ossec_conf
-    else
-        warn_message "OSSEC configuration file not found at $OSSEC_CONF_PATH."
-    fi
-
-    # Step 7: Restart Wazuh agent
-    print_step 7 "Restarting Wazuh agent..."
-    restart_wazuh_agent
-
-    # Step 8: Cleanup (handled by trap)
-    print_step 8 "Cleaning up temporary files..."
-    info_message "Temporary files cleaned up."
-
-    # Step 9: Validate installation and configuration
-    print_step 9 "Validating installation and configuration..."
-    validate_installation
-
-    success_message "Prebuilt binary installation completed successfully!"
+    
+    download_file "$url" "$output" "YARA package" || exit 1
 }
 
+# Download YARA DMG for macOS based on architecture
+download_yara_macos_dmg() {
+    local arch="$1"
+    local url="${GITHUB_RELEASE_BASE_URL}/${MACOS_RELEASE_TAG}/yara-v${YARA_VERSION}-macos-${arch}.dmg"
+    
+    print_step 1 "Downloading YARA DMG for macOS $arch"
+    download_file "$url" "$TMP_DIR/yara.dmg" "YARA DMG" || exit 1
+}
 
-#=============================================================================
-# MAIN ENTRY POINT
-#=============================================================================
+# Install YARA package based on distro
+install_yara_package() {
+    local distro="$1"
+    info_message "Installing YARA package for $distro..."
+    
+    case "$distro" in
+        centos|rhel|redhat|rocky|almalinux|fedora)
+            print_step 1 "Installing YARA RPM package"
+            if command_exists dnf; then
+                maybe_sudo dnf install -y "$TMP_DIR/yara.rpm"
+            else
+                maybe_sudo yum install -y "$TMP_DIR/yara.rpm"
+            fi
+            ;;
+        ubuntu|debian)
+            print_step 1 "Installing YARA DEB package"
+            maybe_sudo apt-get install -y "$TMP_DIR/yara.deb"
+            ;;
+        *)
+            error_message "Unsupported Linux distribution: $distro"
+            exit 1
+            ;;
+    esac
+    
+    print_step 2 "Creating wrapper script"
+    maybe_sudo mkdir -p /usr/local/bin
+    maybe_sudo tee /usr/local/bin/yara > /dev/null << 'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+export LD_LIBRARY_PATH="/opt/wazuh/yara/lib:${LD_LIBRARY_PATH:-}"
+exec "/opt/wazuh/yara/bin/yara.real" "$@"
+EOF
+    maybe_sudo chmod +x /usr/local/bin/yara
+    
+    success_message "YARA package installed successfully"
+}
 
-# Main entry point function to determine which installation method to use
+# Install YARA from DMG on macOS
+install_yara_macos_dmg() {
+    local arch="$1"
+    info_message "Installing YARA from DMG on macOS ($arch)..."
+    
+    local mount_point="/Volumes/YARA_Installer"
+    
+    print_step 1 "Mounting YARA DMG"
+    if ! maybe_sudo hdiutil attach "$TMP_DIR/yara.dmg" -mountpoint "$mount_point" -quiet; then
+        error_message "Failed to mount YARA DMG"
+        exit 1
+    fi
+    
+    print_step 2 "Installing YARA binary"
+    maybe_sudo mkdir -p "/opt/wazuh/yara/bin/"
+    
+    local yara_binary=""
+    if [ -f "$mount_point/yara" ]; then
+        yara_binary="$mount_point/yara"
+    else
+        yara_binary=$(find "$mount_point" -name "yara" -type f -perm +111 2>/dev/null | head -n 1)
+    fi
+    
+    if [ -z "$yara_binary" ] || [ ! -f "$yara_binary" ]; then
+        maybe_sudo hdiutil detach "$mount_point" -quiet
+        error_message "Could not find YARA binary in DMG"
+        exit 1
+    fi
+    
+    maybe_sudo cp "$yara_binary" "/opt/wazuh/yara/bin/"
+    maybe_sudo hdiutil detach "$mount_point" -quiet
+    
+    print_step 3 "Setting permissions"
+    # Set executable permissions for all users to ensure it can be run without sudo
+    maybe_sudo chmod 755 "/opt/wazuh/yara/bin/yara"
+    maybe_sudo chown root:wheel "/opt/wazuh/yara/bin/yara" 2>/dev/null || \
+    maybe_sudo chown root:staff "/opt/wazuh/yara/bin/yara" 2>/dev/null || \
+    maybe_sudo chown root:root "/opt/wazuh/yara/bin/yara"
+    
+    # Ensure /usr/local/bin exists and create symlink
+    maybe_sudo mkdir -p /usr/local/bin
+    maybe_sudo ln -sf "/opt/wazuh/yara/bin/yara" /usr/local/bin/yara
+    # Also ensure the symlink has proper permissions
+    maybe_sudo chmod 755 /usr/local/bin/yara
+    
+    # DEBUG: Check if file exists right after install
+    if [ -f "/opt/wazuh/yara/bin/yara" ]; then
+        info_message "DEBUG: YARA binary verified at /opt/wazuh/yara/bin/yara"
+        maybe_sudo ls -l "/opt/wazuh/yara/bin/yara"
+    else
+        error_message "DEBUG: YARA binary MISSING at /opt/wazuh/yara/bin/yara immediately after install"
+        maybe_sudo ls -R "/opt/wazuh/yara/"
+    fi
+    
+    success_message "YARA installed successfully from DMG on macOS"
+}
+
+# Setup YARA directories and components
+setup_yara_components() {
+    info_message "Setting up YARA components..."
+    
+    local base_path yara_script_path yara_rules_path
+    if [ "$OS" = "darwin" ]; then
+        base_path="/Library/Ossec"
+        yara_script_path="/Library/Ossec/active-response/bin/${YARA_SCRIPT_NAME}"
+        yara_rules_path="/Library/Ossec/ruleset/yara/rules"
+    else
+        base_path="/var/ossec"
+        yara_script_path="/var/ossec/active-response/bin/${YARA_SCRIPT_NAME}"
+        yara_rules_path="/var/ossec/ruleset/yara/rules"
+    fi
+    
+    print_step 1 "Creating directories"
+    if ! maybe_sudo mkdir -p "$base_path/active-response/bin/"; then
+        error_message "Failed to create directory: $base_path/active-response/bin/"
+        exit 1
+    fi
+    
+    if ! maybe_sudo mkdir -p "$yara_rules_path/"; then
+        error_message "Failed to create directory: $yara_rules_path/"
+        exit 1
+    fi
+    
+    print_step 2 "Downloading and configuring YARA script"
+    if ! download_file "$YARA_SOURCE_URL" "$yara_script_path" "YARA script"; then
+        error_message "Failed to download YARA script"
+        exit 1
+    fi
+    
+    # Only apply path replacements for desktop version (yara.sh)
+    if [ "$INSTALLATION_TYPE" = "desktop" ]; then
+        sed_inplace 's|YARA_PATH="/usr/local/bin"|YARA_PATH="/opt/wazuh/yara/bin"|g' "$yara_script_path"
+        sed_inplace 's|YARA_PATH="/opt/yara/bin"|YARA_PATH="/opt/wazuh/yara/bin"|g' "$yara_script_path"
+    fi
+    
+    print_step 3 "Downloading YARA rules"
+    if ! download_file "$YARA_RULES_URL" "$yara_rules_path/yara_rules.yar" "YARA rules"; then
+        error_message "Failed to download YARA rules"
+        exit 1
+    fi
+    
+    print_step 4 "Setting permissions"
+    if ! maybe_sudo chmod 750 "$yara_script_path"; then
+        error_message "Failed to set permissions on $yara_script_path"
+        exit 1
+    fi
+    
+    if [ "$OS" = "darwin" ]; then
+        maybe_sudo chown root:wheel "$yara_script_path" 2>/dev/null || \
+        maybe_sudo chown root:staff "$yara_script_path" 2>/dev/null || \
+        maybe_sudo chown root:root "$yara_script_path"
+        
+        # Also set ownership for YARA rules on macOS
+        maybe_sudo chown root:wheel "$yara_rules_path/yara_rules.yar" 2>/dev/null || \
+        maybe_sudo chown root:staff "$yara_rules_path/yara_rules.yar" 2>/dev/null || \
+        maybe_sudo chown root:root "$yara_rules_path/yara_rules.yar"
+        
+        # FIX: Ensure directory itself has correct group ownership on macOS
+        maybe_sudo chown root:wheel "$yara_rules_path" 2>/dev/null || \
+        maybe_sudo chown root:staff "$yara_rules_path" 2>/dev/null || \
+        maybe_sudo chown root:root "$yara_rules_path"
+    else
+        maybe_sudo chown root:wazuh "$yara_script_path" 2>/dev/null || \
+        maybe_sudo chown root:root "$yara_script_path"
+        
+        # Also set ownership for YARA rules on Linux (expected to be root:wazuh)
+        maybe_sudo chown root:wazuh "$yara_rules_path/yara_rules.yar" 2>/dev/null || \
+        maybe_sudo chown root:root "$yara_rules_path/yara_rules.yar"
+        
+        # FIX: Ensure directory itself has correct group ownership (failed in tests)
+        maybe_sudo chown root:wazuh "$yara_rules_path" 2>/dev/null || \
+        maybe_sudo chown root:root "$yara_rules_path"
+    fi
+    
+    success_message "YARA components set up successfully"
+}
+
+# Validate installation
+validate_installation() {
+    info_message "Validating YARA installation..."
+    local validation_failed=0
+    
+    local yara_found=0 actual_version=""
+    
+    if command_exists yara; then
+        actual_version=$(yara --version 2>&1 || echo "")
+        yara_found=1
+    elif [ -f "/opt/wazuh/yara/bin/yara" ]; then
+        # Capture both stdout and stderr to debug execution failure
+        actual_version=$(/opt/wazuh/yara/bin/yara --version 2>&1 || echo "")
+        yara_found=1
+    fi
+    
+    # Check if actual_version looks like a version number (contains dots)
+    # If not, it might contain an error message
+    if [ $yara_found -eq 1 ] && [[ "$actual_version" =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
+        if version_is_4_5_x "$actual_version"; then
+            success_message "YARA version $actual_version is installed (4.5.x series)."
+        else
+            warn_message "YARA version $actual_version is not compatible. Version 4.5.x is required."
+            validation_failed=1
+        fi
+    else
+        error_message "YARA command is not available or failed to run."
+        error_message "Output was: $actual_version"
+        
+        info_message "DEBUG: Checking /opt/wazuh/yara/bin/yara..."
+        if [ -f "/opt/wazuh/yara/bin/yara" ]; then
+            info_message "DEBUG: File exists."
+            info_message "DEBUG: Trying to run it directly to see error:"
+            maybe_sudo /opt/wazuh/yara/bin/yara --version || true
+            
+            if [ "$OS" = "darwin" ]; then
+                info_message "DEBUG: Checking file type:"
+                file /opt/wazuh/yara/bin/yara || true
+                info_message "DEBUG: Checking shared libraries:"
+                otool -L /opt/wazuh/yara/bin/yara || true
+            fi
+        else
+            error_message "DEBUG: File does NOT exist."
+        fi
+        validation_failed=1
+    fi
+    
+    local yara_rules_path yara_script_path
+    if [ "$OS" = "darwin" ]; then
+        yara_rules_path="/Library/Ossec/ruleset/yara/rules/yara_rules.yar"
+        yara_script_path="/Library/Ossec/active-response/bin/${YARA_SCRIPT_NAME}"
+    else
+        yara_rules_path="/var/ossec/ruleset/yara/rules/yara_rules.yar"
+        yara_script_path="/var/ossec/active-response/bin/${YARA_SCRIPT_NAME}"
+    fi
+    
+    if ! maybe_sudo test -f "$yara_rules_path"; then
+        warn_message "YARA rules file not present at $yara_rules_path."
+        validation_failed=1
+    else
+        success_message "YARA rules file exists at $yara_rules_path."
+    fi
+    
+    if ! maybe_sudo test -f "$yara_script_path"; then
+        warn_message "YARA active response script not present at $yara_script_path."
+        validation_failed=1
+    else
+        success_message "YARA active response script exists at $yara_script_path."
+    fi
+    
+    if [ $validation_failed -eq 0 ]; then
+        success_message "YARA installation and configuration validation completed successfully."
+    else
+        error_message "YARA installation and configuration validation failed."
+        exit 1
+    fi
+}
+
+# Check disk space
+check_disk_space() {
+    local required_space=102400
+    local available_space
+    available_space=$(df /tmp | awk 'NR==2 {print $4}')
+    
+    if [ "$available_space" -lt "$required_space" ]; then
+        error_message "Insufficient disk space. At least 100MB required in /tmp"
+        error_message "Available: $((available_space / 1024)) MB"
+        exit 1
+    fi
+    
+    info_message "Sufficient disk space available: $((available_space / 1024)) MB"
+}
+
+# Main YARA installation for Linux
+yara_installation() {
+    info_message "Starting YARA installation for Linux..."
+    
+    check_disk_space
+    
+    local arch
+    arch=$(detect_architecture)
+    info_message "Detected Linux distribution: $DISTRO"
+    info_message "Detected system architecture: $arch"
+    
+    case "$DISTRO" in
+        centos|rhel|redhat|rocky|almalinux|fedora|ubuntu|debian)
+            info_message "Distribution $DISTRO is supported"
+            ;;
+        *)
+            error_message "Unsupported Linux distribution: $DISTRO"
+            exit 1
+            ;;
+    esac
+    
+    install_dependencies
+    download_yara_package "$DISTRO" "$arch"
+    install_yara_package "$DISTRO"
+    
+    setup_yara_components
+    remove_file_limit
+    validate_installation
+    
+    success_message "YARA installation completed successfully!"
+    info_message "You can now use YARA with Wazuh for malware detection"
+}
+
+# Main YARA installation for macOS
+yara_macos_installation() {
+    info_message "Starting YARA installation for macOS..."
+    
+    check_disk_space
+    
+    local arch
+    arch=$(detect_architecture)
+    info_message "Detected macOS architecture: $arch"
+    
+    install_dependencies
+    download_yara_macos_dmg "$arch"
+    install_yara_macos_dmg "$arch"
+    
+    setup_yara_components
+    remove_file_limit
+    validate_installation
+    
+    success_message "YARA installation completed successfully!"
+    info_message "You can now use YARA with Wazuh for malware detection"
+}
+
+# Main function
 main() {
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --type)
+                if [[ -n "$2" && "$2" =~ ^(desktop|server)$ ]]; then
+                    INSTALLATION_TYPE="$2"
+                    shift 2
+                else
+                    error_message "Invalid installation type. Use 'desktop' or 'server'."
+                    exit 1
+                fi
+                ;;
+            --help|-h)
+                echo "Usage: $0 [YARA_VERSION] [--type desktop|server]"
+                echo "  YARA_VERSION: Version of YARA to install (default: 4.5.5)"
+                echo "  --type: Installation type (desktop or server)"
+                exit 0
+                ;;
+            -*)
+                error_message "Unknown option: $1"
+                exit 1
+                ;;
+            *)
+                # First positional argument is YARA version
+                if [[ -z "${YARA_VERSION_SET:-}" ]]; then
+                    YARA_VERSION="$1"
+                    YARA_VERSION_SET=1
+                    shift
+                else
+                    error_message "Unexpected argument: $1"
+                    exit 1
+                fi
+                ;;
+        esac
+    done
+    
     info_message "Starting YARA installation script v${YARA_VERSION}"
     info_message "Detected OS: ${OS}"
-    if [ "$OS" = "linux" ]; then
-        info_message "Detected Linux distribution: ${DISTRO}"
+    
+    # Check if Wazuh agent is installed
+    if [ "$OS" = "darwin" ]; then
+        if [ ! -d "/Library/Ossec" ]; then
+            error_message "Wazuh agent not installed at /Library/Ossec"
+            error_message "Please install the Wazuh agent before running this script"
+            exit 1
+        fi
+    else
+        if [ ! -d "/var/ossec" ]; then
+            error_message "Wazuh agent not installed at /var/ossec"
+            error_message "Please install the Wazuh agent before running this script"
+            exit 1
+        fi
     fi
-
-    # Route to appropriate installation method based on OS and distribution
+    
+    # Prompt user for installation type (desktop or server) if not set
+    prompt_installation_type
+    
+    # Run pre-installation checks and automatic cleanup
+    # Returns 0 for fresh install
+    # Returns 2 for skipping install (valid version found)
+    local check_status=0
+    pre_installation_check || check_status=$?
+    
+    if [ "$check_status" -eq 2 ]; then
+        info_message "Verifying existing installation..."
+        validate_installation
+        success_message "YARA is already installed and configured correctly. Exiting."
+        exit 0
+    elif [ "$check_status" -ne 0 ]; then
+        error_message "Pre-installation checks failed"
+        exit 1
+    fi
+    
+    # Proceed with installation
     case "$OS" in
         linux)
-            case "$DISTRO" in
-                ubuntu|debian)
-                    info_message "Using prebuilt binary installation for Ubuntu/Debian"
-                    main_prebuilt_installation
-                    ;;
-                *)
-                    error_message "Unsupported Linux distribution: $DISTRO"
-                    error_message "This script only supports Ubuntu and Debian distributions"
-                    exit 1
-                    ;;
-            esac
+            yara_installation
             ;;
         darwin)
-            info_message "Using prebuilt binary installation for macOS"
-            main_prebuilt_installation
+            yara_macos_installation
             ;;
         *)
             error_message "Unsupported operating system: $OS"
@@ -1079,10 +920,6 @@ main() {
             ;;
     esac
 }
-
-#=============================================================================
-# SCRIPT EXECUTION
-#=============================================================================
 
 # Execute main function
 main "$@"
