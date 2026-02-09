@@ -89,7 +89,8 @@ jobs:
 
   release:
     name: Release
-    permissions: write-all
+    permissions:
+      contents: write
     needs:
       - run-pytest-linux
       - run-pytest-macos
