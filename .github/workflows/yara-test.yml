@@ -90,6 +90,7 @@ jobs:
       - run-pytest-linux
       - run-pytest-macos
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -98,14 +99,43 @@ jobs:
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
 
+      - name: Generate release notes (latest only)
+        id: git_cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: /tmp/release-notes.md
+
+      - name: Generate full CHANGELOG.md
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --output CHANGELOG.md
+
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
-          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          body: ${{ steps.git_cliff.outputs.content }}
           draft: false
           prerelease: false
+
+      - name: Create Pull Request to update CHANGELOG.md
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update CHANGELOG.md"
+          title: "Update Changelog"
+          body: |
+            This PR updates the CHANGELOG.md to include all releases.
+            - Generated using git-cliff
+            - Triggered by: ${{ github.event_name }}
+          branch: update-changelog-${{ github.run_id }}
+          base: main
+          delete-branch: true
+          labels: documentation, automated-pr
