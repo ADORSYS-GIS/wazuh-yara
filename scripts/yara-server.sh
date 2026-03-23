@@ -50,12 +50,12 @@ fi
 
 
 if [ "$(uname)" = "Darwin" ]; then
-    YARA_PATH="/opt/yara/bin"
+    YARA_PATH="/opt/wazuh/yara/bin"  # Direct prebuilt installation path
     YARA_RULES="/Library/Ossec/ruleset/yara/rules/yara_rules.yar"
     OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
     LOG_FILE="/Library/Ossec/logs/active-responses.log"
 elif [ "$(uname)" = "Linux" ]; then
-    YARA_PATH="/usr/local/bin"
+    YARA_PATH="/opt/wazuh/yara/bin"
     YARA_RULES="/var/ossec/ruleset/yara/rules/yara_rules.yar"
     OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
     LOG_FILE="/var/ossec/logs/active-responses.log"

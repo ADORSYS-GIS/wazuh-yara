@@ -15,6 +15,8 @@ on:
 jobs:
   run-pytest-linux:
     runs-on: ubuntu-latest
+    env:
+      INSTALLATION_TYPE: server
 
     steps:
     - name: Checkout code
@@ -51,6 +53,8 @@ jobs:
 
   run-pytest-macos:
     runs-on: macos-latest
+    env:
+      INSTALLATION_TYPE: server
 
     steps:
     - name: Checkout code
@@ -85,7 +89,8 @@ jobs:
 
   release:
     name: Release
-    permissions: write-all
+    permissions:
+      contents: write
     needs:
       - run-pytest-linux
       - run-pytest-macos

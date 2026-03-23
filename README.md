@@ -40,13 +40,30 @@ By leveraging YARA’s rule-based detection capabilities on Linux and macOS, Waz
 ### Installation
 
 #### Linux (Ubuntu) / macOS
+
+Desktop (non-interactive)
 ```bash
-curl -SL --progress-bar https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/install.sh | INSTALLATION_TYPE=desktop sudo bash
 ```
+
+Server (non-interactive)
+```bash
+curl -fsSL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/install.sh | INSTALLATION_TYPE=server sudo bash
+```
+
+Alternative (flags, interactive equivalent)
+```bash
+curl -fsSL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/install.sh | sudo bash -s -- --type desktop
+curl -fsSL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/install.sh | sudo bash -s -- --type server
+```
+
+Notes
+- Setting INSTALLATION_TYPE runs the installer in non-interactive mode with the selected flow.
+- sudo is recommended to ensure correct ownership and service restart.
 
 #### Windows (Defender Integration)
 ```powershell
-iex (iwr -UseBasicParsing "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/main/scripts/win-defender-integration.ps1")
+iex (iwr -UseBasicParsing "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/win-defender-integration.ps1")
 ```
 
 ---
