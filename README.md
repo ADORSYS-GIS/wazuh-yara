@@ -43,12 +43,12 @@ By leveraging YARA’s rule-based detection capabilities on Linux and macOS, Waz
 
 Desktop (non-interactive)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/install.sh | INSTALLATION_TYPE=desktop sudo bash
+curl -fsSL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/install.sh | sudo env INSTALLATION_TYPE=desktop bash
 ```
 
 Server (non-interactive)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/install.sh | INSTALLATION_TYPE=server sudo bash
+curl -fsSL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/yara-integration/scripts/install.sh | sudo env INSTALLATION_TYPE=server bash
 ```
 
 Alternative (flags, interactive equivalent)
