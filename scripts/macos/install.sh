@@ -44,11 +44,11 @@ print_step() {
 prompt_installation_type() {
     if [[ -n "${INSTALLATION_TYPE:-}" ]]; then
         if [[ "$INSTALLATION_TYPE" == "desktop" ]]; then
-            YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refactor/split-linux-macos-scripts/scripts/macos/yara.sh"
+            YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/refactor/split-linux-macos-scripts/scripts/macos/yara.sh"
             info_message "Using Desktop/Workstation installation (non-interactive mode)"
             return 0
         elif [[ "$INSTALLATION_TYPE" == "server" ]]; then
-            YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refactor/split-linux-macos-scripts/scripts/yara-server.sh"
+            YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/refactor/split-linux-macos-scripts/scripts/macos/yara-server.sh"
             info_message "Using Server installation (non-interactive mode)"
             return 0
         fi
@@ -65,13 +65,13 @@ prompt_installation_type() {
         case "$choice" in
             1)
                 INSTALLATION_TYPE="desktop"
-                YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refactor/split-linux-macos-scripts/scripts/macos/yara.sh"
+                YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/refactor/split-linux-macos-scripts/scripts/macos/yara.sh"
                 info_message "Selected: Desktop/Workstation installation"
                 return 0
                 ;;
             2)
                 INSTALLATION_TYPE="server"
-                YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refactor/split-linux-macos-scripts/scripts/yara-server.sh"
+                YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/refactor/split-linux-macos-scripts/scripts/macos/yara-server.sh"
                 info_message "Selected: Server installation"
                 return 0
                 ;;
