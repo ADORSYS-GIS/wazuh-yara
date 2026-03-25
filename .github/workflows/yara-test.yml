@@ -36,7 +36,7 @@ jobs:
     - name: Check install.sh syntax
       run: |
         sudo apt-get install -y shellcheck
-        shellcheck --shell=bash scripts/install.sh
+        shellcheck --shell=bash scripts/linux/install.sh
         
     - name: Install Wazuh agent
       run: |
@@ -44,7 +44,7 @@ jobs:
     
     - name: Run yara install script
       run: |
-        bash scripts/install.sh
+        bash scripts/linux/install.sh
 
     - name: Run tests 
       run: |
@@ -73,7 +73,7 @@ jobs:
 
     - name: Check install.sh syntax
       run: |
-        shellcheck --shell=bash scripts/install.sh
+        shellcheck --shell=bash scripts/macos/install.sh
         
     - name: Install Wazuh agent
       run: |
@@ -81,7 +81,7 @@ jobs:
     
     - name: Run yara install script
       run: |
-        bash scripts/install.sh
+        bash scripts/macos/install.sh
 
     - name: Run tests
       run: |
