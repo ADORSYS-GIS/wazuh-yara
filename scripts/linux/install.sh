@@ -314,6 +314,10 @@ pre_installation_check() {
                 info_message "Found YARA installed via DEB package manager"
             fi
             ;;
+        *)
+            error_message "Unsupported Linux distribution: $DISTRO"
+            exit 1
+            ;;
     esac
 
     echo ""
