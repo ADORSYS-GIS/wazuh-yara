@@ -8,12 +8,12 @@
 # Foundation.
 
 # Check Bash version and re-execute with a Homebrew/local Bash >= 4 if needed
-if [ -n "$BASH_VERSION" ]; then
+if [[ -n "$BASH_VERSION" ]]; then
     bash_major="${BASH_VERSION%%.*}"
-    if [ "$bash_major" -lt 4 ]; then
-        if [ -x "/opt/homebrew/bin/bash" ]; then
+    if [[ "$bash_major" -lt 4 ]]; then
+        if [[ -x "/opt/homebrew/bin/bash" ]]; then
             exec /opt/homebrew/bin/bash "$0" "$@"
-        elif [ -x "/usr/local/bin/bash" ]; then
+        elif [[ -x "/usr/local/bin/bash" ]]; then
             exec /usr/local/bin/bash "$0" "$@"
         fi
         echo "Error: This script requires Bash 4.0 or later. Current version: $BASH_VERSION" >&2
@@ -36,7 +36,7 @@ LOG_FILE="/Library/Ossec/logs/active-responses.log"
 read -r INPUT_JSON
 FILENAME=$(echo "$INPUT_JSON" | jq -r .parameters.alert.syscheck.path)
 
-if [ -z "$FILENAME" ] || [ "$FILENAME" = "null" ]; then
+if [[ -z "$FILENAME" ]] || [[ "$FILENAME" = "null" ]]; then
     echo "wazuh-yara: ERROR - FILENAME parameter is empty from alert JSON." >> "${LOG_FILE}"
     exit 1
 fi
@@ -44,7 +44,7 @@ fi
 #------------------------- Resolve YARA binary -------------------------#
 
 YARA_BIN=""
-if [ -x "$YARA_PATH/yara" ]; then
+if [[ -x "$YARA_PATH/yara" ]]; then
     YARA_BIN="$YARA_PATH/yara"
 elif command -v yara >/dev/null 2>&1; then
     YARA_BIN="$(command -v yara)"
@@ -55,17 +55,17 @@ fi
 
 #------------------------- Pre-scan validation -------------------------#
 
-if [ ! -f "$FILENAME" ]; then
+if [[ ! -f "$FILENAME" ]]; then
     echo "wazuh-yara: WARNING - File '$FILENAME' does not exist or is not a regular file. Skipping scan." >> "${LOG_FILE}"
     exit 0
 fi
 
-if [ ! -f "$YARA_RULES" ]; then
+if [[ ! -f "$YARA_RULES" ]]; then
     echo "wazuh-yara: ERROR - Yara active response error. Yara path: ($YARA_PATH) and rules: ($YARA_RULES) parameters are mandatory and rules file must exist." >> "${LOG_FILE}"
     exit 1
 fi
 
-if [ ! -f "$OSSEC_CONF_PATH" ]; then
+if [[ ! -f "$OSSEC_CONF_PATH" ]]; then
     echo "wazuh-yara: ERROR - OSSEC configuration file not found at: $OSSEC_CONF_PATH" >> "${LOG_FILE}"
     exit 1
 fi
@@ -74,7 +74,7 @@ fi
 
 size=0
 actual_size=$(stat -f %z "${FILENAME}" 2>/dev/null || echo "0")
-while [ "${size}" -ne "${actual_size}" ]; do
+while [[ "${size}" -ne "${actual_size}" ]]; do
     sleep 1
     size=${actual_size}
     actual_size=$(stat -f %z "${FILENAME}" 2>/dev/null || echo "0")
@@ -91,7 +91,7 @@ fi
 
 yara_output="$("$YARA_BIN" -w -r "$YARA_RULES" "$FILENAME")"
 
-if [ -n "$yara_output" ]; then
+if [[ -n "$yara_output" ]]; then
     while IFS= read -r line; do
         echo "wazuh-yara: INFO - Scan result: $line" >> "${LOG_FILE}"
     done <<< "$yara_output"

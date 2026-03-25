@@ -8,7 +8,7 @@
 # Foundation.
 
 # Exit immediately if a command exits with a non-zero status.
-if [ -n "$BASH_VERSION" ]; then
+if [[ -n "$BASH_VERSION" ]]; then
     set -euo pipefail
 else
     set -eu
@@ -21,7 +21,7 @@ read INPUT_JSON
 FILENAME=$(echo "$INPUT_JSON" | jq -r .parameters.alert.syscheck.path)
 
 # Validate FILENAME is not empty after jq parsing
-if [ -z "$FILENAME" ]; then
+if [[ -z "$FILENAME" ]]; then
     echo "wazuh-yara: ERROR - FILENAME parameter is empty from alert JSON." >> "${LOG_FILE}"
     exit 1
 fi
@@ -41,7 +41,7 @@ fi
 size=0
 # Wait for the file to be fully written before scanning
 actual_size=$(stat -c %s "${FILENAME}" 2>/dev/null || echo "0")
-while [ ${size} -ne ${actual_size} ]; do
+while [[ ${size} -ne ${actual_size} ]]; do
     sleep 1
     size=${actual_size}
     actual_size=$(stat -c %s "${FILENAME}" 2>/dev/null || echo "0")
@@ -86,7 +86,7 @@ add_fim_ignore() {
     }
     { print }' "$OSSEC_CONF_PATH" > "$temp_ossec_conf"
 
-    if [ $? -eq 0 ] && [ -s "$temp_ossec_conf" ]; then
+    if [[ $? -eq 0 ]] && [[ -s "$temp_ossec_conf" ]]; then
         mv "$temp_ossec_conf" "$OSSEC_CONF_PATH"
         echo "wazuh-yara: DEBUG - Added '$file_to_ignore' to FIM ignore list in $OSSEC_CONF_PATH." >> "${LOG_FILE}"
 
@@ -119,7 +119,7 @@ confirm_action_linux() {
                      --cancel-label="$cancel_text" \
                      --width=400 2>/dev/null)
 
-    if [ "$?" -eq 0 ]; then
+    if [[ "$?" -eq 0 ]]; then
         return 0
     else
         return 1
@@ -138,7 +138,7 @@ send_notification_linux() {
     DBUS_PATH="/run/user/$USER_UID/bus"
 
     local notify_command=(sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" notify-send --app-name=Wazuh -u critical)
-    if [ -f "$iconPath" ]; then
+    if [[ -f "$iconPath" ]]; then
         notify_command+=( -i "$iconPath" )
     fi
     notify_command+=( -A "delete_all=Delete All" -A "ignore_all=Ignore All" -A "dismiss=Dismiss" )
@@ -161,7 +161,7 @@ send_notification_linux() {
                 for file_path in "${!detected_files_paths_array_ref}"; do
                     echo "wazuh-yara: DEBUG - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
                     rm -f "${file_path}"
-                    if [ $? -eq 0 ]; then
+                    if [[ $? -eq 0 ]]; then
                         echo "wazuh-yara: SUCCESS - Delete file: ${file_path}" >> "${LOG_FILE}"
                         delete_success+=("${file_path}")
                     else
@@ -170,16 +170,16 @@ send_notification_linux() {
                     fi
                 done
                 local notify_msg=""
-                if [ ${#delete_success[@]} -gt 0 ]; then
+                if [[ ${#delete_success[@]} -gt 0 ]]; then
                     notify_msg+="Deleted files successfully:\n"
                     for f in "${delete_success[@]}"; do notify_msg+="- $f\n"; done
                 fi
-                if [ ${#delete_fail[@]} -gt 0 ]; then
+                if [[ ${#delete_fail[@]} -gt 0 ]]; then
                     notify_msg+="Failed to delete:\n"
                     for f in "${delete_fail[@]}"; do notify_msg+="- $f\n"; done
                 fi
-                if [ -n "$notify_msg" ]; then
-                    if [ -f "$iconPath" ]; then
+                if [[ -n "$notify_msg" ]]; then
+                    if [[ -f "$iconPath" ]]; then
                         sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
                             notify-send --app-name=Wazuh -u critical -i "$iconPath" "Wazuh-Yara Delete Result" "$notify_msg"
                     else
@@ -207,16 +207,16 @@ send_notification_linux() {
                     fi
                 done
                 local notify_msg=""
-                if [ ${#ignore_success[@]} -gt 0 ]; then
+                if [[ ${#ignore_success[@]} -gt 0 ]]; then
                     notify_msg+="Ignored files successfully:\n"
                     for f in "${ignore_success[@]}"; do notify_msg+="- $f\n"; done
                 fi
-                if [ ${#ignore_fail[@]} -gt 0 ]; then
+                if [[ ${#ignore_fail[@]} -gt 0 ]]; then
                     notify_msg+="Failed to ignore:\n"
                     for f in "${ignore_fail[@]}"; do notify_msg+="- $f\n"; done
                 fi
-                if [ -n "$notify_msg" ]; then
-                    if [ -f "$iconPath" ]; then
+                if [[ -n "$notify_msg" ]]; then
+                    if [[ -f "$iconPath" ]]; then
                         sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
                             notify-send --app-name=Wazuh -u critical -i "$iconPath" "Wazuh-Yara Ignore Result" "$notify_msg"
                     else

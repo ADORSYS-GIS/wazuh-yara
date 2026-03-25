@@ -84,7 +84,7 @@ prompt_installation_type() {
 }
 
 # Check if we're running in bash; if not, adjust behavior
-if [ -n "$BASH_VERSION" ]; then
+if [[ -n "$BASH_VERSION" ]]; then
     set -euo pipefail
 else
     set -eu
@@ -108,13 +108,13 @@ OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
 
 # Detect Linux Distribution
 detect_distro() {
-    if [ -f /etc/os-release ]; then
+    if [[ -f /etc/os-release ]]; then
         # shellcheck source=/dev/null
         . /etc/os-release
         echo "$ID"
-    elif [ -f /etc/redhat-release ]; then
+    elif [[ -f /etc/redhat-release ]]; then
         echo "redhat"
-    elif [ -f /etc/debian_version ]; then
+    elif [[ -f /etc/debian_version ]]; then
         echo "debian"
     else
         error_message "Unable to detect Linux distribution"
@@ -128,9 +128,9 @@ cleanup() {
     info_message "Cleaning up temporary files..."
     rm -rf "$TMP_DIR"
 
-    if [ -d "./yara-install" ]; then
+    if [[ -d "./yara-install" ]]; then
         rm -rf "./yara-install"
-    elif [ -n "${HOME:-}" ] && [ -d "$HOME/yara-install" ]; then
+    elif [[ -n "${HOME:-}" ]] && [[ -d "$HOME/yara-install" ]]; then
         rm -rf "$HOME/yara-install"
     fi
 }
@@ -168,12 +168,12 @@ version_is_4_5_x() {
     major=$(echo "$version" | cut -d'.' -f1)
     minor=$(echo "$version" | cut -d'.' -f2)
 
-    [ "$major" = "4" ] && [ "$minor" = "5" ]
+    [[ "$major" = "4" ]] && [[ "$minor" = "5" ]]
 }
 
 # Check if sudo is available or if the script is run as root
 maybe_sudo() {
-    if [ "$(id -u)" -ne 0 ]; then
+    if [[ "$(id -u)" -ne 0 ]]; then
         if command_exists sudo; then
             sudo "$@"
         else
@@ -203,15 +203,15 @@ detect_yara_installation() {
     exec 3>&1 4>&2
     exec 1>/dev/null 2>/dev/null
 
-    if [ -d "/opt/yara" ]; then
+    if [[ -d "/opt/yara" ]]; then
         has_legacy=1
     fi
 
-    if [ -d "/opt/wazuh/yara" ]; then
+    if [[ -d "/opt/wazuh/yara" ]]; then
         has_modern=1
     fi
 
-    if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
+    if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
         has_softlink=1
     fi
 
@@ -267,12 +267,12 @@ pre_installation_check() {
 
     IFS=',' read -r has_legacy has_modern has_softlink <<< "$detection_result"
 
-    if [ "$has_modern" -eq 1 ]; then
-        if [ -f "/opt/wazuh/yara/bin/yara" ]; then
+    if [[ "$has_modern" -eq 1 ]]; then
+        if [[ -f "/opt/wazuh/yara/bin/yara" ]]; then
             local current_version
             current_version=$(/opt/wazuh/yara/bin/yara --version 2>/dev/null || echo "")
 
-            if [ -n "$current_version" ] && version_is_4_5_x "$current_version"; then
+            if [[ -n "$current_version" ]] && version_is_4_5_x "$current_version"; then
                 success_message "Valid YARA installation found (v${current_version})"
                 info_message "Skipping new installation, will proceed to configuration checks..."
                 return 2
@@ -282,7 +282,7 @@ pre_installation_check() {
         fi
     fi
 
-    if [ "$has_legacy" -eq 0 ] && [ "$has_modern" -eq 0 ]; then
+    if [[ "$has_legacy" -eq 0 ]] && [[ "$has_modern" -eq 0 ]]; then
         success_message "No existing YARA installation detected"
         success_message "System is ready for fresh installation"
         return 0
@@ -291,15 +291,15 @@ pre_installation_check() {
     echo ""
     warn_message "Existing YARA installation(s) detected!"
 
-    if [ -d "/opt/yara" ]; then
+    if [[ -d "/opt/yara" ]]; then
         info_message "Found YARA in path: /opt/yara"
     fi
 
-    if [ -d "/opt/wazuh/yara" ]; then
+    if [[ -d "/opt/wazuh/yara" ]]; then
         info_message "Found YARA in path: /opt/wazuh/yara"
     fi
 
-    if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
+    if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
         info_message "Found YARA in path: /usr/local/bin/yara"
     fi
 
@@ -494,7 +494,7 @@ setup_yara_components() {
         exit 1
     fi
 
-    if [ "$INSTALLATION_TYPE" = "desktop" ]; then
+    if [[ "$INSTALLATION_TYPE" = "desktop" ]]; then
         sed_inplace 's|YARA_PATH="/usr/local/bin"|YARA_PATH="/opt/wazuh/yara/bin"|g' "$yara_script_path"
         sed_inplace 's|YARA_PATH="/opt/yara/bin"|YARA_PATH="/opt/wazuh/yara/bin"|g' "$yara_script_path"
     fi
@@ -533,12 +533,12 @@ validate_installation() {
     if command_exists yara; then
         actual_version=$(yara --version 2>&1 || echo "")
         yara_found=1
-    elif [ -f "/opt/wazuh/yara/bin/yara" ]; then
+    elif [[ -f "/opt/wazuh/yara/bin/yara" ]]; then
         actual_version=$(/opt/wazuh/yara/bin/yara --version 2>&1 || echo "")
         yara_found=1
     fi
 
-    if [ $yara_found -eq 1 ] && [[ "$actual_version" =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    if [[ $yara_found -eq 1 ]] && [[ "$actual_version" =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
         if version_is_4_5_x "$actual_version"; then
             success_message "YARA version $actual_version is installed (4.5.x series)."
         else
@@ -550,7 +550,7 @@ validate_installation() {
         error_message "Output was: $actual_version"
 
         info_message "DEBUG: Checking /opt/wazuh/yara/bin/yara..."
-        if [ -f "/opt/wazuh/yara/bin/yara" ]; then
+        if [[ -f "/opt/wazuh/yara/bin/yara" ]]; then
             info_message "DEBUG: File exists."
             info_message "DEBUG: Trying to run it directly to see error:"
             maybe_sudo /opt/wazuh/yara/bin/yara --version || true
@@ -577,7 +577,7 @@ validate_installation() {
         success_message "YARA active response script exists at $yara_script_path."
     fi
 
-    if [ $validation_failed -eq 0 ]; then
+    if [[ $validation_failed -eq 0 ]]; then
         success_message "YARA installation and configuration validation completed successfully."
     else
         error_message "YARA installation and configuration validation failed."
@@ -591,7 +591,7 @@ check_disk_space() {
     local available_space
     available_space=$(df /tmp | awk 'NR==2 {print $4}')
 
-    if [ "$available_space" -lt "$required_space" ]; then
+    if [[ "$available_space" -lt "$required_space" ]]; then
         error_message "Insufficient disk space. At least 100MB required in /tmp"
         error_message "Available: $((available_space / 1024)) MB"
         exit 1
@@ -672,7 +672,7 @@ main() {
     info_message "Starting YARA installation script v${YARA_VERSION}"
     info_message "Detected OS: Linux"
 
-    if [ ! -d "/var/ossec" ]; then
+    if [[ ! -d "/var/ossec" ]]; then
         error_message "Wazuh agent not installed at /var/ossec"
         error_message "Please install the Wazuh agent before running this script"
         exit 1
@@ -683,12 +683,12 @@ main() {
     local check_status=0
     pre_installation_check || check_status=$?
 
-    if [ "$check_status" -eq 2 ]; then
+    if [[ "$check_status" -eq 2 ]]; then
         info_message "Verifying existing installation..."
         validate_installation
         success_message "YARA is already installed and configured correctly. Exiting."
         exit 0
-    elif [ "$check_status" -ne 0 ]; then
+    elif [[ "$check_status" -ne 0 ]]; then
         error_message "Pre-installation checks failed"
         exit 1
     fi

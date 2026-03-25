@@ -41,7 +41,7 @@ success_message() {
 }
 
 # Check if we're running in bash; if not, adjust behavior
-if [ -n "$BASH_VERSION" ]; then
+if [[ -n "$BASH_VERSION" ]]; then
     set -euo pipefail
 else
     set -eu
@@ -59,7 +59,7 @@ command_exists() {
 
 # Check if sudo is available or if the script is run as root
 maybe_sudo() {
-    if [ "$(id -u)" -ne 0 ]; then
+    if [[ "$(id -u)" -ne 0 ]]; then
         if command_exists sudo; then
             sudo "$@"
         else
@@ -91,15 +91,15 @@ detect_yara_installation() {
     local has_modern=0
     local has_softlink=0
 
-    if [ -d "/opt/yara" ]; then
+    if [[ -d "/opt/yara" ]]; then
         has_legacy=1
     fi
 
-    if [ -d "/opt/wazuh/yara" ]; then
+    if [[ -d "/opt/wazuh/yara" ]]; then
         has_modern=1
     fi
 
-    if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
+    if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
         has_softlink=1
     fi
 
@@ -134,7 +134,7 @@ remove_custom_yara_installation() {
     local removed=0
 
     local yara_install_dir="/opt/wazuh/yara"
-    if [ -d "$yara_install_dir" ]; then
+    if [[ -d "$yara_install_dir" ]]; then
         info_message "Removing YARA installation directory: $yara_install_dir"
         if maybe_sudo rm -rf "$yara_install_dir"; then
             success_message "Removed YARA installation directory"
@@ -147,7 +147,7 @@ remove_custom_yara_installation() {
     fi
 
     local yara_symlink="/usr/local/bin/yara"
-    if [ -L "$yara_symlink" ] || [ -f "$yara_symlink" ]; then
+    if [[ -L "$yara_symlink" ]] || [[ -f "$yara_symlink" ]]; then
         info_message "Removing YARA symlink: $yara_symlink"
         if maybe_sudo rm -f "$yara_symlink"; then
             success_message "Removed YARA symlink"
@@ -159,7 +159,7 @@ remove_custom_yara_installation() {
         info_message "YARA symlink not found: $yara_symlink"
     fi
 
-    if [ $removed -eq 0 ]; then
+    if [[ $removed -eq 0 ]]; then
         info_message "No custom YARA installation found"
     fi
 }
@@ -170,7 +170,7 @@ remove_legacy_yara_installation() {
     local removed=0
 
     local legacy_yara_dir="/opt/yara"
-    if [ -d "$legacy_yara_dir" ]; then
+    if [[ -d "$legacy_yara_dir" ]]; then
         info_message "Removing legacy YARA directory: $legacy_yara_dir"
         if maybe_sudo rm -rf "$legacy_yara_dir"; then
             success_message "Removed legacy YARA directory"
@@ -182,7 +182,7 @@ remove_legacy_yara_installation() {
         info_message "Legacy YARA directory not found: $legacy_yara_dir"
     fi
 
-    if [ $removed -eq 0 ]; then
+    if [[ $removed -eq 0 ]]; then
         info_message "No legacy YARA installation found"
     fi
 }
@@ -219,7 +219,7 @@ remove_yara_wazuh_components() {
         info_message "YARA rules directory not found: $yara_rules_path"
     fi
 
-    if [ $removed -eq 0 ]; then
+    if [[ $removed -eq 0 ]]; then
         info_message "No YARA components found in Wazuh directories"
     fi
 }
@@ -253,17 +253,17 @@ validate_removal() {
         found_items=$((found_items + 1))
     fi
 
-    if [ -d "/opt/yara" ]; then
+    if [[ -d "/opt/yara" ]]; then
         warn_message "Legacy YARA directory still exists: /opt/yara"
         found_items=$((found_items + 1))
     fi
 
-    if [ -d "/opt/wazuh/yara" ]; then
+    if [[ -d "/opt/wazuh/yara" ]]; then
         warn_message "YARA installation directory still exists: /opt/wazuh/yara"
         found_items=$((found_items + 1))
     fi
 
-    if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
+    if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
         warn_message "YARA binary/symlink still exists: /usr/local/bin/yara"
         found_items=$((found_items + 1))
     fi
@@ -278,7 +278,7 @@ validate_removal() {
         found_items=$((found_items + 1))
     fi
 
-    if [ $found_items -eq 0 ]; then
+    if [[ $found_items -eq 0 ]]; then
         success_message "YARA has been completely removed from the system"
         return 0
     else
@@ -297,19 +297,19 @@ main() {
     detection_result=$(detect_yara_installation)
     IFS=',' read -r has_legacy has_modern has_softlink <<< "$detection_result"
 
-    if [ "$has_legacy" -eq 1 ] || [ "$has_modern" -eq 1 ] || [ "$has_softlink" -eq 1 ]; then
+    if [[ "$has_legacy" -eq 1 ]] || [[ "$has_modern" -eq 1 ]] || [[ "$has_softlink" -eq 1 ]]; then
         echo ""
         info_message "Detected YARA installations:"
 
-        if [ -d "/opt/yara" ]; then
+        if [[ -d "/opt/yara" ]]; then
             info_message "  - Legacy installation: /opt/yara"
         fi
 
-        if [ -d "/opt/wazuh/yara" ]; then
+        if [[ -d "/opt/wazuh/yara" ]]; then
             info_message "  - Modern installation: /opt/wazuh/yara"
         fi
 
-        if [ -L "/usr/local/bin/yara" ] || [ -f "/usr/local/bin/yara" ]; then
+        if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
             info_message "  - Symlink: /usr/local/bin/yara"
         fi
 
@@ -323,11 +323,11 @@ main() {
 
     remove_yara_packages
 
-    if [ "$has_legacy" -eq 1 ]; then
+    if [[ "$has_legacy" -eq 1 ]]; then
         remove_legacy_yara_installation
     fi
 
-    if [ "$has_modern" -eq 1 ]; then
+    if [[ "$has_modern" -eq 1 ]]; then
         remove_custom_yara_installation
     fi
 
