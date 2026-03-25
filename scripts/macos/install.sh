@@ -629,8 +629,17 @@ main() {
         error_message "Pre-installation checks failed"
         exit 1
     fi
-
-    yara_macos_installation
+    
+    # Proceed with installation
+    case "$OS" in
+        darwin)
+            yara_macos_installation
+            ;;
+        *)
+            error_message "Unsupported operating system: $OS"
+            exit 1
+            ;;
+    esac
 }
 
 # Execute main function
