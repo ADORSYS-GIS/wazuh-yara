@@ -91,6 +91,7 @@ jobs:
     name: Release
     permissions:
       contents: write
+      pull-requests: write
     needs:
       - run-pytest-linux
       - run-pytest-macos
@@ -105,6 +106,11 @@ jobs:
       - name: Get the version
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+
+      - name: Generate script checksums
+        run: |
+          find scripts \( -path "scripts/tests" -o -path "scripts/tests/*" \) -prune -o -type f -exec sha256sum {} + > checksums.sha256
+          cat checksums.sha256
 
       - name: Generate release notes (latest only)
         id: git_cliff
@@ -126,20 +132,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          files: checksums.sha256
           tag_name: ${{ steps.get_version.outputs.VERSION }}
           name: Release ${{ steps.get_version.outputs.VERSION }}
           body: ${{ steps.git_cliff.outputs.content }}
           draft: false
           prerelease: false
 
-      - name: Create Pull Request to update CHANGELOG.md
-        uses: peter-evans/create-pull-request@v4
+      - name: Create Pull Request to update CHANGELOG.md and checksums
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: update CHANGELOG.md"
-          title: "Update Changelog"
+          title: "Update Changelog and checksums"
           body: |
-            This PR updates the CHANGELOG.md to include all releases.
+            This PR updates the CHANGELOG.md and checksums.
             - Generated using git-cliff
             - Triggered by: ${{ github.event_name }}
           branch: update-changelog-${{ github.run_id }}
