@@ -90,7 +90,7 @@ else
 fi
 
 # Configuration
-YARA_VERSION="4.5.5"
+YARA_VERSION=${YARA_VERSION:-"4.5.5"}
 YARA_VERSION_SET=0
 YARA_SCRIPT_NAME="yara.sh"
 YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/rules/yara_rules.yar"

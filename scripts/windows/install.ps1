@@ -76,7 +76,7 @@ function Ensure-Admin {
 function Download-YARA {
     # Determine the architecture
     $arch = if ([Environment]::Is64BitOperatingSystem) { "win64" } else { "win32" }
-    $yaraVersion = "v4.5.2-2326"
+    $yaraVersion = if ($env:YARA_VERSION) { $env:YARA_VERSION } else { "4.5.2" }
     $yaraUrl = "https://github.com/VirusTotal/yara/releases/download/v4.5.2/yara-$yaraVersion-$arch.zip"
     
     # Download the appropriate YARA version
