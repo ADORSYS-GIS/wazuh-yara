@@ -89,6 +89,23 @@ function Download-YARA {
     Remove-Item -Path "$env:TEMP\yara-$yaraVersion-$arch.zip"
 }
 
+# Helper to verify that the installed YARA version is in the 4.5.x family
+function Test-YaraVersionCompatible {
+    param ([string]$Version)
+
+    if ([string]::IsNullOrWhiteSpace($Version)) {
+        return $false
+    }
+
+    if ($Version -match '([0-9]+)\.([0-9]+)') {
+        $major = $Matches[1]
+        $minor = $Matches[2]
+        return ($major -eq "4" -and $minor -eq "5")
+    }
+
+    return $false
+}
+
 # Function to install YARA
 function Install-YARA {
     Ensure-Admin
@@ -151,6 +168,9 @@ if (Test-Path -Path $yaraRulesPath) {
     } else {
         WarnMessage "YARA path already exists in environment variables." 
     }
+
+    # Validate final installation artifacts
+    Validate-Installation
 }
 
 # Function to update Wazuh agent configuration
@@ -222,6 +242,57 @@ function Update-WazuhConfig {
 
     Restart-Service -Name WazuhSvc
     SuccessMessage "Configuration completed successfully." 
+}
+
+# Function to validate the YARA installation artifacts and configuration
+function Validate-Installation {
+    $validationStatus = $true
+
+    $yaraDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara"
+    $yaraExe = Join-Path $yaraDir "yara64.exe"
+    $rulesPath = Join-Path $yaraDir "rules\yara_rules.yar"
+    $yaraBatPath = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara.bat"
+
+    InfoMessage "Validating YARA installation..."
+    if (Test-Path -Path $yaraExe) {
+        try {
+            $installedVersion = & $yaraExe --version 2>$null
+
+            if (Test-YaraVersionCompatible -Version $installedVersion) {
+                SuccessMessage "YARA executable found. Version $installedVersion is compatible (4.5.x)."
+            } else {
+                WarnMessage "YARA version $installedVersion is not in the supported 4.5.x series."
+                $validationStatus = $false
+            }
+        } catch {
+            ErrorMessage "Unable to determine YARA version from $yaraExe. $_"
+            $validationStatus = $false
+        }
+    } else {
+        ErrorMessage "YARA executable not found at $yaraExe."
+        $validationStatus = $false
+    }
+
+    if (Test-Path -Path $rulesPath) {
+        SuccessMessage "YARA rules file found at $rulesPath."
+    } else {
+        WarnMessage "YARA rules file is missing at $rulesPath."
+        $validationStatus = $false
+    }
+
+    if (Test-Path -Path $yaraBatPath) {
+        SuccessMessage "yara.bat script found at $yaraBatPath."
+    } else {
+        WarnMessage "yara.bat script is missing at $yaraBatPath."
+        $validationStatus = $false
+    }
+
+    if ($validationStatus) {
+        SuccessMessage "YARA installation and configuration validated successfully."
+    } else {
+        ErrorMessage "YARA installation validation failed. See warnings above."
+        exit 1
+    }
 }
 
 try {
