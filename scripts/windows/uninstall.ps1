@@ -1,48 +1,44 @@
+# Set strict mode for error handling
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
 
-
-function Log {
-    param (
-        [string]$Level,
-        [string]$Message,
-        [string]$Color = "White"  # Default color
-    )
-    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Write-Host "$Timestamp $Level $Message" -ForegroundColor $Color
+# Variables
+if (-not $env:WAZUH_YARA_REPO_REF) { 
+    $env:WAZUH_YARA_REPO_REF = "main"
 }
+$WAZUH_YARA_REPO_REF = $env:WAZUH_YARA_REPO_REF
+$WAZUH_YARA_REPO_URL = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/$WAZUH_YARA_REPO_REF"
 
-# Logging helpers with colors
-function InfoMessage {
-    param ([string]$Message)
-    Log "[INFO]" $Message "White"
+# Source shared utilities
+$TEMP_DIR = $env:TEMP
+try {
+    $ChecksumsURL = "$WAZUH_YARA_REPO_URL/checksums.sha256"
+    $UtilsURL = "$WAZUH_YARA_REPO_URL/scripts/shared/utils.ps1"
+    
+    $global:ChecksumsPath = Join-Path $TEMP_DIR "checksums.sha256"
+    $UtilsPath = Join-Path $TEMP_DIR "utils.ps1"
+
+    Invoke-WebRequest -Uri $ChecksumsURL -OutFile $ChecksumsPath -ErrorAction Stop
+    Invoke-WebRequest -Uri $UtilsURL -OutFile $UtilsPath -ErrorAction Stop
+
+    # Verification function (bootstrap)
+    function Get-FileChecksum-Bootstrap {
+        param([string]$FilePath)
+        return (Get-FileHash -Path $FilePath -Algorithm SHA256).Hash.ToLower()
+    }
+
+    $ExpectedHash = (Select-String -Path $ChecksumsPath -Pattern "scripts/shared/utils.ps1").Line.Split(" ")[0]
+    $ActualHash = Get-FileChecksum-Bootstrap -FilePath $UtilsPath
+
+    if ([string]::IsNullOrWhiteSpace($ExpectedHash) -or ($ActualHash -ne $ExpectedHash.ToLower())) {
+        Write-Error "Checksum verification failed for utils.ps1"
+        exit 1
+    }
+
+    . $UtilsPath
 }
-
-function WarnMessage {
-    param ([string]$Message)
-    Log "[WARNING]" $Message "Yellow"
-}
-
-function ErrorMessage {
-    param ([string]$Message)
-    Log "[ERROR]" $Message "Red"
-}
-
-function SuccessMessage {
-    param ([string]$Message)
-    Log "[SUCCESS]" $Message "Green"
-}
-
-function PrintStep {
-    param (
-        [int]$StepNumber,
-        [string]$Message
-    )
-    Log "[STEP]" "Step ${StepNumber}: $Message" "White"
-}
-
-# Exit script with an error message
-function ErrorExit {
-    param ([string]$Message)
-    ErrorMessage $Message
+catch {
+    Write-Error "Failed to initialize utilities: $($_.Exception.Message)"
     exit 1
 }
 

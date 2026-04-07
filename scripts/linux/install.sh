@@ -1,55 +1,84 @@
 #!/usr/bin/env bash
 
+# Set shell options based on shell type
+if [ -n "$BASH_VERSION" ]; then
+    set -euo pipefail
+else
+    set -eu
+fi
+
+# OS guard early in the script
+if [ "$(uname -s)" != "Linux" ]; then
+    printf "%s\n" "[ERROR] This installation script is intended for Linux systems. Please use the appropriate script for your operating system." >&2
+    exit 1
+fi
+
+# Variables
+YARA_VERSION=${YARA_VERSION:-"4.5.5"}
+YARA_VERSION_SET=0
+YARA_SCRIPT_NAME="yara.sh"
+WAZUH_YARA_REPO_REF=${WAZUH_YARA_REPO_REF:-"main"}
+WAZUH_YARA_REPO_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/${WAZUH_YARA_REPO_REF}"
+YARA_RULES_URL="${WAZUH_YARA_REPO_URL}/rules/yara_rules.yar"
+
+# GitHub Release configuration for packages
+GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-plugins/releases/download"
+LINUX_RELEASE_TAG="yara-v0.3.17"
+
+# OS and Distribution Detection
+OSSEC_CONF_PATH=${OSSEC_CONF_PATH:-"/var/ossec/etc/ossec.conf"}
+
 #=============================================================================
 # Enhanced YARA Installation Script for Linux
 # Detects existing YARA installations and performs automatic cleanup
 #=============================================================================
 
-# Define text formatting
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[1;34m'
-BOLD='\033[1m'
-NORMAL='\033[0m'
+# Source shared utilities
+TMP_DIR=$(mktemp -d)
+if ! curl "${WAZUH_YARA_REPO_URL}/scripts/shared/utils.sh" -o "$TMP_DIR/utils.sh"; then
+    echo "Failed to download utils.sh"
+    exit 1
+fi
 
-# Function for logging with timestamp
-log() {
-    local LEVEL="$1"
-    shift
-    local MESSAGE="$*"
-    local TIMESTAMP
-    TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
-    echo -e "${TIMESTAMP} ${LEVEL} ${MESSAGE}"
+# Function to calculate SHA256 (cross-platform bootstrap)
+calculate_sha256_bootstrap() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    else
+        shasum -a 256 "$1" | awk '{print $1}'
+    fi
 }
 
-# Logging helpers
-info_message() {
-    log "${BLUE}${BOLD}[INFO]${NORMAL}" "$*"
-}
-warn_message() {
-    log "${YELLOW}${BOLD}[WARNING]${NORMAL}" "$*"
-}
-error_message() {
-    log "${RED}${BOLD}[ERROR]${NORMAL}" "$*"
-}
-success_message() {
-    log "${GREEN}${BOLD}[SUCCESS]${NORMAL}" "$*"
-}
-print_step() {
-    log "${BLUE}${BOLD}[STEP]${NORMAL}" "$1: $2"
-}
+# Download checksums and verify utils.sh integrity BEFORE sourcing it
+if ! curl "${WAZUH_YARA_REPO_URL}/checksums.sha256" -o "$TMP_DIR/checksums.sha256"; then
+    echo "Failed to download checksums.sha256"
+    exit 1
+fi
+
+
+EXPECTED_HASH=$(grep "scripts/shared/utils.sh" "$TMP_DIR/checksums.sha256" | awk '{print $1}' || printf "%s\n" "[ERROR] Failed to get expected hash for utils.sh" >&2)
+ACTUAL_HASH=$(calculate_sha256_bootstrap "$TMP_DIR/utils.sh")
+
+if [ -z "$EXPECTED_HASH" ] || [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
+    echo "Error: Checksum verification failed for utils.sh" >&2
+    echo "Expected hash: $EXPECTED_HASH" >&2
+    echo "Actual hash: $ACTUAL_HASH" >&2
+    exit 1
+fi
+
+# Source utils.sh only after verification
+. "$TMP_DIR/utils.sh"
 
 # Prompt user for installation type
 prompt_installation_type() {
     # Check if installation type is already set via environment variable or argument
     if [[ -n "${INSTALLATION_TYPE:-}" ]]; then
         if [[ "$INSTALLATION_TYPE" == "desktop" ]]; then
-            YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/refactor/split-linux-macos-scripts/scripts/linux/yara.sh"
+            YARA_SOURCE_URL="${WAZUH_YARA_REPO_URL}/scripts/linux/yara.sh"
             info_message "Using Desktop/Workstation installation (interactive mode)"
             return 0
         elif [[ "$INSTALLATION_TYPE" == "server" ]]; then
-            YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/refactor/split-linux-macos-scripts/scripts/linux/yara-server.sh"
+            YARA_SOURCE_URL="${WAZUH_YARA_REPO_URL}/scripts/linux/yara-server.sh"
             info_message "Using Server installation (non-interactive mode)"
             return 0
         fi
@@ -66,13 +95,13 @@ prompt_installation_type() {
         case "$choice" in
             1)
                 INSTALLATION_TYPE="desktop"
-                YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/refactor/split-linux-macos-scripts/scripts/linux/yara.sh"
+                YARA_SOURCE_URL="${WAZUH_YARA_REPO_URL}/scripts/linux/yara.sh"
                 info_message "Selected: Desktop/Workstation installation"
                 return 0
                 ;;
             2)
                 INSTALLATION_TYPE="server"
-                YARA_SOURCE_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/refactor/split-linux-macos-scripts/scripts/linux/yara-server.sh"
+                YARA_SOURCE_URL="${WAZUH_YARA_REPO_URL}/scripts/linux/yara-server.sh"
                 info_message "Selected: Server installation"
                 return 0
                 ;;
@@ -82,29 +111,6 @@ prompt_installation_type() {
         esac
     done
 }
-
-# Check if we're running in bash; if not, adjust behavior
-if [[ -n "$BASH_VERSION" ]]; then
-    set -euo pipefail
-else
-    set -eu
-fi
-
-# Configuration
-YARA_VERSION=${YARA_VERSION:-"4.5.5"}
-YARA_VERSION_SET=0
-YARA_SCRIPT_NAME="yara.sh"
-YARA_RULES_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/rules/yara_rules.yar"
-
-# GitHub Release configuration for packages
-GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-plugins/releases/download"
-LINUX_RELEASE_TAG="yara-v0.3.17"
-
-TMP_DIR=$(mktemp -d)
-
-# OS and Distribution Detection
-OS="linux"
-OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
 
 # Detect Linux Distribution
 detect_distro() {
@@ -138,29 +144,6 @@ cleanup() {
 # Register cleanup to run on exit
 trap cleanup EXIT
 
-# Check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Detect system architecture
-detect_architecture() {
-    local arch
-    arch=$(uname -m)
-    case "$arch" in
-        x86_64|amd64)
-            echo "amd64"
-            ;;
-        aarch64|arm64)
-            echo "arm64"
-            ;;
-        *)
-            error_message "Unsupported architecture: $arch"
-            exit 1
-            ;;
-    esac
-}
-
 # Check if version matches 4.5.x pattern
 version_is_4_5_x() {
     local version="$1"
@@ -169,25 +152,6 @@ version_is_4_5_x() {
     minor=$(echo "$version" | cut -d'.' -f2)
 
     [[ "$major" = "4" ]] && [[ "$minor" = "5" ]]
-}
-
-# Check if sudo is available or if the script is run as root
-maybe_sudo() {
-    if [[ "$(id -u)" -ne 0 ]]; then
-        if command_exists sudo; then
-            sudo "$@"
-        else
-            error_message "This script requires root privileges. Please run with sudo or as root."
-            exit 1
-        fi
-    else
-        "$@"
-    fi
-}
-
-# Sed in-place for Linux
-sed_inplace() {
-    maybe_sudo sed -i "$@" 2>/dev/null || true
 }
 
 #=============================================================================
@@ -237,11 +201,11 @@ detect_yara_installation() {
 # Download and run uninstallation script from GitHub
 run_local_uninstall() {
     local uninstall_script="$TMP_DIR/uninstall.sh"
-    local uninstall_url="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refactor/split-linux-macos-scripts/scripts/linux/uninstall.sh"
+    local uninstall_url="${WAZUH_YARA_REPO_URL}/scripts/linux/uninstall.sh"
 
     info_message "Downloading uninstall script from GitHub..."
 
-    if ! curl -fsSL "$uninstall_url" -o "$uninstall_script"; then
+    if ! download_and_verify_file "$uninstall_url" "$uninstall_script" "scripts/linux/uninstall.sh" "Yara Uninstall Script" "$WAZUH_YARA_REPO_URL/checksums.sha256"; then
         error_message "Failed to download uninstall script from $uninstall_url"
         return 1
     fi
@@ -373,10 +337,16 @@ install_dependencies() {
             maybe_sudo "$pkg_manager" install -y oracle-epel-release-el8 2>/dev/null || \
             maybe_sudo "$pkg_manager" install -y oracle-epel-release-el9 2>/dev/null || \
             warn_message "Could not install EPEL repository, continuing without it"
+
+            maybe_sudo "$pkg_manager" install -y jq 2>/dev/null || \
+            warn_message "Could not install jq, continuing without it"
             ;;
         ubuntu|debian)
             print_step 1 "Updating package lists on DEB-based system"
             maybe_sudo apt-get update -qq
+
+            maybe_sudo apt-get install -y jq 2>/dev/null || \
+            warn_message "Could not install jq, continuing without it"
             ;;
         *)
             error_message "Unsupported Linux distribution: $DISTRO"
@@ -385,30 +355,6 @@ install_dependencies() {
     esac
 
     success_message "Dependencies installation attempted successfully"
-}
-
-# Download file with error checking
-download_file() {
-    local url="$1"
-    local output="$2"
-    local description="$3"
-
-    info_message "Downloading $description..."
-    local output_dir
-    output_dir=$(dirname "$output")
-    if ! maybe_sudo mkdir -p "$output_dir"; then
-        error_message "Failed to create directory for $description: $output_dir"
-        return 1
-    fi
-
-    if curl -fsSL "$url" | maybe_sudo tee "$output" > /dev/null; then
-        success_message "$description downloaded successfully"
-        return 0
-    else
-        error_message "Failed to download $description from $url"
-        error_message "Please check your network connection and URL validity"
-        return 1
-    fi
 }
 
 # Download YARA package based on distro and architecture
@@ -493,7 +439,7 @@ setup_yara_components() {
     fi
 
     print_step 2 "Downloading and configuring YARA script"
-    if ! download_file "$YARA_SOURCE_URL" "$yara_script_path" "YARA script"; then
+    if ! download_and_verify_file "$YARA_SOURCE_URL" "$yara_script_path" "scripts/linux/yara.sh" "YARA script" $WAZUH_YARA_REPO_URL/checksums.sha256; then
         error_message "Failed to download YARA script"
         exit 1
     fi
@@ -504,7 +450,7 @@ setup_yara_components() {
     fi
 
     print_step 3 "Downloading YARA rules"
-    if ! download_file "$YARA_RULES_URL" "$yara_rules_path/yara_rules.yar" "YARA rules"; then
+    if ! download_and_verify_file "$YARA_RULES_URL" "$yara_rules_path/yara_rules.yar" "rules/yara_rules.yar" "YARA rules" $WAZUH_YARA_REPO_URL/checksums.sha256; then
         error_message "Failed to download YARA rules"
         exit 1
     fi
@@ -589,26 +535,11 @@ validate_installation() {
     fi
 }
 
-# Check disk space
-check_disk_space() {
-    local required_space=102400
-    local available_space
-    available_space=$(df /tmp | awk 'NR==2 {print $4}')
-
-    if [[ "$available_space" -lt "$required_space" ]]; then
-        error_message "Insufficient disk space. At least 100MB required in /tmp"
-        error_message "Available: $((available_space / 1024)) MB"
-        exit 1
-    fi
-
-    info_message "Sufficient disk space available: $((available_space / 1024)) MB"
-}
-
 # Main YARA installation for Linux
 yara_installation() {
     info_message "Starting YARA installation for Linux..."
 
-    check_disk_space
+    check_disk_space /tmp 102400
 
     local arch
     arch=$(detect_architecture)
@@ -698,15 +629,7 @@ main() {
     fi
 
     # Proceed with installation
-    case "$OS" in
-        linux)
-            yara_installation
-            ;;
-        *)
-            error_message "Unsupported operating system: $OS"
-            exit 1
-            ;;
-    esac
+    yara_installation
 }
 
 # Execute main function
