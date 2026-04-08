@@ -45,7 +45,7 @@ jobs:
     
     - name: Run yara install script
       run: |
-        bash scripts/linux/install.sh
+        sudo env WAZUH_YARA_REPO_REF=${{ env.WAZUH_YARA_REPO_REF }} INSTALLATION_TYPE=${{ env.INSTALLATION_TYPE }} bash scripts/linux/install.sh
 
     - name: Run tests 
       run: |
@@ -83,7 +83,7 @@ jobs:
     
     - name: Run yara install script
       run: |
-        bash scripts/macos/install.sh
+        sudo env WAZUH_YARA_REPO_REF=${{ env.WAZUH_YARA_REPO_REF }} INSTALLATION_TYPE=${{ env.INSTALLATION_TYPE }} bash scripts/macos/install.sh
 
     - name: Run tests
       run: |

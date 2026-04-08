@@ -33,6 +33,7 @@ MACOS_RELEASE_TAG="yara-v0.5.1"
 
 TMP_DIR=$(mktemp -d)
 OSSEC_CONF_PATH=${OSSEC_CONF_PATH:-"/Library/Ossec/etc/ossec.conf"}
+YARA_BIN_PATH="/usr/local/bin/yara"
 LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
 
 # Source shared utilities
