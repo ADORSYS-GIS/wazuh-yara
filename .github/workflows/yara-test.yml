@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       INSTALLATION_TYPE: server
+      WAZUH_YARA_REPO_REF: refactor/split-linux-macos-scripts
 
     steps:
     - name: Checkout code
@@ -55,6 +56,7 @@ jobs:
     runs-on: macos-latest
     env:
       INSTALLATION_TYPE: server
+      WAZUH_YARA_REPO_REF: refactor/split-linux-macos-scripts
 
     steps:
     - name: Checkout code
