@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
 # Set shell options based on shell type
-if [ -n "$BASH_VERSION" ]; then
+if [[ -n "${BASH_VERSION:-}" ]]; then
     set -euo pipefail
 else
     set -eu
 fi
 
 # OS guard early in the script
-if [ "$(uname -s)" != "Linux" ]; then
+if [[ "$(uname -s)" != "Linux" ]]; then
     printf "%s\n" "[ERROR] This installation script is intended for Linux systems. Please use the appropriate script for your operating system." >&2
     exit 1
 fi
@@ -27,6 +27,7 @@ LINUX_RELEASE_TAG="yara-v0.3.17"
 
 # OS and Distribution Detection
 OSSEC_CONF_PATH=${OSSEC_CONF_PATH:-"/var/ossec/etc/ossec.conf"}
+YARA_BIN_PATH="/usr/local/bin/yara"
 
 #=============================================================================
 # Enhanced YARA Installation Script for Linux
@@ -42,11 +43,13 @@ fi
 
 # Function to calculate SHA256 (cross-platform bootstrap)
 calculate_sha256_bootstrap() {
+    local file="$1"
     if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$1" | awk '{print $1}'
+        sha256sum "$file" | awk '{print $1}'
     else
-        shasum -a 256 "$1" | awk '{print $1}'
+        shasum -a 256 "$file" | awk '{print $1}'
     fi
+    return 0
 }
 
 # Download checksums and verify utils.sh integrity BEFORE sourcing it
@@ -59,14 +62,14 @@ fi
 EXPECTED_HASH=$(grep "scripts/shared/utils.sh" "$TMP_DIR/checksums.sha256" | awk '{print $1}' || printf "%s\n" "[ERROR] Failed to get expected hash for utils.sh" >&2)
 ACTUAL_HASH=$(calculate_sha256_bootstrap "$TMP_DIR/utils.sh")
 
-if [ -z "$EXPECTED_HASH" ] || [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
+if [[ -z "$EXPECTED_HASH" ]] || [[ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]]; then
     echo "Error: Checksum verification failed for utils.sh" >&2
     echo "Expected hash: $EXPECTED_HASH" >&2
     echo "Actual hash: $ACTUAL_HASH" >&2
     exit 1
 fi
 
-# Source utils.sh only after verification
+# shellcheck disable=SC1091
 . "$TMP_DIR/utils.sh"
 
 # Prompt user for installation type
@@ -139,6 +142,7 @@ cleanup() {
     elif [[ -n "${HOME:-}" ]] && [[ -d "$HOME/yara-install" ]]; then
         rm -rf "$HOME/yara-install"
     fi
+    return 0
 }
 
 # Register cleanup to run on exit
@@ -152,6 +156,7 @@ version_is_4_5_x() {
     minor=$(echo "$version" | cut -d'.' -f2)
 
     [[ "$major" = "4" ]] && [[ "$minor" = "5" ]]
+    return $?
 }
 
 #=============================================================================
@@ -175,7 +180,7 @@ detect_yara_installation() {
         has_modern=1
     fi
 
-    if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
+    if [[ -L "$YARA_BIN_PATH" ]] || [[ -f "$YARA_BIN_PATH" ]]; then
         has_softlink=1
     fi
 
@@ -196,6 +201,7 @@ detect_yara_installation() {
     exec 3>&- 4>&-
 
     echo "${has_legacy},${has_modern},${has_softlink}"
+    return 0
 }
 
 # Download and run uninstallation script from GitHub
@@ -205,7 +211,7 @@ run_local_uninstall() {
 
     info_message "Downloading uninstall script from GitHub..."
 
-    if ! download_and_verify_file "$uninstall_url" "$uninstall_script" "scripts/linux/uninstall.sh" "Yara Uninstall Script" "$WAZUH_YARA_REPO_URL/checksums.sha256"; then
+    if ! download_and_verify_file "$uninstall_url" "$uninstall_script" "scripts/linux/uninstall.sh" "Yara Uninstall Script" "${WAZUH_YARA_REPO_URL}/checksums.sha256"; then
         error_message "Failed to download uninstall script from $uninstall_url"
         return 1
     fi
@@ -231,19 +237,17 @@ pre_installation_check() {
 
     IFS=',' read -r has_legacy has_modern has_softlink <<< "$detection_result"
 
-    if [[ "$has_modern" -eq 1 ]]; then
-        if [[ -f "/opt/wazuh/yara/bin/yara" ]]; then
-            local current_version
-            current_version=$(/opt/wazuh/yara/bin/yara --version 2>/dev/null || echo "")
+    if [[ "$has_modern" -eq 1 ]] && [[ -f "/opt/wazuh/yara/bin/yara" ]]; then
+        local current_version
+        current_version=$(/opt/wazuh/yara/bin/yara --version 2>/dev/null || echo "")
 
-            if [[ -n "$current_version" ]] && version_is_4_5_x "$current_version"; then
-                success_message "Valid YARA installation found (v${current_version})"
-                info_message "Skipping new installation, will proceed to configuration checks..."
-                return 2
-            fi
-
-            info_message "Existing YARA version ($current_version) does not match target v${YARA_VERSION}"
+        if [[ -n "$current_version" ]] && version_is_4_5_x "$current_version"; then
+            success_message "Valid YARA installation found (v${current_version})"
+            info_message "Skipping new installation, will proceed to configuration checks..."
+            return 2
         fi
+
+        info_message "Existing YARA version ($current_version) does not match target v${YARA_VERSION}"
     fi
 
     if [[ "$has_legacy" -eq 0 ]] && [[ "$has_modern" -eq 0 ]]; then
@@ -263,8 +267,8 @@ pre_installation_check() {
         info_message "Found YARA in path: /opt/wazuh/yara"
     fi
 
-    if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
-        info_message "Found YARA in path: /usr/local/bin/yara"
+    if [[ -L "$YARA_BIN_PATH" ]] || [[ -f "$YARA_BIN_PATH" ]]; then
+        info_message "Found YARA in path: $YARA_BIN_PATH"
     fi
 
     case "$DISTRO" in
@@ -311,6 +315,7 @@ sed_inplace() {
     if command_exists gsed; then
         maybe_sudo sed -i "$@" 2>/dev/null || true
     fi
+    return 0
 }
 
 # Remove file limit from ossec.conf
@@ -321,6 +326,7 @@ remove_file_limit() {
     else
         info_message "The file limit block does not exist. No changes were made."
     fi
+    return 0
 }
 
 # Install dependencies
@@ -362,6 +368,7 @@ install_dependencies() {
     esac
 
     success_message "Dependencies installation attempted successfully"
+    return 0
 }
 
 # Download YARA package based on distro and architecture
@@ -388,6 +395,7 @@ download_yara_package() {
     esac
 
     download_file "$url" "$output" "YARA package" || exit 1
+    return 0
 }
 
 # Install YARA package based on distro
@@ -416,15 +424,17 @@ install_yara_package() {
 
     print_step 2 "Creating wrapper script"
     maybe_sudo mkdir -p /usr/local/bin
-    maybe_sudo tee /usr/local/bin/yara > /dev/null << 'EOF'
+    maybe_sudo tee "$YARA_BIN_PATH" > /dev/null << 'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 export LD_LIBRARY_PATH="/opt/wazuh/yara/lib:${LD_LIBRARY_PATH:-}"
 exec "/opt/wazuh/yara/bin/yara.real" "$@"
 EOF
-    maybe_sudo chmod +x /usr/local/bin/yara
+    maybe_sudo chmod +x "$YARA_BIN_PATH"
+
 
     success_message "YARA package installed successfully"
+    return 0
 }
 
 # Setup YARA directories and components
@@ -446,7 +456,7 @@ setup_yara_components() {
     fi
 
     print_step 2 "Downloading and configuring YARA script"
-    if ! download_and_verify_file "$YARA_SOURCE_URL" "$yara_script_path" "scripts/linux/yara.sh" "YARA script" $WAZUH_YARA_REPO_URL/checksums.sha256; then
+    if ! download_and_verify_file "$YARA_SOURCE_URL" "$yara_script_path" "scripts/linux/yara.sh" "YARA script" "${WAZUH_YARA_REPO_URL}/checksums.sha256"; then
         error_message "Failed to download YARA script"
         exit 1
     fi
@@ -457,7 +467,7 @@ setup_yara_components() {
     fi
 
     print_step 3 "Downloading YARA rules"
-    if ! download_and_verify_file "$YARA_RULES_URL" "$yara_rules_path/yara_rules.yar" "rules/yara_rules.yar" "YARA rules" $WAZUH_YARA_REPO_URL/checksums.sha256; then
+    if ! download_and_verify_file "$YARA_RULES_URL" "$yara_rules_path/yara_rules.yar" "rules/yara_rules.yar" "YARA rules" "${WAZUH_YARA_REPO_URL}/checksums.sha256"; then
         error_message "Failed to download YARA rules"
         exit 1
     fi
@@ -478,6 +488,7 @@ setup_yara_components() {
     maybe_sudo chown root:root "$yara_rules_path"
 
     success_message "YARA components set up successfully"
+    return 0
 }
 
 # Validate installation
@@ -540,6 +551,7 @@ validate_installation() {
         error_message "YARA installation and configuration validation failed."
         exit 1
     fi
+    return 0
 }
 
 # Main YARA installation for Linux
@@ -573,6 +585,7 @@ yara_installation() {
 
     success_message "YARA installation completed successfully!"
     info_message "You can now use YARA with Wazuh for malware detection"
+    return 0
 }
 
 # Main function
@@ -637,6 +650,7 @@ main() {
 
     # Proceed with installation
     yara_installation
+    return 0
 }
 
 # Execute main function

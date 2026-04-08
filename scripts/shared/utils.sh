@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Set shell options based on shell type
-if [ -n "$BASH_VERSION" ]; then
+if [[ -n "${BASH_VERSION:-}" ]]; then
     set -euo pipefail
 else
     set -eu
@@ -17,37 +17,54 @@ NORMAL='\033[0m'
 
 # Logging with timestamp
 log() {
-    if [ -n "$BASH_VERSION" ]; then
+    local level="$1"
+    shift
+    local message="$*"
+    local level_var=""
+    local timestamp_var=""
+
+    if [[ -n "${BASH_VERSION:-}" ]]; then
         local LEVEL TIMESTAMP
     else
-        LEVEL=""
-        TIMESTAMP=""
+        level_var=""
+        timestamp_var=""
     fi
 
-    LEVEL="$1"
-    shift
-    TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
-    printf "%s %b %s\n" "$TIMESTAMP" "$LEVEL" "$*"
+    level_var="$level"
+    timestamp_var=$(date +"%Y-%m-%d %H:%M:%S")
+    printf "%s %b %s\n" "$timestamp_var" "$level_var" "$message"
+    return 0
 }
 
 info_message() {
-    log "${BLUE}${BOLD}[INFO]${NORMAL}" "$*"
+    local message="$1"
+    log "${BLUE}${BOLD}[INFO]${NORMAL}" "$message"
+    return 0
 }
 
 warn_message() {
-    log "${YELLOW}${BOLD}[WARNING]${NORMAL}" "$*"
+    local message="$1"
+    log "${YELLOW}${BOLD}[WARNING]${NORMAL}" "$message"
+    return 0
 }
 
 error_message() {
-    log "${RED}${BOLD}[ERROR]${NORMAL}" "$*"
+    local message="$1"
+    log "${RED}${BOLD}[ERROR]${NORMAL}" "$message"
+    return 0
 }
 
 success_message() {
-    log "${GREEN}${BOLD}[SUCCESS]${NORMAL}" "$*"
+    local message="$1"
+    log "${GREEN}${BOLD}[SUCCESS]${NORMAL}" "$message"
+    return 0
 }
 
 print_step() {
-    log "${BLUE}${BOLD}[STEP]${NORMAL}" "$1: $2"
+    local step_num="$1"
+    local step_desc="$2"
+    log "${BLUE}${BOLD}[STEP]${NORMAL}" "$step_num: $step_desc"
+    return 0
 }
 
 error_exit() {
@@ -56,11 +73,13 @@ error_exit() {
 }
 
 command_exists() {
-    command -v "$1" >/dev/null 2>&1
+    local cmd="$1"
+    command -v "$cmd" >/dev/null 2>&1
+    return $?
 }
 
 maybe_sudo() {
-    if [ "$(id -u)" -ne 0 ]; then
+    if [[ "$(id -u)" -ne 0 ]]; then
         if command_exists sudo; then
             sudo "$@"
         else
@@ -70,6 +89,7 @@ maybe_sudo() {
     else
         "$@"
     fi
+    return $?
 }
 
 calculate_sha256() {
@@ -82,6 +102,7 @@ calculate_sha256() {
         error_message "No SHA256 tool available (sha256sum or shasum required)"
         return 1
     fi
+    return 0
 }
 
 verify_checksum() {
@@ -90,7 +111,7 @@ verify_checksum() {
     local actual
     actual=$(calculate_sha256 "$file")
 
-    if [ "$actual" != "$expected" ]; then
+    if [[ "$actual" != "$expected" ]]; then
         error_message "Checksum verification FAILED for $file!"
         error_message "  Expected: $expected"
         error_message "  Got:      $actual"
@@ -108,14 +129,14 @@ download_file() {
 
     info_message "Downloading $description..."
 
-    if [ -z "$url" ] || [ -z "$dest" ]; then
+    if [[ -z "$url" ]] || [[ -z "$dest" ]]; then
         error_message "Usage: download_file <url> <destination> [description] [max_retries]"
         return 1
     fi
 
     maybe_sudo mkdir -p "$(dirname "$dest")"
 
-    while [ "$retry_count" -lt "$max_retries" ]; do
+    while [[ "$retry_count" -lt "$max_retries" ]]; do
         if command_exists curl; then
             if curl -fsSL --retry 3 --retry-delay 2 "$url" | maybe_sudo tee "$dest" > /dev/null; then
                 success_message "$description downloaded successfully"
@@ -151,7 +172,7 @@ download_and_verify_file() {
         error_exit "Failed to download $name from $url"
     fi
     
-    if [ -n "$checksum_url" ]; then
+    if [[ -n "$checksum_url" ]]; then
         local temp_checksum_file
         temp_checksum_file=$(mktemp)
         if ! download_file "$checksum_url" "$temp_checksum_file" "checksum file"; then
@@ -160,11 +181,11 @@ download_and_verify_file() {
         checksum_file="$temp_checksum_file"
     fi
     
-    if [ -f "$checksum_file" ]; then
+    if [[ -f "$checksum_file" ]]; then
         local expected
         expected=$(grep "$pattern" "$checksum_file" | awk '{print $1}')
         
-        if [ -n "$expected" ]; then
+        if [[ -n "$expected" ]]; then
             if ! verify_checksum "$dest" "$expected"; then
                 error_exit "$name checksum verification failed"
             fi
@@ -174,7 +195,7 @@ download_and_verify_file() {
         fi
         
         # Cleanup temporary checksum file if it was downloaded from a URL
-        if [ -n "$checksum_url" ] && [ -f "$checksum_file" ]; then
+        if [[ -n "$checksum_url" ]] && [[ -f "$checksum_file" ]]; then
             rm -f "$checksum_file"
         fi
     else
@@ -200,6 +221,7 @@ detect_architecture() {
             error_exit "Unsupported architecture: $arch"
             ;;
     esac
+    return 0
 }
 
 # Check available disk space (in KB) against a required minimum
@@ -209,11 +231,12 @@ check_disk_space() {
     local available_kb
     available_kb=$(df "$path" | awk 'NR==2 {print $4}')
 
-    if [ "$available_kb" -lt "$required_kb" ]; then
+    if [[ "$available_kb" -lt "$required_kb" ]]; then
         error_message "Insufficient disk space. At least $((required_kb / 1024)) MB required in $path"
         error_message "Available: $((available_kb / 1024)) MB"
         exit 1
     fi
 
     info_message "Sufficient disk space available: $((available_kb / 1024)) MB"
+    return 0
 }

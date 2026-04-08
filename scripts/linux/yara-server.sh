@@ -8,7 +8,7 @@
 # Foundation.
 
 # Check Bash version and re-execute with /bin/bash if it is >= 4
-if [[ -n "$BASH_VERSION" ]]; then
+if [[ -n "${BASH_VERSION:-}" ]]; then
     bash_major="${BASH_VERSION%%.*}"
     if [[ "$bash_major" -lt 4 ]]; then
         if [[ -x "/bin/bash" ]]; then

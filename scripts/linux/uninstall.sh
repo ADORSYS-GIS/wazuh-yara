@@ -10,14 +10,14 @@
 
 
 # Set shell options based on shell type
-if [ -n "$BASH_VERSION" ]; then
+if [[ -n "${BASH_VERSION:-}" ]]; then
     set -euo pipefail
 else
     set -eu
 fi
 
 # OS guard early in the script
-if [ "$(uname -s)" != "Linux" ]; then
+if [[ "$(uname -s)" != "Linux" ]]; then
     printf "%s\n" "[ERROR] This installation script is intended for Linux systems. Please use the appropriate script for your operating system." >&2
     exit 1
 fi
@@ -26,6 +26,7 @@ WAZUH_YARA_REPO_REF=${WAZUH_YARA_REPO_REF:-"main"}
 WAZUH_YARA_REPO_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/${WAZUH_YARA_REPO_REF}"
 OSSEC_CONF_PATH=${OSSEC_CONF_PATH:-"/var/ossec/etc/ossec.conf"}
 WAZUH_CONTROL_BIN_PATH=${WAZUH_CONTROL_BIN_PATH:-"/var/ossec/bin/wazuh-control"}
+YARA_BIN_PATH="/usr/local/bin/yara"
 
 # Source shared utilities
 UTILS_TMP=$(mktemp -d)
@@ -37,11 +38,13 @@ fi
 
 # Function to calculate SHA256 (cross-platform bootstrap)
 calculate_sha256_bootstrap() {
+    local file="$1"
     if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$1" | awk '{print $1}'
+        sha256sum "$file" | awk '{print $1}'
     else
-        shasum -a 256 "$1" | awk '{print $1}'
+        shasum -a 256 "$file" | awk '{print $1}'
     fi
+    return 0
 }
 
 # Download checksums and verify utils.sh integrity BEFORE sourcing it
@@ -54,14 +57,14 @@ fi
 EXPECTED_HASH=$(grep "scripts/shared/utils.sh" "$UTILS_TMP/checksums.sha256" | awk '{print $1}')
 ACTUAL_HASH=$(calculate_sha256_bootstrap "$UTILS_TMP/utils.sh")
 
-if [ -z "$EXPECTED_HASH" ] || [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
+if [[ -z "$EXPECTED_HASH" ]] || [[ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]]; then
     echo "Error: Checksum verification failed for utils.sh" >&2
     echo "Expected hash: $EXPECTED_HASH" >&2
     echo "Actual hash: $ACTUAL_HASH" >&2
     exit 1
 fi
 
-# Source utils.sh only after verification
+# shellcheck disable=SC1091
 . "$UTILS_TMP/utils.sh"
 
 # Detect Linux Distribution
@@ -88,6 +91,7 @@ restart_wazuh_agent() {
     else
         warn_message "Could not restart Wazuh agent (may not be running)."
     fi
+    return 0
 }
 
 # sed in-place for Linux
@@ -95,6 +99,7 @@ sed_inplace() {
     if command_exists gsed; then
         maybe_sudo sed -i "$@" 2>/dev/null || true
     fi
+    return 0
 }
 
 # Detect YARA installations
@@ -111,7 +116,7 @@ detect_yara_installation() {
         has_modern=1
     fi
 
-    if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
+    if [[ -L "$YARA_BIN_PATH" ]] || [[ -f "$YARA_BIN_PATH" ]]; then
         has_softlink=1
     fi
 
@@ -129,6 +134,7 @@ detect_yara_installation() {
     esac
 
     echo "${has_legacy},${has_modern},${has_softlink}"
+    return 0
 }
 
 # Remove YARA packages installed via package managers
@@ -189,7 +195,7 @@ remove_custom_yara_installation() {
         info_message "YARA installation directory not found: $yara_install_dir"
     fi
 
-    local yara_symlink="/usr/local/bin/yara"
+    local yara_symlink="$YARA_BIN_PATH"
     if [[ -L "$yara_symlink" ]] || [[ -f "$yara_symlink" ]]; then
         info_message "Removing YARA symlink/wrapper: $yara_symlink"
         if maybe_sudo rm -f "$yara_symlink"; then
@@ -205,6 +211,7 @@ remove_custom_yara_installation() {
     if [[ $removed -eq 0 ]]; then
         info_message "No custom YARA installation found"
     fi
+    return 0
 }
 
 # Remove legacy YARA installation from /opt/yara
@@ -228,6 +235,7 @@ remove_legacy_yara_installation() {
     if [[ $removed -eq 0 ]]; then
         info_message "No legacy YARA installation found"
     fi
+    return 0
 }
 
 # Remove YARA rules and scripts from Wazuh
@@ -265,6 +273,7 @@ remove_yara_wazuh_components() {
     if [[ $removed -eq 0 ]]; then
         info_message "No YARA components found in Wazuh directories"
     fi
+    return 0
 }
 
 # Restore ossec configuration
@@ -282,6 +291,7 @@ restore_ossec_configuration() {
     else
         warn_message "OSSEC configuration file not found: $OSSEC_CONF_PATH"
     fi
+    return 0
 }
 
 # Validate complete removal
@@ -306,8 +316,8 @@ validate_removal() {
         found_items=$((found_items + 1))
     fi
 
-    if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
-        warn_message "YARA binary/symlink still exists: /usr/local/bin/yara"
+    if [[ -L "$YARA_BIN_PATH" ]] || [[ -f "$YARA_BIN_PATH" ]]; then
+        warn_message "YARA binary/symlink still exists: $YARA_BIN_PATH"
         found_items=$((found_items + 1))
     fi
 
@@ -383,6 +393,7 @@ main() {
     echo ""
     success_message "YARA uninstallation process completed!"
     info_message "Your system is now clean and ready for a fresh installation"
+    return 0
 }
 
 # Execute main function

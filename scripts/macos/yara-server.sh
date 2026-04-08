@@ -8,7 +8,7 @@
 # Foundation.
 
 # Check Bash version and re-execute with a Homebrew/local Bash >= 4 if needed
-if [[ -n "$BASH_VERSION" ]]; then
+if [[ -n "${BASH_VERSION:-}" ]]; then
     bash_major="${BASH_VERSION%%.*}"
     if [[ "$bash_major" -lt 4 ]]; then
         if [[ -x "/opt/homebrew/bin/bash" ]]; then

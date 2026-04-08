@@ -8,7 +8,7 @@
 # Foundation.
 
 # Check Bash version and re-execute with newer bash if needed (macOS ships with bash 3)
-if [[ -n "$BASH_VERSION" ]]; then
+if [[ -n "${BASH_VERSION:-}" ]]; then
     bash_major="${BASH_VERSION%%.*}"
     if [[ "$bash_major" -lt 4 ]]; then
         newer_bash=""
@@ -36,7 +36,7 @@ if [[ -n "$BASH_VERSION" ]]; then
 fi
 
 # Exit immediately if a command exits with a non-zero status.
-if [[ -n "$BASH_VERSION" ]]; then
+if [[ -n "${BASH_VERSION:-}" ]]; then
     set -euo pipefail
 else
     set -eu
@@ -45,7 +45,7 @@ fi
 #------------------------- Gather parameters -------------------------#
 
 # Extra arguments
-read INPUT_JSON
+read -r INPUT_JSON
 FILENAME=$(echo "$INPUT_JSON" | jq -r .parameters.alert.syscheck.path)
 
 if [[ -z "$FILENAME" ]]; then
@@ -113,7 +113,7 @@ add_fim_ignore() {
     }
     { print }' "$OSSEC_CONF_PATH" > "$temp_ossec_conf"
 
-    if [[ $? -eq 0 ]] && [[ -s "$temp_ossec_conf" ]]; then
+    if [[ -s "$temp_ossec_conf" ]]; then
         mv "$temp_ossec_conf" "$OSSEC_CONF_PATH"
         echo "wazuh-yara: DEBUG - Added '$file_to_ignore' to FIM ignore list in $OSSEC_CONF_PATH." >> "${LOG_FILE}"
 
@@ -135,7 +135,8 @@ confirm_action_macos() {
     local cancel_button="Cancel"
 
     local osascript_command="display dialog \"$confirmation_message\" with title \"Confirmation Required\" buttons {\"$cancel_button\", \"$confirm_button\"} default button \"$cancel_button\" with icon caution"
-    local osascript_result=$(osascript -e "$osascript_command" 2>/dev/null)
+    local osascript_result
+    osascript_result=$(osascript -e "$osascript_command" 2>/dev/null)
 
     if [[ "$osascript_result" == *"button returned:$confirm_button"* ]]; then
         return 0
@@ -156,7 +157,8 @@ send_notification_macos() {
         iconArg="with icon POSIX file \"$iconPath\""
     fi
     local osascript_command="display dialog \"$message_body\" with title \"$title\" buttons {\"Dismiss\", \"Ignore All\", \"Delete All\"} default button \"Dismiss\" $iconArg"
-    local osascript_result=$(osascript -e "$osascript_command" 2>/dev/null)
+    local osascript_result
+    osascript_result=$(osascript -e "$osascript_command" 2>/dev/null)
 
     local user_action=""
     if [[ "$osascript_result" == *"button returned:Delete All"* ]]; then
@@ -182,8 +184,7 @@ send_notification_macos() {
                 local delete_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
                     echo "wazuh-yara: DEBUG - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
-                    rm -f "${file_path}"
-                    if [[ $? -eq 0 ]]; then
+                    if rm -f "${file_path}"; then
                         echo "wazuh-yara: SUCCESS - Delete file: ${file_path}" >> "${LOG_FILE}"
                         delete_success+=("${file_path}")
                     else
@@ -246,6 +247,7 @@ send_notification_macos() {
             ;;
     esac
     echo "Notification sent: $message_body" >> "${LOG_FILE}"
+    return 0
 }
 
 

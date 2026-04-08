@@ -8,7 +8,7 @@
 # Foundation.
 
 # Exit immediately if a command exits with a non-zero status.
-if [[ -n "$BASH_VERSION" ]]; then
+if [[ -n "${BASH_VERSION:-}" ]]; then
     set -euo pipefail
 else
     set -eu
@@ -17,7 +17,7 @@ fi
 #------------------------- Gather parameters -------------------------#
 
 # Extra arguments
-read INPUT_JSON
+read -r INPUT_JSON
 FILENAME=$(echo "$INPUT_JSON" | jq -r .parameters.alert.syscheck.path)
 
 # Validate FILENAME is not empty after jq parsing
@@ -107,19 +107,19 @@ confirm_action_linux() {
     local confirm_text="Yes, $action"
     local cancel_text="No, Cancel"
 
-    local USER=$(who | awk '{print $1}' | head -n 1)
-    local USER_UID=$(id -u "$USER")
+    local USER
+    USER=$(who | awk '{print $1}' | head -n 1)
+    local USER_UID
+    USER_UID=$(id -u "$USER")
     local DBUS_PATH="/run/user/$USER_UID/bus"
 
-    local response=$(sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+    if sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
                      zenity --question \
                      --title="Confirmation Required" \
                      --text="$confirmation_message" \
                      --ok-label="$confirm_text" \
                      --cancel-label="$cancel_text" \
-                     --width=400 2>/dev/null)
-
-    if [[ "$?" -eq 0 ]]; then
+                     --width=400 2>/dev/null; then
         return 0
     else
         return 1
@@ -133,9 +133,11 @@ send_notification_linux() {
     local message_body="$1"
     local detected_files_paths_array_ref=$2
 
+    local USER
     USER=$(who | awk '{print $1}' | head -n 1)
+    local USER_UID
     USER_UID=$(id -u "$USER")
-    DBUS_PATH="/run/user/$USER_UID/bus"
+    local DBUS_PATH="/run/user/$USER_UID/bus"
 
     local notify_command=(sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" notify-send --app-name=Wazuh -u critical)
     if [[ -f "$iconPath" ]]; then
@@ -160,8 +162,7 @@ send_notification_linux() {
                 local delete_fail=()
                 for file_path in "${!detected_files_paths_array_ref}"; do
                     echo "wazuh-yara: DEBUG - Attempting to delete file: ${file_path}" >> "${LOG_FILE}"
-                    rm -f "${file_path}"
-                    if [[ $? -eq 0 ]]; then
+                    if rm -f "${file_path}"; then
                         echo "wazuh-yara: SUCCESS - Delete file: ${file_path}" >> "${LOG_FILE}"
                         delete_success+=("${file_path}")
                     else
@@ -236,6 +237,7 @@ send_notification_linux() {
             ;;
     esac
     echo "Notification sent: $message_body" >> "${LOG_FILE}"
+    return 0
 }
 
 
