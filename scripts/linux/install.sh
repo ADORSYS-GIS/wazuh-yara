@@ -126,8 +126,7 @@ detect_distro() {
     elif [[ -f /etc/debian_version ]]; then
         echo "debian"
     else
-        error_message "Unable to detect Linux distribution"
-        exit 1
+        error_exit "Unable to detect Linux distribution"
     fi
 }
 DISTRO=$(detect_distro)
@@ -194,6 +193,9 @@ detect_yara_installation() {
             if command_exists dpkg && dpkg -s yara >/dev/null 2>&1; then
                 has_modern=1
             fi
+            ;;
+        *)
+            error_exit "Unable to detect Linux distribution"
             ;;
     esac
 
@@ -283,8 +285,7 @@ pre_installation_check() {
             fi
             ;;
         *)
-            error_message "Unsupported Linux distribution: $DISTRO"
-            exit 1
+            error_exit "Unsupported Linux distribution: $DISTRO"
             ;;
     esac
 
@@ -362,8 +363,7 @@ install_dependencies() {
             warn_message "Could not install jq, continuing without it"
             ;;
         *)
-            error_message "Unsupported Linux distribution: $DISTRO"
-            exit 1
+            error_exit "Unsupported Linux distribution: $DISTRO"
             ;;
     esac
 
@@ -389,8 +389,7 @@ download_yara_package() {
             output="$TMP_DIR/yara.deb"
             ;;
         *)
-            error_message "Unsupported Linux distribution: $distro"
-            exit 1
+            error_exit "Unsupported Linux distribution: $distro"
             ;;
     esac
 
@@ -417,8 +416,7 @@ install_yara_package() {
             maybe_sudo apt-get install -y "$TMP_DIR/yara.deb"
             ;;
         *)
-            error_message "Unsupported Linux distribution: $distro"
-            exit 1
+            error_exit "Unsupported Linux distribution: $distro"
             ;;
     esac
 
@@ -608,8 +606,7 @@ main() {
                 exit 0
                 ;;
             -*)
-                error_message "Unknown option: $1"
-                exit 1
+                error_exit "Unknown option: $1"
                 ;;
             *)
                 if [[ -z "${YARA_VERSION_SET:-}" ]]; then
@@ -617,8 +614,7 @@ main() {
                     YARA_VERSION_SET=1
                     shift
                 else
-                    error_message "Unexpected argument: $1"
-                    exit 1
+                    error_exit "Unexpected argument: $1"
                 fi
                 ;;
         esac

@@ -354,8 +354,8 @@ install_yara_macos_dmg() {
     maybe_sudo chown root:root "/opt/wazuh/yara/bin/yara"
 
     maybe_sudo mkdir -p /usr/local/bin
-    maybe_sudo ln -sf "/opt/wazuh/yara/bin/yara" /usr/local/bin/yara
-    maybe_sudo chmod 755 /usr/local/bin/yara
+    maybe_sudo ln -sf "/opt/wazuh/yara/bin/yara" "$YARA_BIN_PATH"
+    maybe_sudo chmod 755 "$YARA_BIN_PATH"
 
     if [[ -f "/opt/wazuh/yara/bin/yara" ]]; then
         info_message "DEBUG: YARA binary verified at /opt/wazuh/yara/bin/yara"
@@ -575,15 +575,7 @@ main() {
     fi
     
     # Proceed with installation
-    case "$OS" in
-        darwin)
-            yara_macos_installation
-            ;;
-        *)
-            error_message "Unsupported operating system: $OS"
-            exit 1
-            ;;
-    esac
+    yara_macos_installation
     return 0
 }
 

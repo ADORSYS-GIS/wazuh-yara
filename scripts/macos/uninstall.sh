@@ -26,6 +26,7 @@ WAZUH_YARA_REPO_REF=${WAZUH_YARA_REPO_REF:-"main"}
 WAZUH_YARA_REPO_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/${WAZUH_YARA_REPO_REF}"
 OSSEC_CONF_PATH=${OSSEC_CONF_PATH:-"/Library/Ossec/etc/ossec.conf"}
 WAZUH_CONTROL_BIN_PATH=${WAZUH_CONTROL_BIN_PATH:-"/Library/Ossec/bin/wazuh-control"}
+YARA_BIN_PATH="/usr/local/bin/yara"
 
 # Source shared utilities
 TMP_DIR=$(mktemp -d)
@@ -145,7 +146,7 @@ remove_custom_yara_installation() {
         info_message "YARA installation directory not found: $yara_install_dir"
     fi
 
-    local yara_symlink="/usr/local/bin/yara"
+    local yara_symlink="$YARA_BIN_PATH"
     if [[ -L "$yara_symlink" ]] || [[ -f "$yara_symlink" ]]; then
         info_message "Removing YARA symlink: $yara_symlink"
         if maybe_sudo rm -f "$yara_symlink"; then
@@ -266,8 +267,8 @@ validate_removal() {
         found_items=$((found_items + 1))
     fi
 
-    if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
-        warn_message "YARA binary/symlink still exists: /usr/local/bin/yara"
+    if [[ -L "$YARA_BIN_PATH" ]] || [[ -f "$YARA_BIN_PATH" ]]; then
+        warn_message "YARA binary/symlink still exists: $YARA_BIN_PATH"
         found_items=$((found_items + 1))
     fi
 
