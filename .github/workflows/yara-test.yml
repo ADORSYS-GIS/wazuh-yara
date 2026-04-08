@@ -93,6 +93,8 @@ jobs:
     name: Release
     permissions:
       contents: write
+      pull-requests: write
+
     needs:
       - run-pytest-linux
       - run-pytest-macos

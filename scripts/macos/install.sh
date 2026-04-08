@@ -388,8 +388,11 @@ setup_yara_components() {
         exit 1
     fi
 
+    local yara_script_pattern="scripts/macos/yara.sh"
+    [[ "$INSTALLATION_TYPE" == "server" ]] && yara_script_pattern="scripts/macos/yara-server.sh"
+
     print_step 2 "Downloading and configuring YARA script"
-    if ! download_and_verify_file "$YARA_SOURCE_URL" "$yara_script_path" "scripts/macos/yara.sh" "YARA script" "${WAZUH_YARA_REPO_URL}/checksums.sha256"; then
+    if ! download_and_verify_file "$YARA_SOURCE_URL" "$yara_script_path" "$yara_script_pattern" "YARA script" "${WAZUH_YARA_REPO_URL}/checksums.sha256"; then
         error_message "Failed to download YARA script"
         exit 1
     fi
