@@ -306,6 +306,13 @@ pre_installation_check() {
 # INSTALLATION FUNCTIONS
 #=============================================================================
 
+# sed in-place for Linux
+sed_inplace() {
+    if command_exists gsed; then
+        maybe_sudo sed -i "$@" 2>/dev/null || true
+    fi
+}
+
 # Remove file limit from ossec.conf
 remove_file_limit() {
     if maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH" 2>/dev/null; then

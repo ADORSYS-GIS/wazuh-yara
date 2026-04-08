@@ -90,6 +90,13 @@ restart_wazuh_agent() {
     fi
 }
 
+# sed in-place for Linux
+sed_inplace() {
+    if command_exists gsed; then
+        maybe_sudo sed -i "$@" 2>/dev/null || true
+    fi
+}
+
 # Detect YARA installations
 detect_yara_installation() {
     local has_legacy=0

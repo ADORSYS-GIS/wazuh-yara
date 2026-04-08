@@ -98,6 +98,11 @@ detect_yara_installation() {
     echo "${has_legacy},${has_modern},${has_softlink}"
 }
 
+# Sed in-place for macOS
+sed_inplace() {
+    maybe_sudo sed -i '' "$@" 2>/dev/null || true
+}
+
 # Remove YARA packages installed via Homebrew
 remove_yara_packages() {
     info_message "Removing YARA packages..."

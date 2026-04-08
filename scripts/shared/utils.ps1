@@ -127,16 +127,12 @@ function Download-And-VerifyFile {
         [string]$ChecksumUrl = $null
     )
     
-    if (-not (Download-File -Url $Url -Destination $Destination)) {
-        ErrorExit "Failed to download $FileName from $Url"
-    }
+    Download-File -Url $Url -Destination $Destination -Description $FileName
     
     # If a direct checksum URL is provided, download it and use it as the source of truth
     if (-not [string]::IsNullOrWhiteSpace($ChecksumUrl)) {
         $tempChecksumFile = Join-Path ([System.IO.Path]::GetTempPath()) "checksums-$([System.Guid]::NewGuid().ToString()).sha256"
-        if (-not (Download-File -Url $ChecksumUrl -Destination $tempChecksumFile)) {
-            ErrorExit "Failed to download external checksum file from $ChecksumUrl"
-        }
+        Download-File -Url $ChecksumUrl -Destination $tempChecksumFile -Description "checksum file"
         $ChecksumFile = $tempChecksumFile
     }
     

@@ -147,14 +147,14 @@ download_and_verify_file() {
     local checksum_url="${5:-}"
     local checksum_file="${6:-${CHECKSUMS_FILE:-}}"
     
-    if ! download_file "$url" "$dest"; then
+    if ! download_file "$url" "$dest" "$name"; then
         error_exit "Failed to download $name from $url"
     fi
     
     if [ -n "$checksum_url" ]; then
         local temp_checksum_file
         temp_checksum_file=$(mktemp)
-        if ! download_file "$checksum_url" "$temp_checksum_file"; then
+        if ! download_file "$checksum_url" "$temp_checksum_file" "checksum file"; then
             error_exit "Failed to download external checksum file from $checksum_url"
         fi
         checksum_file="$temp_checksum_file"

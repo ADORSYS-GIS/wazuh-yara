@@ -9,7 +9,7 @@ if (-not $env:WAZUH_YARA_REPO_REF) {
 $WAZUH_YARA_REPO_REF = $env:WAZUH_YARA_REPO_REF
 $WAZUH_YARA_REPO_URL = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/$WAZUH_YARA_REPO_REF"
 $WAZUH_YARA_RULES_URL = "$WAZUH_YARA_REPO_URL/rules/yara_rules.yar"
-$WAZUH_YARA_BAT_URL = "$WAZUH_YARA_REPO_URL/scripts/yara.bat"
+$WAZUH_YARA_BAT_URL = "$WAZUH_YARA_REPO_URL/scripts/windows/yara.bat"
 
 # Source shared utilities
 $TEMP_DIR = $env:TEMP
@@ -88,18 +88,18 @@ function Install-YARA {
     # Download the YARA rules file (no checksum verification available)
     Download-And-VerifyFile -Url $WAZUH_YARA_RULES_URL -Destination $yaraRulesFile -FileName "YARA rules" -ChecksumPattern "rules/yara_rules.yar" -ChecksumUrl $WAZUH_YARA_REPO_URL/checksums.sha256
 
-# Verify if the yara_rules.yar file exists
-$yaraRulesPath = "$TEMP_DIR\yara_rules.yar"
-if (Test-Path -Path $yaraRulesPath) {
-    # Create YARA rules directory and copy the rules
-    $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"
-    New-Item -ItemType Directory -Path $rulesDir -Force
-    Copy-Item -Path $yaraRulesPath -Destination $rulesDir -Force
-    InfoMessage "YARA rules downloaded and copied to $rulesDir." 
-} else {
-    ErrorMessage "Failed to download YARA rules. The file $yaraRulesPath does not exist." -ForegroundColor Red
-    exit 1
-}
+    # Verify if the yara_rules.yar file exists
+    $yaraRulesPath = "$TEMP_DIR\yara_rules.yar"
+    if (Test-Path -Path $yaraRulesPath) {
+        # Create YARA rules directory and copy the rules
+        $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"
+        New-Item -ItemType Directory -Path $rulesDir -Force
+        Copy-Item -Path $yaraRulesPath -Destination $rulesDir -Force
+        InfoMessage "YARA rules downloaded and copied to $rulesDir." 
+    } else {
+        ErrorMessage "Failed to download YARA rules. The file $yaraRulesPath does not exist." -ForegroundColor Red
+        exit 1
+    }
 
     #Download the yara.bat script
     $yaraBatDir =  "C:\Program Files (x86)\ossec-agent\active-response\bin\yara.bat"
