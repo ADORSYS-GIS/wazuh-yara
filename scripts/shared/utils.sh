@@ -24,7 +24,7 @@ log() {
     local timestamp
     timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 
-    printf "%s [%s] %s\n" "$timestamp" "$level" "$message"
+    printf "%s %b %s\n" "$timestamp" "$level" "$message"
     return 0
 }
 
