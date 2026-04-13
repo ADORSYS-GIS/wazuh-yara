@@ -65,6 +65,7 @@ fi
 
 # shellcheck disable=SC1091
 . "$UTILS_TMP/utils.sh"
+trap cleanup EXIT
 
 # Detect Linux Distribution
 detect_distro() {
@@ -80,6 +81,7 @@ detect_distro() {
         error_message "Unable to detect Linux distribution"
         exit 1
     fi
+    return 0
 }
 DISTRO=$(detect_distro)
 
@@ -129,6 +131,9 @@ detect_yara_installation() {
             if command_exists dpkg && dpkg -s yara > /dev/null 2>&1; then
                 has_modern=1
             fi
+            ;;
+        *)
+            error_exit "Unsupported Linux distribution: $DISTRO"
             ;;
     esac
 
@@ -339,9 +344,7 @@ validate_removal() {
 }
 
 # Main uninstallation function
-main() {
-    local args=("$@")
-    
+main() {    
     info_message "Starting YARA uninstallation..."
     info_message "Detected OS: Linux"
     info_message "Detected Linux distribution: ${DISTRO}"
@@ -396,4 +399,4 @@ main() {
 }
 
 # Execute main function
-main "$@"
+main

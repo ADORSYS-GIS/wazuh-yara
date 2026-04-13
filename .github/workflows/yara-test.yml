@@ -15,7 +15,6 @@ on:
 jobs:
   update-changelog-and-checksums:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
       pull-requests: write
@@ -52,13 +51,12 @@ jobs:
           if [[ -n $(git status --porcelain) ]]; then
             git add CHANGELOG.md checksums.sha256
             git commit -m "docs: update CHANGELOG.md and checksums [skip ci]"
-            git push origin main
+            git push origin ${{ github.head_ref || github.ref_name }}
           else
             echo "No changes to commit"
           fi
           
       - name: Create Pull Request if needed
-        if: github.ref == 'refs/heads/main'
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -190,5 +188,6 @@ jobs:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
           name: Release ${{ steps.get_version.outputs.VERSION }}
           body: ${{ steps.git_cliff.outputs.content }}
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || 'main' }}
           draft: false
           prerelease: false

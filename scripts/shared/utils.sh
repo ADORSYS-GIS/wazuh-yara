@@ -19,20 +19,12 @@ NORMAL='\033[0m'
 log() {
     local level="$1"
     shift
+
     local message="$*"
-    local level_var=""
-    local timestamp_var=""
+    local timestamp
+    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
 
-    if [[ -n "${BASH_VERSION:-}" ]]; then
-        local level timestamp
-    else
-        level_var=""
-        timestamp_var=""
-    fi
-
-    level_var="$level"
-    timestamp_var=$(date +"%Y-%m-%d %H:%M:%S")
-    printf "%s %b %s\n" "$timestamp_var" "$level_var" "$message"
+    printf "%s [%s] %s\n" "$timestamp" "$level" "$message"
     return 0
 }
 
@@ -221,6 +213,19 @@ detect_architecture() {
             error_exit "Unsupported architecture: $arch"
             ;;
     esac
+    return 0
+}
+
+# Cleanup function
+cleanup() {
+    info_message "Cleaning up temporary files..."
+    rm -rf "$TMP_DIR"
+
+    if [[ -d "./yara-install" ]]; then
+        rm -rf "./yara-install"
+    elif [[ -n "${HOME:-}" ]] && [[ -d "$HOME/yara-install" ]]; then
+        rm -rf "$HOME/yara-install"
+    fi
     return 0
 }
 

@@ -152,11 +152,11 @@ send_notification_macos() {
     local message_body="$1"
     local detected_files_paths_array_ref=$2
 
-    local iconArg=""
+    local icon_arg=""
     if [[ -f "$iconPath" ]]; then
-        iconArg="with icon POSIX file \"$iconPath\""
+        icon_arg="with icon POSIX file \"$iconPath\""
     fi
-    local osascript_command="display dialog \"$message_body\" with title \"$title\" buttons {\"Dismiss\", \"Ignore All\", \"Delete All\"} default button \"Dismiss\" $iconArg"
+    local osascript_command="display dialog \"$message_body\" with title \"$title\" buttons {\"Dismiss\", \"Ignore All\", \"Delete All\"} default button \"Dismiss\" $icon_arg"
     local osascript_result
     osascript_result=$(osascript -e "$osascript_command" 2>/dev/null)
 

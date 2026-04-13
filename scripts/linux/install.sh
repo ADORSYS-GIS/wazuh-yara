@@ -127,21 +127,9 @@ detect_distro() {
     else
         error_exit "Unable to detect Linux distribution"
     fi
-}
-DISTRO=$(detect_distro)
-
-# Cleanup function
-cleanup() {
-    info_message "Cleaning up temporary files..."
-    rm -rf "$TMP_DIR"
-
-    if [[ -d "./yara-install" ]]; then
-        rm -rf "./yara-install"
-    elif [[ -n "${HOME:-}" ]] && [[ -d "$HOME/yara-install" ]]; then
-        rm -rf "$HOME/yara-install"
-    fi
     return 0
 }
+DISTRO=$(detect_distro)
 
 # Register cleanup to run on exit
 trap cleanup EXIT

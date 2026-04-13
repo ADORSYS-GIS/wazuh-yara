@@ -118,18 +118,6 @@ prompt_installation_type() {
 OSSEC_CONF_PATH="/Library/Ossec/etc/ossec.conf"
 LOGGED_IN_USER=$(scutil <<< "show State:/Users/ConsoleUser" | awk '/Name :/ && ! /loginwindow/ {print $3}')
 
-# Cleanup function
-cleanup() {
-    info_message "Cleaning up temporary files..."
-    rm -rf "$TMP_DIR"
-
-    if [[ -d "./yara-install" ]]; then
-        rm -rf "./yara-install"
-    elif [[ -n "${HOME:-}" ]] && [[ -d "$HOME/yara-install" ]]; then
-        rm -rf "$HOME/yara-install"
-    fi
-}
-
 # Register cleanup to run on exit
 trap cleanup EXIT
 
@@ -237,6 +225,7 @@ pre_installation_check() {
     echo ""
     warn_message "Existing YARA installation(s) detected!"
 
+    
     if [[ -d "$YARA_LEGACY_PATH" ]]; then
         info_message "Found YARA in path: $YARA_LEGACY_PATH"
     fi
@@ -348,10 +337,10 @@ install_yara_macos_dmg() {
     maybe_sudo hdiutil detach "$mount_point" -quiet
 
     print_step 3 "Setting permissions"
-    maybe_sudo chmod 755 "/opt/wazuh/yara/bin/yara"
-    maybe_sudo chown root:wheel "/opt/wazuh/yara/bin/yara" 2>/dev/null || \
-    maybe_sudo chown root:staff "/opt/wazuh/yara/bin/yara" 2>/dev/null || \
-    maybe_sudo chown root:root "/opt/wazuh/yara/bin/yara"
+    maybe_sudo chmod 755 "$YARA_MODERN_BIN_PATH"
+    maybe_sudo chown root:wheel "$YARA_MODERN_BIN_PATH" 2>/dev/null || \
+    maybe_sudo chown root:staff "$YARA_MODERN_BIN_PATH" 2>/dev/null || \
+    maybe_sudo chown root:root "$YARA_MODERN_BIN_PATH"
 
     maybe_sudo mkdir -p /usr/local/bin
     maybe_sudo ln -sf "$YARA_MODERN_BIN_PATH" "$YARA_BIN_PATH"

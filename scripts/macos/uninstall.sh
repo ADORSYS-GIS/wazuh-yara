@@ -66,6 +66,7 @@ fi
 
 # shellcheck disable=SC1091
 . "$TMP_DIR/utils.sh"
+trap cleanup EXIT
 
 # Restart Wazuh agent
 restart_wazuh_agent() {
@@ -291,8 +292,6 @@ validate_removal() {
 
 # Main uninstallation function
 main() {
-    local args=("$@")
-    
     info_message "Starting YARA uninstallation..."
     info_message "Detected OS: macOS"
 
@@ -346,4 +345,4 @@ main() {
 }
 
 # Execute main function
-main "$@"
+main
