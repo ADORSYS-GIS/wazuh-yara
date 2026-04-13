@@ -1,7 +1,10 @@
 #!/usr/bin/env sh
 
-mkdir -p /var/ossec/etc
-cat <<EOF >> /var/ossec/etc/ossec.conf
+setup_test_environment() {
+    local test_dir="/var/ossec/etc"
+    
+    mkdir -p "$test_dir"
+    cat <<EOF >> "$test_dir/ossec.conf"
 <!--
   Wazuh - Manager - Default configuration.
   More info at: https://documentation.wazuh.com
@@ -261,3 +264,9 @@ cat <<EOF >> /var/ossec/etc/ossec.conf
 
 </ossec_config>
 EOF
+
+    return 0
+}
+
+# Execute the setup function
+setup_test_environment

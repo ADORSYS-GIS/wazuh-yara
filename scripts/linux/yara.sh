@@ -27,7 +27,7 @@ if [[ -z "$FILENAME" ]]; then
 fi
 
 # Default paths and variables
-YARA_PATH="/opt/wazuh/yara/bin"
+YARA_PATH="$YARA_MODERN_PATH/bin"
 YARA_RULES="/var/ossec/ruleset/yara/rules/yara_rules.yar"
 OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
 LOG_FILE="/var/ossec/logs/active-responses.log"
@@ -107,13 +107,13 @@ confirm_action_linux() {
     local confirm_text="Yes, $action"
     local cancel_text="No, Cancel"
 
-    local USER
-    USER=$(who | awk '{print $1}' | head -n 1)
-    local USER_UID
-    USER_UID=$(id -u "$USER")
-    local DBUS_PATH="/run/user/$USER_UID/bus"
+    local user
+    user=$(who | awk '{print $1}' | head -n 1)
+    local user_uid
+    user_uid=$(id -u "$user")
+    local dbus_path="/run/user/$user_uid/bus"
 
-    if sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+    if sudo -u "$user" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$dbus_path" \
                      zenity --question \
                      --title="Confirmation Required" \
                      --text="$confirmation_message" \
@@ -133,13 +133,13 @@ send_notification_linux() {
     local message_body="$1"
     local detected_files_paths_array_ref=$2
 
-    local USER
-    USER=$(who | awk '{print $1}' | head -n 1)
-    local USER_UID
-    USER_UID=$(id -u "$USER")
-    local DBUS_PATH="/run/user/$USER_UID/bus"
+    local user
+    user=$(who | awk '{print $1}' | head -n 1)
+    local user_uid
+    user_uid=$(id -u "$user")
+    local dbus_path="/run/user/$user_uid/bus"
 
-    local notify_command=(sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" notify-send --app-name=Wazuh -u critical)
+    local notify_command=(sudo -u "$user" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$dbus_path" notify-send --app-name=Wazuh -u critical)
     if [[ -f "$iconPath" ]]; then
         notify_command+=( -i "$iconPath" )
     fi
@@ -181,10 +181,10 @@ send_notification_linux() {
                 fi
                 if [[ -n "$notify_msg" ]]; then
                     if [[ -f "$iconPath" ]]; then
-                        sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                        sudo -u "$user" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$dbus_path" \
                             notify-send --app-name=Wazuh -u critical -i "$iconPath" "Wazuh-Yara Delete Result" "$notify_msg"
                     else
-                        sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                        sudo -u "$user" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$dbus_path" \
                             notify-send --app-name=Wazuh -u critical "Wazuh-Yara Delete Result" "$notify_msg"
                     fi
                 fi
@@ -218,10 +218,10 @@ send_notification_linux() {
                 fi
                 if [[ -n "$notify_msg" ]]; then
                     if [[ -f "$iconPath" ]]; then
-                        sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                        sudo -u "$user" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$dbus_path" \
                             notify-send --app-name=Wazuh -u critical -i "$iconPath" "Wazuh-Yara Ignore Result" "$notify_msg"
                     else
-                        sudo -u "$USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_PATH" \
+                        sudo -u "$user" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS="unix:path=$dbus_path" \
                             notify-send --app-name=Wazuh -u critical "Wazuh-Yara Ignore Result" "$notify_msg"
                     fi
                 fi
@@ -247,7 +247,7 @@ if ! "${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME" &> /dev/null; then
     echo "wazuh-yara: DEBUG - Yara scan failed for '$FILENAME' (could not open file or other issue). Skipping further processing." >> "${LOG_FILE}"
     exit 0
 fi
-yara_output="$("${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME")"
+yara_output=$("${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME")"
 
 
 if [[ $yara_output != "" ]]
@@ -285,4 +285,4 @@ then
     send_notification_linux "$notification_message" "detected_file_paths[@]"
 fi
 
-exit 0;
+exit 0

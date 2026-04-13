@@ -28,7 +28,7 @@ set -euo pipefail
 
 #------------------------- Constants -------------------------#
 
-YARA_PATH="/opt/wazuh/yara/bin"
+YARA_PATH="$YARA_MODERN_PATH/bin"
 YARA_RULES="/var/ossec/ruleset/yara/rules/yara_rules.yar"
 OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
 LOG_FILE="/var/ossec/logs/active-responses.log"
@@ -48,6 +48,8 @@ fi
 YARA_BIN=""
 if [[ -x "$YARA_PATH/yara" ]]; then
     YARA_BIN="$YARA_PATH/yara"
+elif [[ -x "$YARA_MODERN_BIN_PATH" ]]; then
+    YARA_BIN="$YARA_MODERN_BIN_PATH"
 elif command -v yara >/dev/null 2>&1; then
     YARA_BIN="$(command -v yara)"
 else

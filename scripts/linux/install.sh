@@ -27,7 +27,6 @@ LINUX_RELEASE_TAG="yara-v0.3.17"
 
 # OS and Distribution Detection
 OSSEC_CONF_PATH=${OSSEC_CONF_PATH:-"/var/ossec/etc/ossec.conf"}
-YARA_BIN_PATH="/usr/local/bin/yara"
 
 #=============================================================================
 # Enhanced YARA Installation Script for Linux
@@ -171,11 +170,11 @@ detect_yara_installation() {
     exec 3>&1 4>&2
     exec 1>/dev/null 2>/dev/null
 
-    if [[ -d "/opt/yara" ]]; then
+    if [[ -d "$YARA_LEGACY_PATH" ]]; then
         has_legacy=1
     fi
 
-    if [[ -d "/opt/wazuh/yara" ]]; then
+    if [[ -d "$YARA_MODERN_PATH" ]]; then
         has_modern=1
     fi
 
@@ -239,9 +238,9 @@ pre_installation_check() {
 
     IFS=',' read -r has_legacy has_modern has_softlink <<< "$detection_result"
 
-    if [[ "$has_modern" -eq 1 ]] && [[ -f "/opt/wazuh/yara/bin/yara" ]]; then
+    if [[ "$has_modern" -eq 1 ]] && [[ -f "$YARA_MODERN_BIN_PATH" ]]; then
         local current_version
-        current_version=$(/opt/wazuh/yara/bin/yara --version 2>/dev/null || echo "")
+        current_version=$("$YARA_MODERN_BIN_PATH" --version 2>/dev/null || echo "")
 
         if [[ -n "$current_version" ]] && version_is_4_5_x "$current_version"; then
             success_message "Valid YARA installation found (v${current_version})"
@@ -261,12 +260,12 @@ pre_installation_check() {
     echo ""
     warn_message "Existing YARA installation(s) detected!"
 
-    if [[ -d "/opt/yara" ]]; then
-        info_message "Found YARA in path: /opt/yara"
+    if [[ -d "$YARA_LEGACY_PATH" ]]; then
+        info_message "Found YARA in path: $YARA_LEGACY_PATH"
     fi
 
-    if [[ -d "/opt/wazuh/yara" ]]; then
-        info_message "Found YARA in path: /opt/wazuh/yara"
+    if [[ -d "$YARA_MODERN_PATH" ]]; then
+        info_message "Found YARA in path: $YARA_MODERN_PATH"
     fi
 
     if [[ -L "$YARA_BIN_PATH" ]] || [[ -f "$YARA_BIN_PATH" ]]; then
@@ -425,8 +424,8 @@ install_yara_package() {
     maybe_sudo tee "$YARA_BIN_PATH" > /dev/null << 'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-export LD_LIBRARY_PATH="/opt/wazuh/yara/lib:${LD_LIBRARY_PATH:-}"
-exec "/opt/wazuh/yara/bin/yara.real" "$@"
+export LD_LIBRARY_PATH="$YARA_MODERN_PATH/lib:${LD_LIBRARY_PATH:-}"
+exec "$YARA_MODERN_BIN_PATH" "$@"
 EOF
     maybe_sudo chmod +x "$YARA_BIN_PATH"
 
@@ -502,8 +501,8 @@ validate_installation() {
     if command_exists yara; then
         actual_version=$(yara --version 2>&1 || echo "")
         yara_found=1
-    elif [[ -f "/opt/wazuh/yara/bin/yara" ]]; then
-        actual_version=$(/opt/wazuh/yara/bin/yara --version 2>&1 || echo "")
+    elif [[ -f "$YARA_MODERN_BIN_PATH" ]]; then
+        actual_version=$("$YARA_MODERN_BIN_PATH" --version 2>&1 || echo "")
         yara_found=1
     fi
 
@@ -518,11 +517,11 @@ validate_installation() {
         error_message "YARA command is not available or failed to run."
         error_message "Output was: $actual_version"
 
-        info_message "DEBUG: Checking /opt/wazuh/yara/bin/yara..."
-        if [[ -f "/opt/wazuh/yara/bin/yara" ]]; then
+        info_message "DEBUG: Checking $YARA_MODERN_BIN_PATH..."
+        if [[ -f "$YARA_MODERN_BIN_PATH" ]]; then
             info_message "DEBUG: File exists."
             info_message "DEBUG: Trying to run it directly to see error:"
-            maybe_sudo /opt/wazuh/yara/bin/yara --version || true
+            maybe_sudo "$YARA_MODERN_BIN_PATH" --version || true
         else
             error_message "DEBUG: File does NOT exist."
         fi
@@ -591,12 +590,14 @@ yara_installation() {
 
 # Main function
 main() {
-    while [[ $# -gt 0 ]]; do
-        case $1 in
+    local args=("$@")
+    
+    while [[ ${#args[@]} -gt 0 ]]; do
+        case "${args[0]}" in
             --type)
-                if [[ -n "$2" && "$2" =~ ^(desktop|server)$ ]]; then
-                    INSTALLATION_TYPE="$2"
-                    shift 2
+                if [[ -n "${args[1]}" && "${args[1]}" =~ ^(desktop|server)$ ]]; then
+                    INSTALLATION_TYPE="${args[1]}"
+                    args=("${args[@]:2}")
                 else
                     error_message "Invalid installation type. Use 'desktop' or 'server'."
                     exit 1
@@ -609,15 +610,15 @@ main() {
                 exit 0
                 ;;
             -*)
-                error_exit "Unknown option: $1"
+                error_exit "Unknown option: ${args[0]}"
                 ;;
             *)
                 if [[ -z "${YARA_VERSION_SET:-}" ]]; then
-                    YARA_VERSION="$1"
+                    YARA_VERSION="${args[0]}"
                     YARA_VERSION_SET=1
-                    shift
+                    args=("${args[@]:1}")
                 else
-                    error_exit "Unexpected argument: $1"
+                    error_exit "Unexpected argument: ${args[0]}"
                 fi
                 ;;
         esac

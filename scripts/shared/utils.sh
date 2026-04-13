@@ -24,7 +24,7 @@ log() {
     local timestamp_var=""
 
     if [[ -n "${BASH_VERSION:-}" ]]; then
-        local LEVEL TIMESTAMP
+        local level timestamp
     else
         level_var=""
         timestamp_var=""
@@ -240,3 +240,9 @@ check_disk_space() {
     info_message "Sufficient disk space available: $((available_kb / 1024)) MB"
     return 0
 }
+
+# Path constants
+readonly YARA_LEGACY_PATH="/opt/yara"
+readonly YARA_MODERN_PATH="/opt/wazuh/yara"
+readonly YARA_BIN_PATH="/usr/local/bin/yara"
+readonly YARA_MODERN_BIN_PATH="/opt/wazuh/yara/bin/yara"

@@ -26,7 +26,6 @@ WAZUH_YARA_REPO_REF=${WAZUH_YARA_REPO_REF:-"main"}
 WAZUH_YARA_REPO_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/${WAZUH_YARA_REPO_REF}"
 OSSEC_CONF_PATH=${OSSEC_CONF_PATH:-"/var/ossec/etc/ossec.conf"}
 WAZUH_CONTROL_BIN_PATH=${WAZUH_CONTROL_BIN_PATH:-"/var/ossec/bin/wazuh-control"}
-YARA_BIN_PATH="/usr/local/bin/yara"
 
 # Source shared utilities
 UTILS_TMP=$(mktemp -d)
@@ -108,11 +107,11 @@ detect_yara_installation() {
     local has_modern=0
     local has_softlink=0
 
-    if [[ -d "/opt/yara" ]]; then
+    if [[ -d "$YARA_LEGACY_PATH" ]]; then
         has_legacy=1
     fi
 
-    if [[ -d "/opt/wazuh/yara" ]]; then
+    if [[ -d "$YARA_MODERN_PATH" ]]; then
         has_modern=1
     fi
 
@@ -182,17 +181,16 @@ remove_custom_yara_installation() {
     info_message "Removing custom YARA installation..."
     local removed=0
 
-    local yara_install_dir="/opt/wazuh/yara"
-    if [[ -d "$yara_install_dir" ]]; then
-        info_message "Removing YARA installation directory: $yara_install_dir"
-        if maybe_sudo rm -rf "$yara_install_dir"; then
+    if [[ -d "$YARA_MODERN_PATH" ]]; then
+        info_message "Removing YARA installation directory: $YARA_MODERN_PATH"
+        if maybe_sudo rm -rf "$YARA_MODERN_PATH"; then
             success_message "Removed YARA installation directory"
             removed=1
         else
             error_message "Failed to remove YARA installation directory"
         fi
     else
-        info_message "YARA installation directory not found: $yara_install_dir"
+        info_message "YARA installation directory not found: $YARA_MODERN_PATH"
     fi
 
     local yara_symlink="$YARA_BIN_PATH"
@@ -219,17 +217,16 @@ remove_legacy_yara_installation() {
     info_message "Removing legacy YARA installation..."
     local removed=0
 
-    local legacy_yara_dir="/opt/yara"
-    if [[ -d "$legacy_yara_dir" ]]; then
-        info_message "Removing legacy YARA directory: $legacy_yara_dir"
-        if maybe_sudo rm -rf "$legacy_yara_dir"; then
+    if [[ -d "$YARA_LEGACY_PATH" ]]; then
+        info_message "Removing legacy YARA directory: $YARA_LEGACY_PATH"
+        if maybe_sudo rm -rf "$YARA_LEGACY_PATH"; then
             success_message "Removed legacy YARA directory"
             removed=1
         else
             error_message "Failed to remove legacy YARA directory"
         fi
     else
-        info_message "Legacy YARA directory not found: $legacy_yara_dir"
+        info_message "Legacy YARA directory not found: $YARA_LEGACY_PATH"
     fi
 
     if [[ $removed -eq 0 ]]; then
@@ -306,13 +303,13 @@ validate_removal() {
         found_items=$((found_items + 1))
     fi
 
-    if [[ -d "/opt/yara" ]]; then
-        warn_message "Legacy YARA directory still exists: /opt/yara"
+    if [[ -d "$YARA_LEGACY_PATH" ]]; then
+        warn_message "Legacy YARA directory still exists: $YARA_LEGACY_PATH"
         found_items=$((found_items + 1))
     fi
 
-    if [[ -d "/opt/wazuh/yara" ]]; then
-        warn_message "YARA installation directory still exists: /opt/wazuh/yara"
+    if [[ -d "$YARA_MODERN_PATH" ]]; then
+        warn_message "YARA installation directory still exists: $YARA_MODERN_PATH"
         found_items=$((found_items + 1))
     fi
 
@@ -343,6 +340,8 @@ validate_removal() {
 
 # Main uninstallation function
 main() {
+    local args=("$@")
+    
     info_message "Starting YARA uninstallation..."
     info_message "Detected OS: Linux"
     info_message "Detected Linux distribution: ${DISTRO}"
@@ -355,12 +354,12 @@ main() {
         echo ""
         info_message "Detected YARA installations:"
 
-        if [[ -d "/opt/yara" ]]; then
-            info_message "  - Legacy installation: /opt/yara"
+        if [[ -d "$YARA_LEGACY_PATH" ]]; then
+            info_message "  - Legacy installation: $YARA_LEGACY_PATH"
         fi
 
-        if [[ -d "/opt/wazuh/yara" ]]; then
-            info_message "  - Modern installation: /opt/wazuh/yara"
+        if [[ -d "$YARA_MODERN_PATH" ]]; then
+            info_message "  - Modern installation: $YARA_MODERN_PATH"
         fi
 
         if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
