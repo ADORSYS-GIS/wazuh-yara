@@ -4,7 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-[076d1b7](https://github.com/ADORSYS-GIS/wazuh-yara/commit/076d1b7692a2b25806fa384bbbf6c28aa039fd40)...[d446a1d](https://github.com/ADORSYS-GIS/wazuh-yara/commit/d446a1daf151ef360f91f14309f2827090a13e97)
+[076d1b7](https://github.com/ADORSYS-GIS/wazuh-yara/commit/076d1b7692a2b25806fa384bbbf6c28aa039fd40)...[a766bff](https://github.com/ADORSYS-GIS/wazuh-yara/commit/a766bff048f0f32a54cee080bb1e9ea720dfd2b4)
+
+### Bug Fixes
+
+- Correct log function format specifier in utils.sh ([`a766bff`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/a766bff048f0f32a54cee080bb1e9ea720dfd2b4))
+
+### Documentation
+
+- Update CHANGELOG.md and checksums [skip ci] ([`500ab30`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/500ab30836809c5d81a12a3fe19c284dc2c087c0))
 
 ### Features
 
