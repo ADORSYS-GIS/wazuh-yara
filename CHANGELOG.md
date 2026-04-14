@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+[bdf383f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bdf383f5be75e7a1df30712eae6d2562b8745d13)...[1d529b5](https://github.com/ADORSYS-GIS/wazuh-yara/commit/1d529b5411d3db6f9a6fbdb7ac3895869ff5cc58)
+
+### Documentation
+
+- Update CHANGELOG.md and checksums [skip ci] ([`6d271e2`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6d271e299daa9f4efd8ba102b5e5793477b471e5))
+
+### Miscellaneous Tasks
+
+- Chore(ci): rename workflow file and update CI triggers for yara integration ([`1d529b5`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/1d529b5411d3db6f9a6fbdb7ac3895869ff5cc58))
+
+## 0.4.0-rc.6 - 2026-04-14
+
 [076d1b7](https://github.com/ADORSYS-GIS/wazuh-yara/commit/076d1b7692a2b25806fa384bbbf6c28aa039fd40)...[bdf383f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bdf383f5be75e7a1df30712eae6d2562b8745d13)
 
 ### Bug Fixes
