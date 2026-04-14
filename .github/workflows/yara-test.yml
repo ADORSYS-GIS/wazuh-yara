@@ -1,4 +1,4 @@
-name: Run Pytest
+name: YARA CI
 
 on:
   push:
@@ -51,20 +51,6 @@ jobs:
           else
             echo "No changes to commit"
           fi
-          
-      - name: Create Pull Request if needed
-        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: "Update Changelog and checksums"
-          body: |
-            This PR updates the CHANGELOG.md and checksums.
-            - Generated using git-cliff
-            - Triggered by: ${{ github.event_name }}
-          branch: update-changelog-${{ github.run_id }}
-          base: main
-          delete-branch: true
-          labels: documentation, automated-pr
 
   run-pytest-linux:
     runs-on: ubuntu-latest
@@ -174,6 +160,15 @@ jobs:
           args: --latest --strip header
         env:
           OUTPUT: /tmp/release-notes.md
+
+      - name: Determine prerelease
+        id: prerelease
+        run: |
+          if [[ "${GITHUB_REF#refs/tags/}" == *"rc"* ]]; then
+            echo "PRERELEASE=true" >> $GITHUB_OUTPUT
+          else
+            echo "PRERELEASE=false" >> $GITHUB_OUTPUT
+          fi
           
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
@@ -186,4 +181,4 @@ jobs:
           body: ${{ steps.git_cliff.outputs.content }}
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || 'main' }}
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.prerelease.outputs.PRERELEASE }}
