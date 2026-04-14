@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-[076d1b7](https://github.com/ADORSYS-GIS/wazuh-yara/commit/076d1b7692a2b25806fa384bbbf6c28aa039fd40)...[31caa9b](https://github.com/ADORSYS-GIS/wazuh-yara/commit/31caa9b05075fc5faf7b8102b7fcc3a45c91dbba)
+[076d1b7](https://github.com/ADORSYS-GIS/wazuh-yara/commit/076d1b7692a2b25806fa384bbbf6c28aa039fd40)...[bdf383f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bdf383f5be75e7a1df30712eae6d2562b8745d13)
 
 ### Bug Fixes
 
@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - Update CHANGELOG.md and checksums [skip ci] ([`500ab30`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/500ab30836809c5d81a12a3fe19c284dc2c087c0))
 - Update CHANGELOG.md and checksums [skip ci] ([`43442a8`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/43442a8f8709896480d31d04f93f079e4bffcb6f))
 - Update CHANGELOG.md and checksums [skip ci] ([`b5e1657`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/b5e1657255c6fb2f48692388ef9d37170b40c8a7))
+- Update CHANGELOG.md and checksums [skip ci] ([`637581d`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/637581dd2c31ff34387f42a975e013c08f2ab332))
 
 ### Features
 
@@ -25,6 +26,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Ci(workflow): remove Python setup step from yara-test workflow ([`d446a1d`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/d446a1daf151ef360f91f14309f2827090a13e97))
+- Update YARA CI workflow and prerelease detection ([`bdf383f`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bdf383f5be75e7a1df30712eae6d2562b8745d13))
 
 ### Refactor
 
