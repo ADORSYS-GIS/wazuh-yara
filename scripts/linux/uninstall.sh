@@ -28,9 +28,8 @@ OSSEC_CONF_PATH=${OSSEC_CONF_PATH:-"/var/ossec/etc/ossec.conf"}
 WAZUH_CONTROL_BIN_PATH=${WAZUH_CONTROL_BIN_PATH:-"/var/ossec/bin/wazuh-control"}
 
 # Source shared utilities
-UTILS_TMP=$(mktemp -d)
-trap 'rm -rf "$UTILS_TMP"' EXIT
-if ! curl "${WAZUH_YARA_REPO_URL}/scripts/shared/utils.sh" -o "$UTILS_TMP/utils.sh"; then
+TMP_DIR=$(mktemp -d)
+if ! curl "${WAZUH_YARA_REPO_URL}/scripts/shared/utils.sh" -o "$TMP_DIR/utils.sh"; then
     echo "Failed to download utils.sh"
     exit 1
 fi
@@ -47,14 +46,14 @@ calculate_sha256_bootstrap() {
 }
 
 # Download checksums and verify utils.sh integrity BEFORE sourcing it
-if ! curl "${WAZUH_YARA_REPO_URL}/checksums.sha256" -o "$UTILS_TMP/checksums.sha256"; then
+if ! curl "${WAZUH_YARA_REPO_URL}/checksums.sha256" -o "$TMP_DIR/checksums.sha256"; then
     echo "Failed to download checksums.sha256"
     exit 1
 fi
 
 
-EXPECTED_HASH=$(grep "scripts/shared/utils.sh" "$UTILS_TMP/checksums.sha256" | awk '{print $1}')
-ACTUAL_HASH=$(calculate_sha256_bootstrap "$UTILS_TMP/utils.sh")
+EXPECTED_HASH=$(grep "scripts/shared/utils.sh" "$TMP_DIR/checksums.sha256" | awk '{print $1}')
+ACTUAL_HASH=$(calculate_sha256_bootstrap "$TMP_DIR/utils.sh")
 
 if [[ -z "$EXPECTED_HASH" ]] || [[ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]]; then
     echo "Error: Checksum verification failed for utils.sh" >&2
@@ -64,7 +63,7 @@ if [[ -z "$EXPECTED_HASH" ]] || [[ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]]; then
 fi
 
 # shellcheck disable=SC1091
-. "$UTILS_TMP/utils.sh"
+. "$TMP_DIR/utils.sh"
 trap cleanup EXIT
 
 # Detect Linux Distribution

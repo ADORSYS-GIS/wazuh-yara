@@ -409,11 +409,11 @@ install_yara_package() {
 
     print_step 2 "Creating wrapper script"
     maybe_sudo mkdir -p /usr/local/bin
-    maybe_sudo tee "$YARA_BIN_PATH" > /dev/null << 'EOF'
+    maybe_sudo tee "$YARA_BIN_PATH" > /dev/null << EOF
 #!/usr/bin/env bash
 set -euo pipefail
-export LD_LIBRARY_PATH="$YARA_MODERN_PATH/lib:${LD_LIBRARY_PATH:-}"
-exec "$YARA_MODERN_BIN_PATH" "$@"
+export LD_LIBRARY_PATH="$YARA_MODERN_PATH/lib:\${LD_LIBRARY_PATH:-}"
+exec "$YARA_MODERN_BIN_PATH" "\$@"
 EOF
     maybe_sudo chmod +x "$YARA_BIN_PATH"
 
@@ -509,7 +509,7 @@ validate_installation() {
         if [[ -f "$YARA_MODERN_BIN_PATH" ]]; then
             info_message "DEBUG: File exists."
             info_message "DEBUG: Trying to run it directly to see error:"
-            maybe_sudo "$YARA_MODERN_BIN_PATH" --version || true
+            maybe_sudo "$YARA_MODERN_BIN_PATH" --version 2>&1 || true
         else
             error_message "DEBUG: File does NOT exist."
         fi

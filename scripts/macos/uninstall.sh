@@ -29,8 +29,7 @@ WAZUH_CONTROL_BIN_PATH=${WAZUH_CONTROL_BIN_PATH:-"/Library/Ossec/bin/wazuh-contr
 
 # Source shared utilities
 TMP_DIR=$(mktemp -d)
-UTILS_TMP="$TMP_DIR"
-if ! curl "${WAZUH_YARA_REPO_URL}/scripts/shared/utils.sh" -o "${UTILS_TMP}/utils.sh"; then
+if ! curl "${WAZUH_YARA_REPO_URL}/scripts/shared/utils.sh" -o "${TMP_DIR}/utils.sh"; then
     echo "Failed to download utils.sh"
     exit 1
 fi
@@ -48,7 +47,7 @@ calculate_sha256_bootstrap() {
 }
 
 # Download checksums and verify utils.sh integrity BEFORE sourcing it
-if ! curl "${WAZUH_YARA_REPO_URL}/checksums.sha256" -o "$UTILS_TMP/checksums.sha256"; then
+if ! curl "${WAZUH_YARA_REPO_URL}/checksums.sha256" -o "$TMP_DIR/checksums.sha256"; then
     echo "Failed to download checksums.sha256"
     exit 1
 fi
