@@ -7,10 +7,18 @@ on:
       - develop
     tags:
       - 'v*'
+    paths:
+      - 'scripts/**'
+      - 'rules/**'
+      - '.github/workflows/**'
   pull_request:
     branches:
       - main
       - develop
+    paths:
+      - 'scripts/**'
+      - 'rules/**'
+      - '.github/workflows/**'
 
 jobs:
   update-changelog-and-checksums:
