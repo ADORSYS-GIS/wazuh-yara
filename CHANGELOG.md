@@ -4,11 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-[bdf383f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bdf383f5be75e7a1df30712eae6d2562b8745d13)...[1d529b5](https://github.com/ADORSYS-GIS/wazuh-yara/commit/1d529b5411d3db6f9a6fbdb7ac3895869ff5cc58)
+[bdf383f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bdf383f5be75e7a1df30712eae6d2562b8745d13)...[9c25020](https://github.com/ADORSYS-GIS/wazuh-yara/commit/9c2502067bdc60e58870d2741acb75332d7295c0)
+
+### Bug Fixes
+
+- Correct YARA_PATH assignment and command substitution in yara.sh ([`9c25020`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/9c2502067bdc60e58870d2741acb75332d7295c0))
 
 ### Documentation
 
 - Update CHANGELOG.md and checksums [skip ci] ([`6d271e2`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6d271e299daa9f4efd8ba102b5e5793477b471e5))
+- Update CHANGELOG.md and checksums [skip ci] ([`33a1fa9`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/33a1fa9653dc4fdbdc073d1eec02d408a26d7031))
 
 ### Miscellaneous Tasks
 
