@@ -27,7 +27,7 @@ if [[ -z "$FILENAME" ]]; then
 fi
 
 # Default paths and variables
-YARA_PATH="$YARA_MODERN_PATH/bin"
+YARA_PATH="/opt/wazuh/yara/bin"
 YARA_RULES="/var/ossec/ruleset/yara/rules/yara_rules.yar"
 OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
 LOG_FILE="/var/ossec/logs/active-responses.log"
@@ -247,7 +247,7 @@ if ! "${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME" &> /dev/null; then
     echo "wazuh-yara: DEBUG - Yara scan failed for '$FILENAME' (could not open file or other issue). Skipping further processing." >> "${LOG_FILE}"
     exit 0
 fi
-yara_output=$("${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME")"
+yara_output="$("${YARA_PATH}"/yara -w -r "$YARA_RULES" "$FILENAME")"
 
 
 if [[ $yara_output != "" ]]
