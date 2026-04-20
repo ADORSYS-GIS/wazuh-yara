@@ -28,7 +28,7 @@ set -euo pipefail
 
 #------------------------- Constants -------------------------#
 
-YARA_PATH="$YARA_MODERN_PATH/bin"
+YARA_PATH="/opt/wazuh/yara/bin"
 YARA_RULES="/var/ossec/ruleset/yara/rules/yara_rules.yar"
 OSSEC_CONF_PATH="/var/ossec/etc/ossec.conf"
 LOG_FILE="/var/ossec/logs/active-responses.log"
