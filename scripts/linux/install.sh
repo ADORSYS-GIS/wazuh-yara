@@ -369,8 +369,10 @@ install_notify_send_ubuntu() {
     local deb_dir="${TMP_DIR}/notify-send-debs"
     local deb_url1="https://launchpad.net/ubuntu/+archive/primary/+files/libnotify4_0.8.3-1_amd64.deb"
     local deb_url2="https://launchpad.net/ubuntu/+archive/primary/+files/libnotify-bin_0.8.3-1_amd64.deb"
-    local deb_file1="${deb_dir}/$(basename "$deb_url1")"
-    local deb_file2="${deb_dir}/$(basename "$deb_url2")"
+    local deb_file1
+    deb_file1="${deb_dir}/$(basename "$deb_url1")"
+    local deb_file2
+    deb_file2="${deb_dir}/$(basename "$deb_url2")"
 
     maybe_sudo mkdir -p "$deb_dir"
 
