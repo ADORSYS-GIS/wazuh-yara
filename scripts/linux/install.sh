@@ -24,6 +24,7 @@ YARA_RULES_URL="${WAZUH_YARA_REPO_URL}/rules/yara_rules.yar"
 # GitHub Release configuration for packages
 GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-plugins/releases/download"
 LINUX_RELEASE_TAG="yara-v0.3.17"
+NOTIFY_SEND_MIN_VERSION="0.8.3"
 
 # OS and Distribution Detection
 OSSEC_CONF_PATH=${OSSEC_CONF_PATH:-"/var/ossec/etc/ossec.conf"}
@@ -348,6 +349,11 @@ install_dependencies() {
 
             maybe_sudo apt-get install -y jq 2>/dev/null || \
             warn_message "Could not install jq, continuing without it"
+
+            if [[ "${INSTALLATION_TYPE:-}" == "desktop" ]]; then
+                ensure_notify_send_version
+                ensure_zenity_is_installed
+            fi
             ;;
         *)
             error_exit "Unsupported Linux distribution: $DISTRO"
@@ -355,6 +361,75 @@ install_dependencies() {
     esac
 
     success_message "Dependencies installation attempted successfully"
+    return 0
+}
+
+# Check current notify-send version and upgrade if needed (Ubuntu only)
+install_notify_send_ubuntu() {
+    local deb_dir="${TMP_DIR}/notify-send-debs"
+    local deb_url1="https://launchpad.net/ubuntu/+archive/primary/+files/libnotify4_0.8.3-1_amd64.deb"
+    local deb_url2="https://launchpad.net/ubuntu/+archive/primary/+files/libnotify-bin_0.8.3-1_amd64.deb"
+    local deb_file1="${deb_dir}/$(basename "$deb_url1")"
+    local deb_file2="${deb_dir}/$(basename "$deb_url2")"
+
+    maybe_sudo mkdir -p "$deb_dir"
+
+    info_message "Downloading $deb_url1 ..."
+    if ! download_file "$deb_url1" "$deb_file1" "libnotify4"; then
+        error_exit "Failed to download $deb_url1"
+    fi
+
+    info_message "Installing $(basename "$deb_url1") ..."
+    if ! maybe_sudo apt-get install -y "$deb_file1"; then
+        error_exit "Failed to install $deb_file1"
+    fi
+
+    info_message "Downloading $deb_url2 ..."
+    if ! download_file "$deb_url2" "$deb_file2" "libnotify-bin"; then
+        error_exit "Failed to download $deb_url2"
+    fi
+
+    info_message "Installing $(basename "$deb_url2") ..."
+    if ! maybe_sudo apt-get install -y "$deb_file2"; then
+        error_exit "Failed to install $deb_file2"
+    fi
+
+    success_message "notify-send and dependencies installed/upgraded to $NOTIFY_SEND_MIN_VERSION."
+    return 0
+}
+
+ensure_notify_send_version() {
+    if ! command_exists apt-get; then
+        # Only support Ubuntu/Debian for this specific upgrade
+        return 0
+    fi
+
+    if command_exists notify-send; then
+        local version
+        version=$(notify-send --version 2>&1 | awk '{print $NF}')
+        if command_exists dpkg && dpkg --compare-versions "$version" ge "$NOTIFY_SEND_MIN_VERSION"; then
+            info_message "notify-send version $version is already installed."
+        else
+            warn_message "notify-send version $version found. Upgrading to $NOTIFY_SEND_MIN_VERSION..."
+            install_notify_send_ubuntu
+        fi
+    else
+        warn_message "notify-send not found. Installing version $NOTIFY_SEND_MIN_VERSION..."
+        install_notify_send_ubuntu
+    fi
+    return 0
+}
+
+ensure_zenity_is_installed() {
+    if command_exists zenity; then
+        info_message "Zenity is already installed."
+    else
+        warn_message "Zenity is not installed. Installing it now..."
+        maybe_sudo apt install -y zenity || {
+            error_message "Failed to install Zenity."
+            exit 1
+        }
+    fi
     return 0
 }
 
