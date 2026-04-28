@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-[bdf383f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bdf383f5be75e7a1df30712eae6d2562b8745d13)...[5a66ab3](https://github.com/ADORSYS-GIS/wazuh-yara/commit/5a66ab36cb0fd9a3783f25d73ad3cd6aa35f9613)
+[bdf383f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bdf383f5be75e7a1df30712eae6d2562b8745d13)...[b5b0920](https://github.com/ADORSYS-GIS/wazuh-yara/commit/b5b0920cab14f3af236d2eae03446bcb4badca8a)
 
 ### Bug Fixes
 
@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Update CHANGELOG.md and checksums [skip ci] ([`c0604f3`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/c0604f3d30ab54814aae16c44c06699a5e87c215))
 - Update CHANGELOG.md and checksums [skip ci] ([`794aebd`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/794aebdeab4ea233c226c13d7436c50b1423d769))
 - Update CHANGELOG.md and checksums [skip ci] ([`274dcc5`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/274dcc507ce131ed8ae8882ea6c32fce43e26d75))
+- Update CHANGELOG.md and checksums [skip ci] ([`ccbca33`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/ccbca33e0613e04c536e9c5243aa267a1e5917c7))
 
 ### Features
 
