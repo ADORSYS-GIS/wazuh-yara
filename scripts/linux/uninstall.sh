@@ -1,0 +1,401 @@
+#!/usr/bin/env bash
+
+#=============================================================================
+# YARA Uninstallation Script for Linux
+# Automatically detects and removes YARA installations from:
+# - /opt/yara (legacy installation)
+# - /opt/wazuh/yara (modern installation)
+# - /usr/local/bin/yara (softlink/wrapper)
+#=============================================================================
+
+
+# Set shell options based on shell type
+if [[ -n "${BASH_VERSION:-}" ]]; then
+    set -euo pipefail
+else
+    set -eu
+fi
+
+# OS guard early in the script
+if [[ "$(uname -s)" != "Linux" ]]; then
+    printf "%s\n" "[ERROR] This installation script is intended for Linux systems. Please use the appropriate script for your operating system." >&2
+    exit 1
+fi
+
+WAZUH_YARA_REPO_REF=${WAZUH_YARA_REPO_REF:-"main"}
+WAZUH_YARA_REPO_URL="https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/${WAZUH_YARA_REPO_REF}"
+OSSEC_CONF_PATH=${OSSEC_CONF_PATH:-"/var/ossec/etc/ossec.conf"}
+WAZUH_CONTROL_BIN_PATH=${WAZUH_CONTROL_BIN_PATH:-"/var/ossec/bin/wazuh-control"}
+
+# Source shared utilities
+TMP_DIR=$(mktemp -d)
+if ! curl "${WAZUH_YARA_REPO_URL}/scripts/shared/utils.sh" -o "$TMP_DIR/utils.sh"; then
+    echo "Failed to download utils.sh"
+    exit 1
+fi
+
+# Function to calculate SHA256 (cross-platform bootstrap)
+calculate_sha256_bootstrap() {
+    local file="$1"
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$file" | awk '{print $1}'
+    else
+        shasum -a 256 "$file" | awk '{print $1}'
+    fi
+    return 0
+}
+
+# Download checksums and verify utils.sh integrity BEFORE sourcing it
+if ! curl "${WAZUH_YARA_REPO_URL}/checksums.sha256" -o "$TMP_DIR/checksums.sha256"; then
+    echo "Failed to download checksums.sha256"
+    exit 1
+fi
+
+
+EXPECTED_HASH=$(grep "scripts/shared/utils.sh" "$TMP_DIR/checksums.sha256" | awk '{print $1}')
+ACTUAL_HASH=$(calculate_sha256_bootstrap "$TMP_DIR/utils.sh")
+
+if [[ -z "$EXPECTED_HASH" ]] || [[ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]]; then
+    echo "Error: Checksum verification failed for utils.sh" >&2
+    echo "Expected hash: $EXPECTED_HASH" >&2
+    echo "Actual hash: $ACTUAL_HASH" >&2
+    exit 1
+fi
+
+# shellcheck disable=SC1091
+. "$TMP_DIR/utils.sh"
+trap cleanup EXIT
+
+# Detect Linux Distribution
+detect_distro() {
+    if [[ -f /etc/os-release ]]; then
+        # shellcheck source=/dev/null
+        . /etc/os-release
+        echo "$ID"
+    elif [[ -f /etc/redhat-release ]]; then
+        echo "redhat"
+    elif [[ -f /etc/debian_version ]]; then
+        echo "debian"
+    else
+        error_message "Unable to detect Linux distribution"
+        exit 1
+    fi
+    return 0
+}
+DISTRO=$(detect_distro)
+
+# Restart Wazuh agent
+restart_wazuh_agent() {
+    if maybe_sudo "$WAZUH_CONTROL_BIN_PATH" restart >/dev/null 2>&1; then
+        success_message "Wazuh agent restarted successfully."
+    else
+        warn_message "Could not restart Wazuh agent (may not be running)."
+    fi
+    return 0
+}
+
+# sed in-place for Linux
+sed_inplace() {
+    if command_exists gsed; then
+        maybe_sudo sed -i "$@" 2>/dev/null || true
+    fi
+    return 0
+}
+
+# Detect YARA installations
+detect_yara_installation() {
+    local has_legacy=0
+    local has_modern=0
+    local has_softlink=0
+
+    if [[ -d "$YARA_LEGACY_PATH" ]]; then
+        has_legacy=1
+    fi
+
+    if [[ -d "$YARA_MODERN_PATH" ]]; then
+        has_modern=1
+    fi
+
+    if [[ -L "$YARA_BIN_PATH" ]] || [[ -f "$YARA_BIN_PATH" ]]; then
+        has_softlink=1
+    fi
+
+    case "$DISTRO" in
+        centos|rhel|redhat|rocky|almalinux|fedora)
+            if command_exists rpm && rpm -q yara > /dev/null 2>&1; then
+                has_modern=1
+            fi
+            ;;
+        ubuntu|debian)
+            if command_exists dpkg && dpkg -s yara > /dev/null 2>&1; then
+                has_modern=1
+            fi
+            ;;
+        *)
+            error_exit "Unsupported Linux distribution: $DISTRO"
+            ;;
+    esac
+
+    echo "${has_legacy},${has_modern},${has_softlink}"
+    return 0
+}
+
+# Remove YARA packages installed via package managers
+remove_yara_packages() {
+    info_message "Removing YARA packages..."
+
+    case "$DISTRO" in
+        centos|rhel|redhat|rocky|almalinux|fedora)
+            if command_exists rpm && rpm -q yara >/dev/null 2>&1; then
+                info_message "Detected RPM-installed YARA package"
+                if command_exists dnf; then
+                    if maybe_sudo dnf remove -y yara; then
+                        success_message "Removed YARA via dnf"
+                    fi
+                elif command_exists yum; then
+                    if maybe_sudo yum remove -y yara; then
+                        success_message "Removed YARA via yum"
+                    fi
+                fi
+            else
+                info_message "No RPM-installed YARA package found"
+            fi
+            ;;
+        ubuntu|debian)
+            if command_exists dpkg && dpkg -s yara >/dev/null 2>&1; then
+                info_message "Detected DEB-installed YARA package"
+                if maybe_sudo apt-get remove -y yara; then
+                    maybe_sudo apt-get autoremove -y
+                    success_message "Removed YARA via apt"
+                fi
+            else
+                info_message "No DEB-installed YARA package found"
+            fi
+            ;;
+        *)
+            warn_message "Unsupported Linux distribution for package removal: $DISTRO"
+            ;;
+    esac
+
+    return 0
+}
+
+# Remove custom YARA installation from /opt/wazuh/yara
+remove_custom_yara_installation() {
+    info_message "Removing custom YARA installation..."
+    local removed=0
+
+    if [[ -d "$YARA_MODERN_PATH" ]]; then
+        info_message "Removing YARA installation directory: $YARA_MODERN_PATH"
+        if maybe_sudo rm -rf "$YARA_MODERN_PATH"; then
+            success_message "Removed YARA installation directory"
+            removed=1
+        else
+            error_message "Failed to remove YARA installation directory"
+        fi
+    else
+        info_message "YARA installation directory not found: $YARA_MODERN_PATH"
+    fi
+
+    local yara_symlink="$YARA_BIN_PATH"
+    if [[ -L "$yara_symlink" ]] || [[ -f "$yara_symlink" ]]; then
+        info_message "Removing YARA symlink/wrapper: $yara_symlink"
+        if maybe_sudo rm -f "$yara_symlink"; then
+            success_message "Removed YARA symlink/wrapper"
+            removed=1
+        else
+            warn_message "Failed to remove YARA symlink/wrapper"
+        fi
+    else
+        info_message "YARA symlink not found: $yara_symlink"
+    fi
+
+    if [[ $removed -eq 0 ]]; then
+        info_message "No custom YARA installation found"
+    fi
+    return 0
+}
+
+# Remove legacy YARA installation from /opt/yara
+remove_legacy_yara_installation() {
+    info_message "Removing legacy YARA installation..."
+    local removed=0
+
+    if [[ -d "$YARA_LEGACY_PATH" ]]; then
+        info_message "Removing legacy YARA directory: $YARA_LEGACY_PATH"
+        if maybe_sudo rm -rf "$YARA_LEGACY_PATH"; then
+            success_message "Removed legacy YARA directory"
+            removed=1
+        else
+            error_message "Failed to remove legacy YARA directory"
+        fi
+    else
+        info_message "Legacy YARA directory not found: $YARA_LEGACY_PATH"
+    fi
+
+    if [[ $removed -eq 0 ]]; then
+        info_message "No legacy YARA installation found"
+    fi
+    return 0
+}
+
+# Remove YARA rules and scripts from Wazuh
+remove_yara_wazuh_components() {
+    info_message "Removing YARA rules and scripts from Wazuh..."
+    local removed=0
+
+    local yara_script_path="/var/ossec/active-response/bin/yara.sh"
+    local yara_rules_path="/var/ossec/ruleset/yara"
+
+    if maybe_sudo test -f "$yara_script_path"; then
+        info_message "Removing YARA script: $yara_script_path"
+        if maybe_sudo rm -f "$yara_script_path"; then
+            success_message "Removed YARA script"
+            removed=1
+        else
+            warn_message "Failed to remove YARA script"
+        fi
+    else
+        info_message "YARA script not found: $yara_script_path"
+    fi
+
+    if maybe_sudo test -d "$yara_rules_path"; then
+        info_message "Removing YARA rules directory: $yara_rules_path"
+        if maybe_sudo rm -rf "$yara_rules_path"; then
+            success_message "Removed YARA rules directory"
+            removed=1
+        else
+            warn_message "Failed to remove YARA rules directory"
+        fi
+    else
+        info_message "YARA rules directory not found: $yara_rules_path"
+    fi
+
+    if [[ $removed -eq 0 ]]; then
+        info_message "No YARA components found in Wazuh directories"
+    fi
+    return 0
+}
+
+# Restore ossec configuration
+restore_ossec_configuration() {
+    info_message "Restoring OSSEC configuration..."
+
+    if maybe_sudo test -f "$OSSEC_CONF_PATH"; then
+        if maybe_sudo grep -q "<file_limit>" "$OSSEC_CONF_PATH"; then
+            info_message "Removing file_limit block from OSSEC configuration"
+            sed_inplace "/<file_limit>/,/<\/file_limit>/d" "$OSSEC_CONF_PATH"
+            success_message "Removed file_limit block from OSSEC configuration"
+        else
+            info_message "No file_limit block found in OSSEC configuration"
+        fi
+    else
+        warn_message "OSSEC configuration file not found: $OSSEC_CONF_PATH"
+    fi
+    return 0
+}
+
+# Validate complete removal
+validate_removal() {
+    info_message "Validating YARA removal..."
+    local found_items=0
+
+    if command_exists yara; then
+        local yara_path
+        yara_path=$(command -v yara)
+        warn_message "YARA command still available at: $yara_path"
+        found_items=$((found_items + 1))
+    fi
+
+    if [[ -d "$YARA_LEGACY_PATH" ]]; then
+        warn_message "Legacy YARA directory still exists: $YARA_LEGACY_PATH"
+        found_items=$((found_items + 1))
+    fi
+
+    if [[ -d "$YARA_MODERN_PATH" ]]; then
+        warn_message "YARA installation directory still exists: $YARA_MODERN_PATH"
+        found_items=$((found_items + 1))
+    fi
+
+    if [[ -L "$YARA_BIN_PATH" ]] || [[ -f "$YARA_BIN_PATH" ]]; then
+        warn_message "YARA binary/symlink still exists: $YARA_BIN_PATH"
+        found_items=$((found_items + 1))
+    fi
+
+    if maybe_sudo test -f "/var/ossec/active-response/bin/yara.sh"; then
+        warn_message "YARA script still exists: /var/ossec/active-response/bin/yara.sh"
+        found_items=$((found_items + 1))
+    fi
+
+    if maybe_sudo test -d "/var/ossec/ruleset/yara"; then
+        warn_message "YARA rules directory still exists: /var/ossec/ruleset/yara"
+        found_items=$((found_items + 1))
+    fi
+
+    if [[ $found_items -eq 0 ]]; then
+        success_message "YARA has been completely removed from the system"
+        return 0
+    else
+        warn_message "Found $found_items YARA component(s) still present"
+        warn_message "Manual cleanup may be required for complete removal"
+        return 0
+    fi
+}
+
+# Main uninstallation function
+main() {    
+    info_message "Starting YARA uninstallation..."
+    info_message "Detected OS: Linux"
+    info_message "Detected Linux distribution: ${DISTRO}"
+
+    local detection_result
+    detection_result=$(detect_yara_installation)
+    IFS=',' read -r has_legacy has_modern has_softlink <<< "$detection_result"
+
+    if [[ "$has_legacy" -eq 1 ]] || [[ "$has_modern" -eq 1 ]] || [[ "$has_softlink" -eq 1 ]]; then
+        echo ""
+        info_message "Detected YARA installations:"
+
+        if [[ -d "$YARA_LEGACY_PATH" ]]; then
+            info_message "  - Legacy installation: $YARA_LEGACY_PATH"
+        fi
+
+        if [[ -d "$YARA_MODERN_PATH" ]]; then
+            info_message "  - Modern installation: $YARA_MODERN_PATH"
+        fi
+
+        if [[ -L "/usr/local/bin/yara" ]] || [[ -f "/usr/local/bin/yara" ]]; then
+            info_message "  - Softlink: /usr/local/bin/yara"
+        fi
+
+        echo ""
+        info_message "Proceeding with automatic uninstallation..."
+    else
+        info_message "No YARA installations detected"
+        success_message "System is already clean"
+        return 0
+    fi
+
+    remove_yara_packages
+
+    if [[ "$has_legacy" -eq 1 ]]; then
+        remove_legacy_yara_installation
+    fi
+
+    if [[ "$has_modern" -eq 1 ]]; then
+        remove_custom_yara_installation
+    fi
+
+    remove_yara_wazuh_components
+    restore_ossec_configuration
+    validate_removal
+    restart_wazuh_agent
+
+    echo ""
+    success_message "YARA uninstallation process completed!"
+    info_message "Your system is now clean and ready for a fresh installation"
+    return 0
+}
+
+# Execute main function
+main

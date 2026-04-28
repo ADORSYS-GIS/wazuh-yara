@@ -1,0 +1,192 @@
+name: YARA CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
+    paths:
+      - 'scripts/**'
+      - 'rules/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'scripts/**'
+      - 'rules/**'
+      - '.github/workflows/**'
+
+jobs:
+  update-changelog-and-checksums:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: "0"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Configure git user
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Generate script checksums
+        run: |
+          find scripts rules \( -path "scripts/tests" -o -path "scripts/tests/*" \) -prune -o -type f -exec sha256sum {} + > checksums.sha256
+          cat checksums.sha256
+          
+      - name: Generate full CHANGELOG.md
+        uses: orhun/git-cliff-action@c93ef52f3d0ddcdcc9bd5447d98d458a11cd4f72
+        with:
+          config: cliff.toml
+          args: --output CHANGELOG.md
+          
+      - name: Commit and push changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git add CHANGELOG.md checksums.sha256
+            git commit -m "docs: update CHANGELOG.md and checksums [skip ci]"
+            git push origin ${{ github.head_ref || github.ref_name }}
+          else
+            echo "No changes to commit"
+          fi
+
+  run-pytest-linux:
+    runs-on: ubuntu-latest
+    needs: update-changelog-and-checksums
+    env:
+      INSTALLATION_TYPE: server          
+      WAZUH_YARA_REPO_REF: refactor/split-linux-macos-scripts
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+    - name: Set up Python
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies and Wazuh agent
+      run: |
+        # Install dependencies
+        sudo apt-get update
+        sudo apt-get install -y curl gnupg2 
+        pip install pytest pytest-testinfra
+        
+    - name: Check install.sh syntax
+      run: |
+        sudo apt-get install -y shellcheck
+        shellcheck --shell=bash scripts/linux/install.sh
+        
+    - name: Install Wazuh agent
+      run: |
+        curl -sfL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/main/scripts/install.sh | sudo bash    
+    
+    - name: Run yara install script
+      run: |
+        sudo env WAZUH_YARA_REPO_REF=${{ env.WAZUH_YARA_REPO_REF }} INSTALLATION_TYPE=${{ env.INSTALLATION_TYPE }} bash scripts/linux/install.sh
+
+    - name: Run tests 
+      run: |
+        sudo $(which pytest) -vv scripts/tests/yara.py
+        
+
+  run-pytest-macos:
+    runs-on: macos-latest
+    needs: update-changelog-and-checksums
+    env:
+      INSTALLATION_TYPE: server
+      WAZUH_YARA_REPO_REF: refactor/split-linux-macos-scripts
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+    - name: Set up Python
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        brew update
+        brew install python3 coreutils gnu-sed shellcheck
+        pip3 install pytest pytest-testinfra
+        
+    - name: Check install.sh syntax
+      run: |
+        shellcheck --shell=bash scripts/macos/install.sh
+        
+    - name: Install Wazuh agent
+      run: |
+        curl -sfL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/main/scripts/install.sh | sudo bash
+    
+    - name: Run yara install script
+      run: |
+        sudo env WAZUH_YARA_REPO_REF=${{ env.WAZUH_YARA_REPO_REF }} INSTALLATION_TYPE=${{ env.INSTALLATION_TYPE }} bash scripts/macos/install.sh
+
+    - name: Run tests
+      run: |
+        sudo $(which pytest) -vv scripts/tests/yara.py
+
+  release:
+    name: Release
+    permissions:
+      contents: write
+      pull-requests: write
+    needs:
+      - run-pytest-linux
+      - run-pytest-macos
+      - update-changelog-and-checksums
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: "0"
+          
+      - name: Get version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+          
+      - name: Generate release notes (latest only)
+        id: git_cliff
+        uses: orhun/git-cliff-action@c93ef52f3d0ddcdcc9bd5447d98d458a11cd4f72
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: /tmp/release-notes.md
+
+      - name: Determine prerelease
+        id: prerelease
+        run: |
+          if [[ "${GITHUB_REF#refs/tags/}" == *"rc"* ]]; then
+            echo "PRERELEASE=true" >> $GITHUB_OUTPUT
+          else
+            echo "PRERELEASE=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: checksums.sha256
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          body: ${{ steps.git_cliff.outputs.content }}
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || 'main' }}
+          draft: false
+          prerelease: ${{ steps.prerelease.outputs.PRERELEASE }}

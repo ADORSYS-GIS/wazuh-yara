@@ -3,57 +3,47 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 # Variables
+if (-not $env:WAZUH_YARA_REPO_REF) { 
+    $env:WAZUH_YARA_REPO_REF = "main"
+}
+$WAZUH_YARA_REPO_REF = $env:WAZUH_YARA_REPO_REF
+$WAZUH_YARA_REPO_URL = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/$WAZUH_YARA_REPO_REF"
+$WAZUH_YARA_RULES_URL = "$WAZUH_YARA_REPO_URL/rules/yara_rules.yar"
+$WAZUH_YARA_BAT_URL = "$WAZUH_YARA_REPO_URL/scripts/windows/yara.bat"
+
+# Source shared utilities
 $TEMP_DIR = $env:TEMP
+try {
+    $ChecksumsURL = "$WAZUH_YARA_REPO_URL/checksums.sha256"
+    $UtilsURL = "$WAZUH_YARA_REPO_URL/scripts/shared/utils.ps1"
+    
+    $global:ChecksumsPath = Join-Path $TEMP_DIR "checksums.sha256"
+    $UtilsPath = Join-Path $TEMP_DIR "utils.ps1"
 
-# Function to handle logging
+    Invoke-WebRequest -Uri $ChecksumsURL -OutFile $ChecksumsPath -ErrorAction Stop
+    Invoke-WebRequest -Uri $UtilsURL -OutFile $UtilsPath -ErrorAction Stop
 
-function Log {
-    param (
-        [string]$Level,
-        [string]$Message,
-        [string]$Color = "White"  # Default color
-    )
-    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Write-Host "$Timestamp $Level $Message" -ForegroundColor $Color
+    # Verification function (bootstrap)
+    function Get-FileChecksum-Bootstrap {
+        param([string]$FilePath)
+        return (Get-FileHash -Path $FilePath -Algorithm SHA256).Hash.ToLower()
+    }
+
+    $ExpectedHash = (Select-String -Path $ChecksumsPath -Pattern "scripts/shared/utils.ps1").Line.Split(" ")[0]
+    $ActualHash = Get-FileChecksum-Bootstrap -FilePath $UtilsPath
+
+    if ([string]::IsNullOrWhiteSpace($ExpectedHash) -or ($ActualHash -ne $ExpectedHash.ToLower())) {
+        Write-Error "Checksum verification failed for utils.ps1"
+        exit 1
+    }
+
+    . $UtilsPath
 }
-
-# Logging helpers with colors
-function InfoMessage {
-    param ([string]$Message)
-    Log "[INFO]" $Message "White"
-}
-
-function WarnMessage {
-    param ([string]$Message)
-    Log "[WARNING]" $Message "Yellow"
-}
-
-function ErrorMessage {
-    param ([string]$Message)
-    Log "[ERROR]" $Message "Red"
-}
-
-function SuccessMessage {
-    param ([string]$Message)
-    Log "[SUCCESS]" $Message "Green"
-}
-
-function PrintStep {
-    param (
-        [int]$StepNumber,
-        [string]$Message
-    )
-    Log "[STEP]" "Step ${StepNumber}: $Message" "White"
-}
-
-# Exit script with an error message
-function ErrorExit {
-    param ([string]$Message)
-    ErrorMessage $Message
+catch {
+    Write-Error "Failed to initialize utilities: $($_.Exception.Message)"
     exit 1
 }
 
-# Function to clean up temporary files
 function Cleanup {
     InfoMessage "Cleaning up temporary files..."
 
@@ -62,31 +52,22 @@ function Cleanup {
     Remove-Item -Path "$TEMP_DIR\yara_rules.yar" -Force -Recurse -ErrorAction SilentlyContinue
 }
 
-# Function to check if the script is running with administrator privileges
-function Ensure-Admin {
-    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-        Write-Host "Please run this script as an Administrator." -ForegroundColor Red
-        exit
-    }
-}
-
-
-
 # Function to download and extract YARA
 function Download-YARA {
     # Determine the architecture
     $arch = if ([Environment]::Is64BitOperatingSystem) { "win64" } else { "win32" }
-    $yaraVersion = "v4.5.2-2326"
-    $yaraUrl = "https://github.com/VirusTotal/yara/releases/download/v4.5.2/yara-$yaraVersion-$arch.zip"
+    $yaraVersion = if ($env:YARA_VERSION) { $env:YARA_VERSION } else { "4.5.2" }
+    $yaraUrl = "https://github.com/VirusTotal/yara/releases/download/v$yaraVersion/yara-v$yaraVersion-2326-$arch.zip"
+    $yaraZipPath = "$TEMP_DIR\yara-$yaraVersion-$arch.zip"
     
     # Download the appropriate YARA version
-    Invoke-WebRequest -Uri $yaraUrl -OutFile "$env:TEMP\yara-$yaraVersion-$arch.zip"
+    Download-File -Url $yaraUrl -Destination $yaraZipPath -Description "YARA $yaraVersion for $arch"
     
     # Extract the downloaded archive
-    Expand-Archive -Path "$env:TEMP\yara-$yaraVersion-$arch.zip" -DestinationPath "$env:TEMP" -Force
+    Expand-Archive -Path $yaraZipPath -DestinationPath "$TEMP_DIR" -Force
     
     # Remove the downloaded archive
-    Remove-Item -Path "$env:TEMP\yara-$yaraVersion-$arch.zip"
+    Remove-Item -Path $yaraZipPath
 }
 
 # Function to install YARA
@@ -99,45 +80,32 @@ function Install-YARA {
     # Create YARA directory and copy executable
     $yaraDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara"
     New-Item -ItemType Directory -Path $yaraDir -Force
-    Copy-Item -Path "$env:TEMP\yara64.exe" -Destination $yaraDir
-
-    # Download Yara Rules
-    $yaraRulesUrl = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/main/rules/yara_rules.yar"
+    Copy-Item -Path "$TEMP_DIR\yara64.exe" -Destination $yaraDir
     
     # Define the file path to save the YARA rules
-    $yaraRulesFile = "$env:TEMP\yara_rules.yar"
+    $yaraRulesFile = "$TEMP_DIR\yara_rules.yar"
     
-    # Download the YARA rules file
-    try {
-        InfoMessage "Downloading YARA rules from GitHub..."
-        Invoke-WebRequest -Uri $yaraRulesUrl -OutFile $yaraRulesFile -UseBasicParsing
-        InfoMessage "YARA rules saved to $yaraRulesFile" 
-    } catch {
-        ErrorMessage "Failed to download YARA rules: $_" 
+    # Download the YARA rules file (no checksum verification available)
+    Download-And-VerifyFile -Url $WAZUH_YARA_RULES_URL -Destination $yaraRulesFile -FileName "YARA rules" -ChecksumPattern "rules/yara_rules.yar" -ChecksumUrl $WAZUH_YARA_REPO_URL/checksums.sha256
+
+    # Verify if the yara_rules.yar file exists
+    $yaraRulesPath = "$TEMP_DIR\yara_rules.yar"
+    if (Test-Path -Path $yaraRulesPath) {
+        # Create YARA rules directory and copy the rules
+        $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"
+        New-Item -ItemType Directory -Path $rulesDir -Force
+        Copy-Item -Path $yaraRulesPath -Destination $rulesDir -Force
+        InfoMessage "YARA rules downloaded and copied to $rulesDir." 
+    } else {
+        ErrorMessage "Failed to download YARA rules. The file $yaraRulesPath does not exist." -ForegroundColor Red
         exit 1
     }
 
-# Verify if the yara_rules.yar file exists
-$yaraRulesPath = "$env:TEMP\yara_rules.yar"
-if (Test-Path -Path $yaraRulesPath) {
-    # Create YARA rules directory and copy the rules
-    $rulesDir = "C:\Program Files (x86)\ossec-agent\active-response\bin\yara\rules"
-    New-Item -ItemType Directory -Path $rulesDir -Force
-    Copy-Item -Path $yaraRulesPath -Destination $rulesDir -Force
-    InfoMessage "YARA rules downloaded and copied to $rulesDir." 
-} else {
-    ErrorMessage "Failed to download YARA rules. The file $yaraRulesPath does not exist." -ForegroundColor Red
-    exit 1
-}
-
     #Download the yara.bat script
-    $yaraBatURL = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/main/scripts/yara.bat"
     $yaraBatDir =  "C:\Program Files (x86)\ossec-agent\active-response\bin\yara.bat"
     
-    
     # Download the appropriate YARA version
-    Invoke-WebRequest -Uri $yaraBatURL -OutFile $yaraBatDir
-    InfoMessage "Yara Bat Script Downloaded and copied into $yaraBatDir "
+    Download-And-VerifyFile -Url $WAZUH_YARA_BAT_URL -Destination $yaraBatDir -ChecksumPattern "scripts/windows/yara.bat" -FileName "YARA batch script" -ChecksumUrl $WAZUH_YARA_REPO_URL/checksums.sha256
 
     # Update Wazuh agent configuration
     Update-WazuhConfig
@@ -198,7 +166,7 @@ function Update-WazuhConfig {
     } else {
         ErrorMessage "<syscheck> node not found in the configuration file." 
     }
-    
+
      # Update frequency value in the configuration file
     $configFilePath = "C:\Program Files (x86)\ossec-agent\ossec.conf"
     if (-Not (Test-Path $configFilePath)) { ErrorMessage "Config file not found." }

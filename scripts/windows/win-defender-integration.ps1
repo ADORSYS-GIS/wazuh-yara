@@ -2,54 +2,54 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# Function to handle logging
-function Log {
-    param (
-        [string]$Level,
-        [string]$Message,
-        [string]$Color = "White"
-    )
-    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Write-Host "$Timestamp $Level $Message" -ForegroundColor $Color
+# Variables
+if (-not $env:WAZUH_YARA_REPO_REF) { 
+    $env:WAZUH_YARA_REPO_REF = "main"
 }
+$WAZUH_YARA_REPO_REF = $env:WAZUH_YARA_REPO_REF
+$WAZUH_YARA_REPO_URL = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/$WAZUH_YARA_REPO_REF"
 
-# Logging helpers with colors
-function InfoMessage {
-    param ([string]$Message)
-    Log "[INFO]" $Message "White"
-}
+# Source shared utilities
+$TEMP_DIR = $env:TEMP
+try {
+    $ChecksumsURL = "$WAZUH_YARA_REPO_URL/checksums.sha256"
+    $UtilsURL = "$WAZUH_YARA_REPO_URL/scripts/shared/utils.ps1"
+    
+    $global:ChecksumsPath = Join-Path $TEMP_DIR "checksums.sha256"
+    $UtilsPath = Join-Path $TEMP_DIR "utils.ps1"
 
-function WarnMessage {
-    param ([string]$Message)
-    Log "[WARNING]" $Message "Yellow"
-}
+    Invoke-WebRequest -Uri $ChecksumsURL -OutFile $ChecksumsPath -ErrorAction Stop
+    Invoke-WebRequest -Uri $UtilsURL -OutFile $UtilsPath -ErrorAction Stop
 
-function ErrorMessage {
-    param ([string]$Message)
-    Log "[ERROR]" $Message "Red"
-}
+    # Verification function (bootstrap)
+    function Get-FileChecksum-Bootstrap {
+        param([string]$FilePath)
+        return (Get-FileHash -Path $FilePath -Algorithm SHA256).Hash.ToLower()
+    }
 
-function SuccessMessage {
-    param ([string]$Message)
-    Log "[SUCCESS]" $Message "Green"
-}
+    $ExpectedHash = (Select-String -Path $ChecksumsPath -Pattern "scripts/shared/utils.ps1").Line.Split(" ")[0]
+    $ActualHash = Get-FileChecksum-Bootstrap -FilePath $UtilsPath
 
-# Function to check if the script is running with administrator privileges
-function Ensure-Admin {
-    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-        ErrorMessage "This script requires Administrator privileges. Please run as Administrator."
+    if ([string]::IsNullOrWhiteSpace($ExpectedHash) -or ($ActualHash -ne $ExpectedHash.ToLower())) {
+        Write-Error "Checksum verification failed for utils.ps1"
         exit 1
     }
+
+    . $UtilsPath
+}
+catch {
+    Write-Error "Failed to initialize utilities: $($_.Exception.Message)"
+    exit 1
 }
 
 # Function to uninstall YARA using the provided script
 function Uninstall-YARA {
-    $uninstallScriptUrl = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/refs/heads/main/scripts/uninstall.ps1"
+    $uninstallScriptUrl = "$WAZUH_YARA_REPO_URL/scripts/windows/uninstall.ps1"
     $tempScriptPath = "$env:TEMP\uninstall-yara.ps1"
     
     try {
         InfoMessage "Downloading YARA uninstall script..."
-        Invoke-WebRequest -Uri $uninstallScriptUrl -OutFile $tempScriptPath -UseBasicParsing
+        Download-And-VerifyFile -Url $uninstallScriptUrl -Destination $tempScriptPath -ChecksumPattern "scripts/windows/uninstall.ps1" -FileName "YARA uninstall script" -ChecksumUrl $WAZUH_YARA_REPO_URL/checksums.sha256
     } catch {
         ErrorMessage "Failed to download uninstall script: $_"
         return $false
