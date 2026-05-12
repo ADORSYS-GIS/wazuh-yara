@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 
 # Variables
 if (-not $env:WAZUH_YARA_REPO_REF) { 
-    $env:WAZUH_YARA_REPO_REF = "main"
+    $env:WAZUH_YARA_REPO_REF = "v0.4.1"
 }
 $WAZUH_YARA_REPO_REF = $env:WAZUH_YARA_REPO_REF
 $WAZUH_YARA_REPO_URL = "https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/$WAZUH_YARA_REPO_REF"
