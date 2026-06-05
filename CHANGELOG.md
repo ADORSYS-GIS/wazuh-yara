@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+[6bee7db](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6bee7db1846dbb3fe8d0fd2062e1466053da69ed)...[bff26d2](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bff26d20aa1ccd7b382b6578aea5eb777d65847c)
+
+### Documentation
+
+- Update CHANGELOG.md and checksums [skip ci] ([`54a1fc7`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/54a1fc773f444de356c6a478a6f5d22c8b693f65))
+
+### Features
+
+- Add Windows YARA active response script and update checksums ([`bff26d2`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bff26d20aa1ccd7b382b6578aea5eb777d65847c))
+
+## 0.4.1 - 2026-05-12
+
 [bdf383f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bdf383f5be75e7a1df30712eae6d2562b8745d13)...[6bee7db](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6bee7db1846dbb3fe8d0fd2062e1466053da69ed)
 
 ### Bug Fixes
