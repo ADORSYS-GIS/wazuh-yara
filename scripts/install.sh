@@ -848,10 +848,12 @@ validate_installation() {
     # Only validate notify-send on Ubuntu/Debian systems where it's required
     if [ "$OS" = "linux" ] && { [ "$DISTRO" = "ubuntu" ] || [ "$DISTRO" = "debian" ]; }; then
         if command_exists notify-send; then
-            if [ "$(notify-send --version 2>&1 | awk '{print $NF}')" = "$NOTIFY_SEND_VERSION" ]; then
-                success_message "notify-send version $NOTIFY_SEND_VERSION is installed."
+            local ns_version
+            ns_version=$(notify-send --version 2>&1 | awk '{print $NF}')
+            if dpkg --compare-versions "$ns_version" ge "$NOTIFY_SEND_VERSION"; then
+                success_message "notify-send version $ns_version is installed (>= $NOTIFY_SEND_VERSION)."
             else
-                warn_message "notify-send version mismatch. Expected $NOTIFY_SEND_VERSION, but found $(notify-send --version 2>&1 | awk '{print $NF}')."
+                warn_message "notify-send version mismatch. Expected >= $NOTIFY_SEND_VERSION, but found $ns_version."
                 VALIDATION_STATUS="FALSE"
             fi
         else
