@@ -314,47 +314,21 @@ check_and_update_bash() {
 }
 
 install_notify_send() {
-    deb_dir="$TMP_DIR/notify-send-debs"
-    mkdir -p "$deb_dir"
-    deb_url1="https://launchpad.net/ubuntu/+archive/primary/+files/libnotify4_0.8.3-1_amd64.deb"
-    deb_url2="https://launchpad.net/ubuntu/+archive/primary/+files/libnotify-bin_0.8.3-1_amd64.deb"
-    deb_file1="$deb_dir/$(basename "$deb_url1")"
-    deb_file2="$deb_dir/$(basename "$deb_url2")"
-    info_message "Downloading $deb_url1 ..."
-    curl -fsSL -o "$deb_file1" "$deb_url1" || {
-        error_message "Failed to download $deb_url1"
+    info_message "Installing libnotify-bin..."
+    maybe_sudo apt-get update -qq || true
+    maybe_sudo apt-get install -y libnotify-bin || {
+        error_message "Failed to install libnotify-bin"
         exit 1
     }
-    info_message "Installing $(basename "$deb_url1") ..."
-    maybe_sudo apt install -y "$deb_file1" || {
-        error_message "Failed to install $deb_file1"
-        exit 1
-    }
-    info_message "Downloading $deb_url2 ..."
-    curl -fsSL -o "$deb_file2" "$deb_url2" || {
-        error_message "Failed to download $deb_url2"
-        exit 1
-    }
-    info_message "Installing $(basename "$deb_url2") ..."
-    maybe_sudo apt install -y "$deb_file2" || {
-        error_message "Failed to install $deb_file2"
-        exit 1
-    }
-    info_message "notify-send and dependencies installed/upgraded to $NOTIFY_SEND_VERSION."
+    info_message "notify-send installed/upgraded."
 }
 
-# For Ubuntu: Ensure notify-send is at least expected version, else upgrade to it
+# For Ubuntu: Ensure notify-send is available
 ensure_notify_send_version() {
     if command_exists notify-send; then
-        version=$(notify-send --version 2>&1 | awk '{print $NF}')
-        if dpkg --compare-versions "$version" ge "$NOTIFY_SEND_VERSION"; then
-            info_message "notify-send version $version is already installed."
-        else
-            warn_message "notify-send version $version found. Upgrading to $NOTIFY_SEND_VERSION..."
-            install_notify_send
-        fi
+        info_message "notify-send is already installed."
     else
-        warn_message "notify-send not found. Installing version $NOTIFY_SEND_VERSION..."
+        warn_message "notify-send not found. Installing..."
         install_notify_send
     fi
 }
@@ -672,12 +646,7 @@ validate_installation() {
 
     if [ "$OS" = "Linux" ]; then
         if command_exists notify-send; then
-            if [ "$(notify-send --version 2>&1 | awk '{print $NF}')" = "$NOTIFY_SEND_VERSION" ]; then
-                success_message "notify-send version $NOTIFY_SEND_VERSION is installed."
-            else
-                warn_message "notify-send version mismatch. Expected $NOTIFY_SEND_VERSION, but found $(notify-send --version 2>&1 | awk '{print $NF}')."
-                VALIDATION_STATUS="FALSE"
-            fi
+            success_message "notify-send is installed."
         else
             warn_message "notify-send is not installed. Please install it to use notifications."
             VALIDATION_STATUS="FALSE"
