@@ -23,7 +23,6 @@ DOWNLOADS_DIR="${HOME}/yara-install"
 TAR_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}.tar.gz"
 EXTRACT_DIR="$DOWNLOADS_DIR/yara-${YARA_VERSION}"
 
-NOTIFY_SEND_VERSION=0.8.3
 LOGGED_IN_USER=""
 
 if [ "$(uname -s)" = "Darwin" ]; then
