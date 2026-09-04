@@ -4,22 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-[6bee7db](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6bee7db1846dbb3fe8d0fd2062e1466053da69ed)...[e931cb6](https://github.com/ADORSYS-GIS/wazuh-yara/commit/e931cb69436f6df7ae74959666687f193b208b0b)
+[6bee7db](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6bee7db1846dbb3fe8d0fd2062e1466053da69ed)...[c3f3a17](https://github.com/ADORSYS-GIS/wazuh-yara/commit/c3f3a17250a2ee312f7e0e48595422f027c2b4b3)
 
 ### Documentation
 
 - Update CHANGELOG.md and checksums [skip ci] ([`54a1fc7`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/54a1fc773f444de356c6a478a6f5d22c8b693f65))
 - Update CHANGELOG.md and checksums [skip ci] ([`7060abc`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/7060abcfecddb4a6c6de7756c8b57b603aa82dbf))
-- Update CHANGELOG.md and checksums [skip ci] ([`13e06e3`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/13e06e325f62d3b5aa4e788bcc90e18c9d786896))
 
 ### Features
 
 - Add Windows YARA active response script and update checksums ([`bff26d2`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bff26d20aa1ccd7b382b6578aea5eb777d65847c))
-- Add SonarQube scanning workflow ([`2a17467`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/2a1746711570bf0b47aef4de57f15b9d0c767a92))
-
-### Miscellaneous Tasks
-
-- Clean up exclusions and add python cache ignore ([`e931cb6`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/e931cb69436f6df7ae74959666687f193b208b0b))
 
 ## 0.4.1 - 2026-05-12
 
