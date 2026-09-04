@@ -41,7 +41,7 @@ jobs:
 
       - name: Generate script checksums
         run: |
-          find scripts rules \( -path "scripts/tests" -o -path "scripts/tests/*" \) -prune -o -type f -exec sha256sum {} + > checksums.sha256
+          find scripts rules \( -path "scripts/tests" -o -path "scripts/tests/*" \) -prune -o -type f -exec sha256sum {} + | sort > checksums.sha256
           cat checksums.sha256
           
       - name: Generate full CHANGELOG.md
@@ -51,6 +51,7 @@ jobs:
           args: --output CHANGELOG.md
           
       - name: Commit and push changes
+        if: github.event_name == 'push'
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             git add CHANGELOG.md checksums.sha256
@@ -65,7 +66,7 @@ jobs:
     needs: update-changelog-and-checksums
     env:
       INSTALLATION_TYPE: server          
-      WAZUH_YARA_REPO_REF: refactor/split-linux-macos-scripts
+      WAZUH_YARA_REPO_REF: ${{ github.head_ref || github.ref_name }}
 
     steps:
     - name: Checkout code
@@ -90,7 +91,7 @@ jobs:
         
     - name: Install Wazuh agent
       run: |
-        curl -sfL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/main/scripts/install.sh | sudo bash    
+        curl -sfL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/main/scripts/linux/install.sh | sudo env WAZUH_AGENT_REPO_REF=main WAZUH_AGENT_VERSION=4.14.2-1 WAZUH_MANAGER=127.0.0.1 bash    
     
     - name: Run yara install script
       run: |
@@ -106,7 +107,7 @@ jobs:
     needs: update-changelog-and-checksums
     env:
       INSTALLATION_TYPE: server
-      WAZUH_YARA_REPO_REF: refactor/split-linux-macos-scripts
+      WAZUH_YARA_REPO_REF: ${{ github.head_ref || github.ref_name }}
 
     steps:
     - name: Checkout code
@@ -129,7 +130,7 @@ jobs:
         
     - name: Install Wazuh agent
       run: |
-        curl -sfL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/main/scripts/install.sh | sudo bash
+        curl -sfL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/main/scripts/macos/install.sh | sudo env WAZUH_AGENT_REPO_REF=main WAZUH_AGENT_VERSION=4.14.2-1 WAZUH_MANAGER=127.0.0.1 bash
     
     - name: Run yara install script
       run: |
