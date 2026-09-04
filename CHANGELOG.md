@@ -4,15 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-[6bee7db](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6bee7db1846dbb3fe8d0fd2062e1466053da69ed)...[bff26d2](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bff26d20aa1ccd7b382b6578aea5eb777d65847c)
+[6bee7db](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6bee7db1846dbb3fe8d0fd2062e1466053da69ed)...[e931cb6](https://github.com/ADORSYS-GIS/wazuh-yara/commit/e931cb69436f6df7ae74959666687f193b208b0b)
 
 ### Documentation
 
 - Update CHANGELOG.md and checksums [skip ci] ([`54a1fc7`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/54a1fc773f444de356c6a478a6f5d22c8b693f65))
+- Update CHANGELOG.md and checksums [skip ci] ([`7060abc`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/7060abcfecddb4a6c6de7756c8b57b603aa82dbf))
+- Update CHANGELOG.md and checksums [skip ci] ([`13e06e3`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/13e06e325f62d3b5aa4e788bcc90e18c9d786896))
 
 ### Features
 
 - Add Windows YARA active response script and update checksums ([`bff26d2`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bff26d20aa1ccd7b382b6578aea5eb777d65847c))
+- Add SonarQube scanning workflow ([`2a17467`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/2a1746711570bf0b47aef4de57f15b9d0c767a92))
+
+### Miscellaneous Tasks
+
+- Clean up exclusions and add python cache ignore ([`e931cb6`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/e931cb69436f6df7ae74959666687f193b208b0b))
 
 ## 0.4.1 - 2026-05-12
 
@@ -263,10 +270,21 @@ All notable changes to this project will be documented in this file.
 
 ## 0.3.12 - 2025-09-28
 
-[9c54cb4](https://github.com/ADORSYS-GIS/wazuh-yara/commit/9c54cb4ed6846f96d7acfc784fc6c0977817e3ea)...[96d23c3](https://github.com/ADORSYS-GIS/wazuh-yara/commit/96d23c38e0558df17be3b22260a6cb6f1684ec59)
+[b4f34e8](https://github.com/ADORSYS-GIS/wazuh-yara/commit/b4f34e8f8c5d3a575d628429c9f75b9d9b2530dc)...[96d23c3](https://github.com/ADORSYS-GIS/wazuh-yara/commit/96d23c38e0558df17be3b22260a6cb6f1684ec59)
 
 ### Bug Fixes
 
+- Update YARA path detection for macOS to support prebuilt binaries ([`64e4090`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/64e4090e1f220e9e6d594746a5dcd71eb4b374a1))
+- Improve YARA version detection to ensure prebuilt binary installation ([`01e6fa7`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/01e6fa7f7a8a4870f555f02e1b895f014c8b9cf4))
+- Correct YARA extraction path and Homebrew uninstall error handling ([`a8ec647`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/a8ec647fb07e21d745887a5c37dd4ec9fcefc641))
+- Enhance YARA uninstallation process for macOS and improve symlink removal ([`fc206cd`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/fc206cdf7c93d97459dc18463e00a1ab23ffed79))
+- Extract YARA binaries directly to /opt/yara without nested directory ([`63405a6`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/63405a6f49be94204a9ad9880b1305be31ff04e1))
+- Change ls to find ([`1c46396`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/1c4639687415a1bdf47fe9619e034bf75c9df2d0))
+- Streamline YARA uninstallation process and remove macOS specific logic ([`8d5922d`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/8d5922d66bc5e225d2839ca0def1fcabd9651f60))
+- Enhance YARA uninstallation for macOS with Homebrew support and improved logging ([`2a8f8fd`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/2a8f8fdac1f30eead27c790baf22f90cb197dea2))
+- Improve YARA installation verification for macOS background services ([`0fda3ef`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/0fda3ef518b940403fd99672dd89669c78a711d6))
+- Update validate_installation() to check direct path fallback ([`21dc79c`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/21dc79c276202c5c0ecbada9c7884fb905b2235c))
+- Removed redundant yara installed validation step ([`627b85e`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/627b85ea0934228227c380c37c5c09ed608551f8))
 - Point YARA_SH_URL to wazuh-yara repo ([`22bb5dd`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/22bb5dd9512dc32cbd4bbb6a1d0e9300894a601f))
 - Consider arm architecture ([`3b4ab0d`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/3b4ab0dd5e5e16050021be16cd300eb3838c591a))
 - Remove source built yara in install script ([`473d1a6`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/473d1a618728fda08a671c5d5037f8bed751ac60))
@@ -301,6 +319,8 @@ All notable changes to this project will be documented in this file.
 
 ### Features
 
+- Feat: replace Homebrew tap with prebuilt binary installation for macOS ([`1d8a72a`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/1d8a72aba7a36f742c73fff45afba2e859e82225))
+- Ensure YARA runtime dependencies remain installed on macOS ([`6fc7de7`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6fc7de7ecf88452620e048946eb80d1a858e1f2f))
 - Add YARA server-side active response script for auto-deletion on detection ([`096af40`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/096af403af2bb567c0f030f8edd58c57641114a1))
 - Add support for uninstalling YARA on RedHat-based systems ([`18a5c75`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/18a5c75ffea4df25588822c069c30ecb0902a77d))
 - Add YARA uninstallation script for server OS ([`867952d`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/867952d9695f393181dbcf82edc13d7fb3f369bd))
@@ -318,35 +338,9 @@ All notable changes to this project will be documented in this file.
 
 ### Refactor
 
+- Simplify YARA path detection to use direct installation path ([`98f43f3`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/98f43f3b9948780b27d16e5951f48b35aadab7a6))
 - Refactor: restructure install.sh with separate main functions for prebuilt vs source ([`7157a8b`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/7157a8b7b35c4d3953d55ce40e7dc599e586c8bb))
 - Streamline Wazuh agent restart and validation steps ([`b61ae72`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/b61ae72ed4410b35cb9e337198c70049a404d753))
-
-## 0.3.11 - 2025-09-18
-
-[b4f34e8](https://github.com/ADORSYS-GIS/wazuh-yara/commit/b4f34e8f8c5d3a575d628429c9f75b9d9b2530dc)...[9c54cb4](https://github.com/ADORSYS-GIS/wazuh-yara/commit/9c54cb4ed6846f96d7acfc784fc6c0977817e3ea)
-
-### Bug Fixes
-
-- Update YARA path detection for macOS to support prebuilt binaries ([`64e4090`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/64e4090e1f220e9e6d594746a5dcd71eb4b374a1))
-- Improve YARA version detection to ensure prebuilt binary installation ([`01e6fa7`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/01e6fa7f7a8a4870f555f02e1b895f014c8b9cf4))
-- Correct YARA extraction path and Homebrew uninstall error handling ([`a8ec647`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/a8ec647fb07e21d745887a5c37dd4ec9fcefc641))
-- Enhance YARA uninstallation process for macOS and improve symlink removal ([`fc206cd`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/fc206cdf7c93d97459dc18463e00a1ab23ffed79))
-- Extract YARA binaries directly to /opt/yara without nested directory ([`63405a6`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/63405a6f49be94204a9ad9880b1305be31ff04e1))
-- Change ls to find ([`1c46396`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/1c4639687415a1bdf47fe9619e034bf75c9df2d0))
-- Streamline YARA uninstallation process and remove macOS specific logic ([`8d5922d`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/8d5922d66bc5e225d2839ca0def1fcabd9651f60))
-- Enhance YARA uninstallation for macOS with Homebrew support and improved logging ([`2a8f8fd`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/2a8f8fdac1f30eead27c790baf22f90cb197dea2))
-- Improve YARA installation verification for macOS background services ([`0fda3ef`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/0fda3ef518b940403fd99672dd89669c78a711d6))
-- Update validate_installation() to check direct path fallback ([`21dc79c`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/21dc79c276202c5c0ecbada9c7884fb905b2235c))
-- Removed redundant yara installed validation step ([`627b85e`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/627b85ea0934228227c380c37c5c09ed608551f8))
-
-### Features
-
-- Feat: replace Homebrew tap with prebuilt binary installation for macOS ([`1d8a72a`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/1d8a72aba7a36f742c73fff45afba2e859e82225))
-- Ensure YARA runtime dependencies remain installed on macOS ([`6fc7de7`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6fc7de7ecf88452620e048946eb80d1a858e1f2f))
-
-### Refactor
-
-- Simplify YARA path detection to use direct installation path ([`98f43f3`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/98f43f3b9948780b27d16e5951f48b35aadab7a6))
 
 ## 0.3.10 - 2025-08-29
 

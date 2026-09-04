@@ -1,0 +1,22 @@
+name: SonarQube
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: SonarQube Scan
+    uses: ADORSYS-GIS/adorsys-ci-cd-templates/.github/workflows/sonarqube.yml@1566ed0da26bd29f41625655dd7171a5464762fd # main
+    with:
+      project-key: wazuh-yara
+      exclusions: "**/coverage/**,**/__pycache__/**"
+    secrets:
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
