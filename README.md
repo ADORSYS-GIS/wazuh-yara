@@ -1,5 +1,6 @@
 # Wazuh Yara
 [![Run Pytest](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/yara-test.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/yara-test.yml)
+[![SonarQube](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sonarqube.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sonarqube.yml)
 
 ---
 
