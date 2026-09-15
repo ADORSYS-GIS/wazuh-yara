@@ -29,7 +29,7 @@ WAZUH_YARA_RULES_URL="${WAZUH_YARA_REPO_URL}/rules/yara_rules.yar"
 
 # GitHub Release configuration for packages
 GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-plugins/releases/download"
-MACOS_RELEASE_TAG="yara-v0.5.1"
+MACOS_RELEASE_TAG="yara-v0.5.2"
 
 TMP_DIR=$(mktemp -d)
 OSSEC_CONF_PATH=${OSSEC_CONF_PATH:-"/Library/Ossec/etc/ossec.conf"}

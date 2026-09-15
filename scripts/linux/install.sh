@@ -23,7 +23,7 @@ YARA_RULES_URL="${WAZUH_YARA_REPO_URL}/rules/yara_rules.yar"
 
 # GitHub Release configuration for packages
 GITHUB_RELEASE_BASE_URL="https://github.com/ADORSYS-GIS/wazuh-plugins/releases/download"
-LINUX_RELEASE_TAG="yara-v0.3.17"
+LINUX_RELEASE_TAG="yara-v0.5.2"
 NOTIFY_SEND_MIN_VERSION="0.8.3"
 
 # OS and Distribution Detection
