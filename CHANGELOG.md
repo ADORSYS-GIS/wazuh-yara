@@ -4,16 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-[6bee7db](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6bee7db1846dbb3fe8d0fd2062e1466053da69ed)...[c3f3a17](https://github.com/ADORSYS-GIS/wazuh-yara/commit/c3f3a17250a2ee312f7e0e48595422f027c2b4b3)
+[6bee7db](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6bee7db1846dbb3fe8d0fd2062e1466053da69ed)...[3494b03](https://github.com/ADORSYS-GIS/wazuh-yara/commit/3494b03ba3ef78ec0e022f44362f8b7130ecb50c)
 
 ### Documentation
 
 - Update CHANGELOG.md and checksums [skip ci] ([`54a1fc7`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/54a1fc773f444de356c6a478a6f5d22c8b693f65))
 - Update CHANGELOG.md and checksums [skip ci] ([`7060abc`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/7060abcfecddb4a6c6de7756c8b57b603aa82dbf))
+- Update CHANGELOG.md and checksums [skip ci] ([`e1dfffa`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/e1dfffae98ce6b0c109635b34bbf58842bc27053))
 
 ### Features
 
 - Add Windows YARA active response script and update checksums ([`bff26d2`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bff26d20aa1ccd7b382b6578aea5eb777d65847c))
+- Update YARA package release tags to yara-v0.5.2 ([`e4eaf7a`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/e4eaf7a6839d438220df74102430061ad3568b9e)), Signed-off-by:Awambeng Rodrick <awambengrodrick@gmail.com>
+
+### Miscellaneous Tasks
+
+- Add SonarQube status badge to README ([`8e5c2a2`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/8e5c2a2326a01d1c9201d84c72d804d02466bc1e))
 
 ## 0.4.1 - 2026-05-12
 
