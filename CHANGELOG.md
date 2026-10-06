@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+[aa3b53f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/aa3b53fdd058c8409fc39a9f64a4274270573f3e)...[5f465ea](https://github.com/ADORSYS-GIS/wazuh-yara/commit/5f465ea82dc9cfd37d020ba60e1df07aefd23d10)
+
+### Documentation
+
+- Update CHANGELOG.md and checksums [skip ci] ([`c787a9b`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/c787a9b80d45511e01347a62300f82ee3e6e3db4))
+
+### Features
+
+- Add SAST workflow ([`43ec78d`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/43ec78d4ad37f09792f23e77f3f5a00eb819338c))
+
+### Miscellaneous Tasks
+
+- Remove shellcheck check (moved to SAST) ([`5f7d633`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/5f7d633bd06f1a18c1b3d3f4904b62a74004f893))
+
+## 0.4.2 - 2026-09-15
+
 [6bee7db](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6bee7db1846dbb3fe8d0fd2062e1466053da69ed)...[aa3b53f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/aa3b53fdd058c8409fc39a9f64a4274270573f3e)
 
 ### Documentation
