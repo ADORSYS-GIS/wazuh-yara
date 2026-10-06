@@ -84,11 +84,6 @@ jobs:
         sudo apt-get install -y curl gnupg2 
         pip install pytest pytest-testinfra
         
-    - name: Check install.sh syntax
-      run: |
-        sudo apt-get install -y shellcheck
-        shellcheck --shell=bash scripts/linux/install.sh
-        
     - name: Install Wazuh agent
       run: |
         curl -sfL https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-agent/main/scripts/linux/install.sh | sudo env WAZUH_AGENT_REPO_REF=main WAZUH_AGENT_VERSION=4.14.2-1 WAZUH_MANAGER=127.0.0.1 bash    
@@ -121,12 +116,8 @@ jobs:
     - name: Install dependencies
       run: |
         brew update
-        brew install python3 coreutils gnu-sed shellcheck
+        brew install python3 coreutils gnu-sed
         pip3 install pytest pytest-testinfra
-        
-    - name: Check install.sh syntax
-      run: |
-        shellcheck --shell=bash scripts/macos/install.sh
         
     - name: Install Wazuh agent
       run: |

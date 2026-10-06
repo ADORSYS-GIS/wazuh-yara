@@ -1,0 +1,40 @@
+name: Static Application Security Testing (SAST)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sast-python:
+    uses: ADORSYS-GIS/adorsys-ci-cd-templates/.github/workflows/sast-python.yml@6a07b60f35e2b595385500be57330e3eb178e706
+    with:
+      runner: ubuntu-latest
+      working-directory: "."
+      python-version: "3.12"
+    permissions:
+      contents: read
+      actions: read
+      checks: write
+
+  sast-shell:
+    uses: ADORSYS-GIS/adorsys-ci-cd-templates/.github/workflows/sast-shell.yml@6a07b60f35e2b595385500be57330e3eb178e706
+    with:
+      runner: ubuntu-latest
+      working-directory: "."
+    permissions:
+      contents: read
+      actions: read
+      checks: write
+
+  sast-powershell:
+    uses: ADORSYS-GIS/adorsys-ci-cd-templates/.github/workflows/sast-powershell.yml@6a07b60f35e2b595385500be57330e3eb178e706
+    with:
+      runner: ubuntu-latest
+      working-directory: "."
+    permissions:
+      contents: read
+      actions: read
+      checks: write
