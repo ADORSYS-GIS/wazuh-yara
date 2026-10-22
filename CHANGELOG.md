@@ -4,11 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-[aa3b53f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/aa3b53fdd058c8409fc39a9f64a4274270573f3e)...[5f465ea](https://github.com/ADORSYS-GIS/wazuh-yara/commit/5f465ea82dc9cfd37d020ba60e1df07aefd23d10)
+[aa3b53f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/aa3b53fdd058c8409fc39a9f64a4274270573f3e)...[b532ee7](https://github.com/ADORSYS-GIS/wazuh-yara/commit/b532ee76e1a4c7b354712cc29b55939980f98807)
+
+### Bug Fixes
+
+- Drop sonar exclusions quotes and test real maybe_sudo directly ([`6db14d8`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6db14d890f84881e56c6a167ed82c1afaa412914))
 
 ### Documentation
 
 - Update CHANGELOG.md and checksums [skip ci] ([`c787a9b`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/c787a9b80d45511e01347a62300f82ee3e6e3db4))
+- Update CHANGELOG.md and checksums [skip ci] ([`1028b48`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/1028b48f265af80b4ac61b57beb4d79cfaf6b8ea))
 
 ### Features
 
@@ -17,6 +22,10 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Remove shellcheck check (moved to SAST) ([`5f7d633`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/5f7d633bd06f1a18c1b3d3f4904b62a74004f893))
+
+### Testing
+
+- Instrument Bats tests with kcov and report coverage to SonarQube ([`02e62b0`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/02e62b047e6ddb06b80db92256be3dd5e8831e86))
 
 ## 0.4.2 - 2026-09-15
 
