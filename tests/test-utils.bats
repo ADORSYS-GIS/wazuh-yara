@@ -9,11 +9,6 @@ setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     # shellcheck source=scripts/shared/utils.sh
     source "$REPO_ROOT/scripts/shared/utils.sh"
-
-    # Mock maybe_sudo by default in tests to avoid password prompts
-    maybe_sudo() {
-        "$@"
-    }
 }
 
 teardown() {
@@ -261,6 +256,9 @@ teardown() {
         printf "mock downloaded payload"
         return 0
     }
+    maybe_sudo() {
+        "$@"
+    }
     
     run download_file "https://fake.url/file.txt" "$target_dest" "Mocked file" 1
     [ "$status" -eq 0 ]
@@ -283,6 +281,9 @@ teardown() {
         printf "mock wget content"
         return 0
     }
+    maybe_sudo() {
+        "$@"
+    }
     
     run download_file "https://fake.url/file.txt" "$target_dest" "Wget download" 1
     [ "$status" -eq 0 ]
@@ -296,6 +297,9 @@ teardown() {
     command_exists() {
         return 1
     }
+    maybe_sudo() {
+        "$@"
+    }
     
     run download_file "https://fake.url/file.txt" "$target_dest" "Failed download" 1
     [ "$status" -eq 1 ]
@@ -307,6 +311,9 @@ teardown() {
     curl() {
         printf "mock binary"
         return 0
+    }
+    maybe_sudo() {
+        "$@"
     }
     
     run download_and_verify_file "https://fake.url/bin" "$target_dest" "pattern" "Mock Target" "" "$TEST_DIR/missing.sha256"
@@ -323,6 +330,9 @@ teardown() {
         printf "mock binary"
         return 0
     }
+    maybe_sudo() {
+        "$@"
+    }
     
     run download_and_verify_file "https://fake.url/bin" "$target_dest" "payload.bin" "Mock Target" "" "$checksum_file"
     [ "$status" -ne 0 ]
@@ -337,6 +347,9 @@ teardown() {
     curl() {
         printf "mock binary"
         return 0
+    }
+    maybe_sudo() {
+        "$@"
     }
     
     run download_and_verify_file "https://fake.url/bin" "$target_dest" "payload.bin" "Mock Target" "" "$checksum_file"
@@ -353,6 +366,9 @@ teardown() {
     curl() {
         printf "mock binary content"
         return 0
+    }
+    maybe_sudo() {
+        "$@"
     }
     
     run download_and_verify_file "https://fake.url/bin" "$target_dest" "payload.bin" "Mock Target" "" "$checksum_file"
@@ -397,55 +413,57 @@ teardown() {
 
 @test "maybe_sudo runs directly when running as root (uid 0)" {
     id() {
-        echo 0
-    }
-    
-    # Source fresh copy to get real maybe_sudo logic
-    real_maybe_sudo() {
-        if [[ "$(id -u)" -ne 0 ]]; then
-            if command_exists sudo; then
-                sudo "$@"
-            else
-                error_message "This script requires root privileges. Please run with sudo or as root."
-                exit 1
-            fi
+        if [ "$1" = "-u" ]; then
+            echo 0
         else
-            "$@"
+            command id "$@"
         fi
-        return $?
     }
     
-    run real_maybe_sudo echo "root execution"
+    run maybe_sudo echo "root execution"
     [ "$status" -eq 0 ]
     [ "$output" = "root execution" ]
 }
 
 @test "maybe_sudo fails when non-root and sudo is unavailable" {
     id() {
-        echo 1000
+        if [ "$1" = "-u" ]; then
+            echo 1000
+        else
+            command id "$@"
+        fi
     }
     command_exists() {
         if [[ "$1" == "sudo" ]]; then
             return 1
         fi
-        return 0
+        command -v "$1" >/dev/null 2>&1
     }
     
-    real_maybe_sudo() {
-        if [[ "$(id -u)" -ne 0 ]]; then
-            if command_exists sudo; then
-                sudo "$@"
-            else
-                error_message "This script requires root privileges. Please run with sudo or as root."
-                exit 1
-            fi
-        else
-            "$@"
-        fi
-        return $?
-    }
-    
-    run real_maybe_sudo echo "should fail"
+    run maybe_sudo echo "should fail"
     [ "$status" -eq 1 ]
-    [[ "$output" =~ "This script requires root privileges" ]]
+    [[ "$output" =~ "requires root privileges" ]]
+}
+
+@test "maybe_sudo uses sudo when non-root and sudo is available" {
+    id() {
+        if [ "$1" = "-u" ]; then
+            echo 1000
+        else
+            command id "$@"
+        fi
+    }
+    command_exists() {
+        if [[ "$1" == "sudo" ]]; then
+            return 0
+        fi
+        command -v "$1" >/dev/null 2>&1
+    }
+    sudo() {
+        echo "called with sudo: $*"
+    }
+    
+    run maybe_sudo echo "hello world"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "called with sudo: echo hello world" ]]
 }
