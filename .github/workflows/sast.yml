@@ -8,6 +8,14 @@ on:
   workflow_dispatch:
 
 jobs:
+  sbom:
+    uses: ADORSYS-GIS/adorsys-ci-cd-templates/.github/workflows/sbom.yml@17fe8c106fcac2a4b6ac1992cd1b89166f0eb5e2
+    with:
+      runner: ubuntu-latest
+      working-directory: "."
+    permissions:
+      contents: read
+
   sast-python:
     uses: ADORSYS-GIS/adorsys-ci-cd-templates/.github/workflows/sast-python.yml@6a07b60f35e2b595385500be57330e3eb178e706
     with:
