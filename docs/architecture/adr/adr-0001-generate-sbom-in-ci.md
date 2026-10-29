@@ -2,6 +2,8 @@
 
 > We generate the SBOM in CI with Trivy because the GitHub Dependency Graph alone misses dependencies for this project.
 
+![SAST workflow status](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml/badge.svg)
+
 ## Metadata
 
 | Field             | Value                                         |
