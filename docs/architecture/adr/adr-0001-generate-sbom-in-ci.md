@@ -2,8 +2,6 @@
 
 > We generate the SBOM in CI with Trivy because the GitHub Dependency Graph alone misses dependencies for this project.
 
-[![Static Application Security Testing (SAST)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml)
-
 ## Metadata
 
 | Field             | Value                                         |
