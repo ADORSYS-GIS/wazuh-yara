@@ -8,9 +8,9 @@ decision. The canonical writing guidance is the central ADR guide:
 
 ## Index
 
-| ID                                        | Title                         | Status     | Date       | Relations | Formerly |
-| :---------------------------------------- | :---------------------------- | :--------- | :--------- | :-------- | :------- |
-| [ADR-001](adr-001-generate-sbom-in-ci.md) | Generate CycloneDX SBOM in CI | `Proposed` | 2026-10-28 | N/A       | N/A      |
+| ID                                         | Title                         | Status     | Date       | Relations | Formerly |
+| :----------------------------------------- | :---------------------------- | :--------- | :--------- | :-------- | :------- |
+| [ADR-0001](adr-0001-generate-sbom-in-ci.md) | Generate CycloneDX SBOM in CI | `Proposed` | 2026-10-28 | N/A       | N/A      |
 
 ---
 

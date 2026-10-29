@@ -1,4 +1,4 @@
-# ADR-001: Generate CycloneDX SBOM in CI
+# ADR-0001: Generate CycloneDX SBOM in CI
 
 > We generate the SBOM in CI with Trivy because the GitHub Dependency Graph alone misses dependencies for this project.
 
@@ -6,7 +6,7 @@
 
 | Field             | Value                                         |
 | :---------------- | :-------------------------------------------- |
-| **Document ID**   | ADR-001                                       |
+| **Document ID**   | ADR-0001                                      |
 | **Status**        | `Proposed`                                    |
 | **Date**          | 2026-10-28                                    |
 | **Deciders**      | SIEM Security Engineering Team                |
@@ -92,6 +92,7 @@ Nothing to roll back.
 | The `sbom` job calls the shared workflow with a filesystem scan | `.github/workflows/sast.yml` in this repo                        |
 | The shared workflow generates a CycloneDX SBOM with Trivy       | `ADORSYS-GIS/adorsys-ci-cd-templates/.github/workflows/sbom.yml` |
 | The shared workflow is referenced by commit SHA                 | `.github/workflows/sast.yml` in this repo                        |
+| The SAST workflow (including the `sbom` job) passes             | ![SAST workflow status](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml/badge.svg) |
 
 ## References
 
@@ -101,7 +102,7 @@ Nothing to roll back.
 
 ## Solution implementation
 
-| Kind  | Tracking                  | Status | What it covers                   |
-| :---- | :------------------------ | :----- | :------------------------------- |
-| Issue | ADORSYS-GIS/wazuh-yara#99  | Open   | Requests SBOM generation in CI   |
-| PR    | ADORSYS-GIS/wazuh-yara#104 | Open   | Adds the `sbom` job and this ADR |
+| Kind  | Tracking                                                                        | Status | What it covers                   |
+| :---- | :------------------------------------------------------------------------------ | :----- | :------------------------------- |
+| Issue | [ADORSYS-GIS/wazuh-yara#99](https://github.com/ADORSYS-GIS/wazuh-yara/issues/99) | Open   | Requests SBOM generation in CI   |
+| PR    | [ADORSYS-GIS/wazuh-yara#104](https://github.com/ADORSYS-GIS/wazuh-yara/pull/104) | Open   | Adds the `sbom` job and this ADR |
