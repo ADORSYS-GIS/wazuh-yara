@@ -2,7 +2,7 @@
 
 > We generate the SBOM in CI with Trivy because the GitHub Dependency Graph alone misses dependencies for this project.
 
-![SAST workflow status](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml/badge.svg)
+[![Static Application Security Testing (SAST)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml)
 
 ## Metadata
 
@@ -94,7 +94,7 @@ Nothing to roll back.
 | The `sbom` job calls the shared workflow with a filesystem scan | `.github/workflows/sast.yml` in this repo                        |
 | The shared workflow generates a CycloneDX SBOM with Trivy       | `ADORSYS-GIS/adorsys-ci-cd-templates/.github/workflows/sbom.yml` |
 | The shared workflow is referenced by commit SHA                 | `.github/workflows/sast.yml` in this repo                        |
-| The SAST workflow (including the `sbom` job) passes             | ![SAST workflow status](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml/badge.svg) |
+| The SAST workflow (including the `sbom` job) passes             | [![Static Application Security Testing (SAST)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml) |
 
 ## References
 
