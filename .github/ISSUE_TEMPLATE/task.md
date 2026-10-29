@@ -1,9 +1,9 @@
 ---
 name: Task / Chore
 about: A routine task or maintenance chore
-title: ''
+title: ""
 labels: chore
-assignees: ''
+assignees: ""
 ---
 
 ## Task

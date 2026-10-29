@@ -1,9 +1,9 @@
 ---
 name: Testing
 about: Test plans, QA, or validation work
-title: ''
+title: ""
 labels: testing
-assignees: ''
+assignees: ""
 ---
 
 ## Description

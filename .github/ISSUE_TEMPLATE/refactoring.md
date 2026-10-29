@@ -1,9 +1,9 @@
 ---
 name: Refactoring
 about: Propose a code or infrastructure refactor
-title: ''
+title: ""
 labels: refactoring
-assignees: ''
+assignees: ""
 ---
 
 ## Current State

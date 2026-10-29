@@ -1,9 +1,9 @@
 ---
 name: Question / Support
 about: Ask a question or request support
-title: ''
+title: ""
 labels: question
-assignees: ''
+assignees: ""
 ---
 
 ## Question
@@ -16,7 +16,7 @@ What are you trying to accomplish? Include relevant configuration or steps taken
 
 ## What I've Tried
 
-- 
+-
 
 ## Additional Context
 

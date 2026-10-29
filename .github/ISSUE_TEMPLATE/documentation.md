@@ -1,9 +1,9 @@
 ---
 name: Documentation
 about: Report or request a documentation change
-title: ''
+title: ""
 labels: documentation
-assignees: ''
+assignees: ""
 ---
 
 ## Description

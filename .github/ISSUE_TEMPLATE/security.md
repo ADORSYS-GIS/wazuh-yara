@@ -1,9 +1,9 @@
 ---
 name: Security
 about: Report a security concern or propose a security improvement
-title: ''
+title: ""
 labels: security
-assignees: ''
+assignees: ""
 ---
 
 > **Note**: For critical or actively-exploitable vulnerabilities, do NOT use this
