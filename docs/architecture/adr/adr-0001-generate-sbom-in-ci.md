@@ -7,7 +7,7 @@
 | Field             | Value                                         |
 | :---------------- | :-------------------------------------------- |
 | **Document ID**   | ADR-0001                                      |
-| **Status**        | `Proposed`                                    |
+| **Status**        | `Accepted`                                    |
 | **Date**          | 2026-10-28                                    |
 | **Deciders**      | SIEM Security Engineering Team                |
 | **Governs**       | `.github/workflows/sast.yml` (the `sbom` job) |
@@ -72,9 +72,9 @@ The shared workflow reference is pinned to a commit SHA, like the other reusable
 
 ### Done when
 
-- [ ] The `sbom` job runs in the SAST workflow on push to the default branch and on pull requests.
-- [ ] The run uploads `sbom.json` as the `sbom` artifact.
-- [ ] The shared workflow reference is pinned to a commit SHA, not `@main`.
+- [x] The `sbom` job runs in the SAST workflow on push to the default branch and on pull requests.
+- [x] The run uploads `sbom.json` as the `sbom` artifact.
+- [x] The shared workflow reference is pinned to a commit SHA, not `@main`.
 
 ### Revisit when
 
@@ -101,7 +101,9 @@ Nothing to roll back.
 
 ## Solution implementation
 
-| Kind  | Tracking                                                                        | Status | What it covers                   |
-| :---- | :------------------------------------------------------------------------------ | :----- | :------------------------------- |
-| Issue | [ADORSYS-GIS/wazuh-yara#99](https://github.com/ADORSYS-GIS/wazuh-yara/issues/99) | Open   | Requests SBOM generation in CI   |
-| PR    | [ADORSYS-GIS/wazuh-yara#104](https://github.com/ADORSYS-GIS/wazuh-yara/pull/104) | Open   | Adds the `sbom` job and this ADR |
+| Kind   | Tracking                                                                        | Status            | What it covers                   |
+| :----- | :------------------------------------------------------------------------------ | :---------------- | :------------------------------- |
+| Issue  | [ADORSYS-GIS/wazuh-yara#99](https://github.com/ADORSYS-GIS/wazuh-yara/issues/99) | Closed            | Requests SBOM generation in CI   |
+| PR     | [ADORSYS-GIS/wazuh-yara#104](https://github.com/ADORSYS-GIS/wazuh-yara/pull/104) | Merged 2026-10-30 | Adds the `sbom` job and this ADR |
+| Commit | [bb23841](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bb23841)              | 2026-10-28        | Adds the `sbom` job and this ADR |
+| Commit | [7ded4bd](https://github.com/ADORSYS-GIS/wazuh-yara/commit/7ded4bd)              | 2026-10-30        | Merge commit for PR #104         |
