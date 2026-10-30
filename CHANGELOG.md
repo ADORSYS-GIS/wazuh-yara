@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-[aa3b53f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/aa3b53fdd058c8409fc39a9f64a4274270573f3e)...[b532ee7](https://github.com/ADORSYS-GIS/wazuh-yara/commit/b532ee76e1a4c7b354712cc29b55939980f98807)
+[aa3b53f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/aa3b53fdd058c8409fc39a9f64a4274270573f3e)...[7ded4bd](https://github.com/ADORSYS-GIS/wazuh-yara/commit/7ded4bd951bbfdef35408a95b4a8f04889044173)
 
 ### Bug Fixes
 
@@ -14,14 +14,24 @@ All notable changes to this project will be documented in this file.
 
 - Update CHANGELOG.md and checksums [skip ci] ([`c787a9b`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/c787a9b80d45511e01347a62300f82ee3e6e3db4))
 - Update CHANGELOG.md and checksums [skip ci] ([`1028b48`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/1028b48f265af80b4ac61b57beb4d79cfaf6b8ea))
+- Update CHANGELOG.md and checksums [skip ci] ([`a2a569b`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/a2a569b9c27b0dcd75b5686aecb451f4a826bf53))
+- Improve formatting with prettier formater ([`782edfd`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/782edfda45c924d08f05b80b133c918b757b33d8))
+- Reference PR 104 in solution implementation ([`4c598c2`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/4c598c2bd4722ba340ef25c6227cb07f6bc2ffe4))
+- Address review feedback on ADR-0001 ([`bb2879a`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bb2879a9aa54c2a853e98a229886bbc6d041b5b3))
+- Add SAST workflow status badge to ADR-0001 header ([`f92aac7`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/f92aac7a6522179915e8f6500548a0fdfa5a500c))
+- Make SAST status badge clickable in ADR-0001 ([`6cf0ca1`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6cf0ca1867a4682bf43a25fe4c5d52fa12e43029))
+- Move SAST status badge to Evidence section in ADR-0001 ([`82cda9a`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/82cda9ae2772ed1d39e6e12e9872cf2f0475013a))
+- Move SAST status badge to README, remove from ADR Evidence ([`c473cae`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/c473cae0d75c9d563e304a8f47f2524739f6c99c))
 
 ### Features
 
 - Add SAST workflow ([`43ec78d`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/43ec78d4ad37f09792f23e77f3f5a00eb819338c))
+- Generate CycloneDX SBOM in CI ([`bb23841`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bb238415ff97cb8a9babb20b309bb258b0316152))
 
 ### Miscellaneous Tasks
 
 - Remove shellcheck check (moved to SAST) ([`5f7d633`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/5f7d633bd06f1a18c1b3d3f4904b62a74004f893))
+- Add issue and PR templates ([`26be5a0`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/26be5a07da37547225ed65ffb551eab122a71590))
 
 ### Testing
 
