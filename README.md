@@ -12,6 +12,12 @@ By leveraging YARA’s rule-based detection capabilities on Linux and macOS, Waz
 
 ---
 
+## Documentation
+
+The full documentation is maintained under the [`docs/`](docs/) folder. Start at the [documentation entry point](docs/README.md) for the SDLC map and quick links.
+
+---
+
 ## Features
 - **File Integrity Monitoring (FIM):** Monitors specified directories and files for modifications, automatically triggering YARA scans on all supported platforms.
 - **Malware Detection:**
