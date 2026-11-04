@@ -9,13 +9,18 @@ integration, and notifications.
 
 ### Linux / macOS
 
-The Linux/macOS integration uses a two-script architecture:
+The Linux/macOS integration installs a single active response script into
+`/var/ossec/active-response/bin/yara.sh`. The exact script is chosen at install
+time by the `INSTALLATION_TYPE` (desktop or server); the two are mutually
+exclusive deployment flavors, not a pipeline where one calls the other:
 
-- **`yara.sh`** - the client-side active response script that triggers scans
-  when files are modified and, in desktop mode, shows user notifications with
-  actions (Delete / Ignore / Dismiss).
-- **`yara-server.sh`** - the server-side script that performs the YARA scan and
-  logs results without user interaction.
+- **`yara.sh`** (desktop) - interactive active response script that triggers
+  scans when files are modified and shows user notifications with actions
+  (Delete / Ignore / Dismiss).
+- **`yara-server.sh`** (server) - headless active response script that performs
+  the YARA scan and logs results without user interaction.
+
+Both scripts independently run the YARA CLI binary directly against the ruleset.
 
 ### Windows
 

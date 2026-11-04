@@ -14,9 +14,12 @@ installations, shown to the user via a native notification).
 
 The detection engine differs by platform:
 
-- **Linux / macOS** run the two-script architecture: a client-side active
-  response script (`yara.sh`) that triggers scans and a server-side scanning
-  script (`yara-server.sh`) that performs the actual YARA scan.
+- **Linux / macOS** install a single active response script into
+  `/var/ossec/active-response/bin/yara.sh`. Depending on the `INSTALLATION_TYPE`
+  chosen at install time, this is either `yara.sh` (desktop: interactive, with
+  GUI notifications) or `yara-server.sh` (server: headless, log-only output).
+  These are mutually exclusive deployment flavors, not a client/server pair -
+  each script independently runs the YARA CLI binary directly.
 - **Windows** uses a native `yara.bat` active response together with a Windows
   Defender integration that streams Defender threat events into Wazuh.
 
@@ -32,14 +35,9 @@ The detection engine differs by platform:
                   │ Triggers active response
                   ▼
    ┌──────────────────────────────┐
-   │   yara.sh (active response)  │  Reads alert JSON, resolves file path
+   │   yara.sh / yara-server.sh   │  Active response script (desktop or server flavor)
    └──────────────┬───────────────┘
-                  │ Waits for file to be stable, then scans
-                  ▼
-   ┌──────────────────────────────┐
-   │   yara-server.sh / yara      │  Runs YARA against ruleset
-   └──────────────┬───────────────┘
-                  │ Match found?
+                  │ Runs the YARA CLI directly against the ruleset
                   ▼
    ┌──────────────────────────────┐
    │   active-responses.log       │  wazuh-yara: INFO - Scan result ...

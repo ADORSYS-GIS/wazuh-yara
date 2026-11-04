@@ -81,7 +81,7 @@ the expected post-install state.
 | `test_user_exists`            | `root` user exists                                |
 | `test_group_exists`           | `wazuh` group exists                              |
 | `test_ossec_conf_exists`      | Wazuh configuration file exists at the correct path |
-| `test_yara_installed_from_source` | YARA binary is present and version is `4.5.4`  |
+| `test_yara_installed_from_source` | YARA binary is present and version is `4.5.x` |
 | `test_notify_send_version`    | `notify-send` is present and version is `0.8.3` (Linux only) |
 | `test_yara_script_downloaded` | YARA active response script exists, owned `root:wazuh`, mode `750` |
 | `test_yara_script_permissions`| YARA script permissions/ownership                 |
