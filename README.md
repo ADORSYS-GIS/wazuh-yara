@@ -16,6 +16,13 @@ By leveraging YARA’s rule-based detection capabilities on Linux and macOS, Waz
 
 The full documentation is maintained under the [`docs/`](docs/) folder. Start at the [documentation entry point](docs/README.md) for the SDLC map and quick links.
 
+Key documents:
+- [Architecture Overview](docs/architecture/overview.md)
+- [Installation & Setup](docs/operations/installation.md)
+- [Usage Guide](docs/operations/usage.md)
+- [CI/CD Overview](docs/development/ci.md)
+- [YARA Rules Reference](docs/reference/rules.md)
+
 ---
 
 ## Features
