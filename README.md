@@ -2,6 +2,7 @@
 [![Run Pytest](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/yara-test.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/yara-test.yml)
 [![SonarQube](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sonarqube.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sonarqube.yml)
 [![Static Application Security Testing (SAST)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/sast.yml)
+[![Dependabot Updates](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/ADORSYS-GIS/wazuh-yara/actions/workflows/dependabot/dependabot-updates)
 
 ---
 
