@@ -123,7 +123,6 @@ function Install-YARA {
 
 # Function to add the Downloads directory and <file_limit> to the syscheck config
 function Update-SyscheckConfig {
-    [CmdletBinding(SupportsShouldProcess=$true)]
     param(
         [xml]$ConfigXml,
         [string]$ConfigFilePath,
@@ -152,7 +151,6 @@ function Update-SyscheckConfig {
 
 # Function to add a <file_limit> node to the syscheck configuration if missing
 function Add-FileLimitToSyscheck {
-    [CmdletBinding(SupportsShouldProcess=$true)]
     param(
         [xml]$ConfigXml,
         [string]$ConfigFilePath,
@@ -180,7 +178,6 @@ function Add-FileLimitToSyscheck {
 
 # Function to update Wazuh agent configuration
 function Update-WazuhConfig {
-    [CmdletBinding(SupportsShouldProcess=$true)]
     param()
     $userName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name.Split('\')[1]
     $configFilePath = "C:\Program Files (x86)\ossec-agent\ossec.conf"

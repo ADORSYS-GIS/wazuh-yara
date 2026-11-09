@@ -6,8 +6,7 @@ $ErrorActionPreference = "Stop"
 function Log {
     param (
         [string]$Level,
-        [string]$Message,
-        [string]$Color = "White"
+        [string]$Message
     )
     $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Write-Output "$Timestamp $Level $Message"
@@ -15,22 +14,22 @@ function Log {
 
 function InfoMessage {
     param ([string]$Message)
-    Log -Level "[INFO]" -Message $Message -Color "White"
+    Log -Level "[INFO]" -Message $Message
 }
 
 function WarnMessage {
     param ([string]$Message)
-    Log -Level "[WARNING]" -Message $Message -Color "Yellow"
+    Log -Level "[WARNING]" -Message $Message
 }
 
 function ErrorMessage {
     param ([string]$Message)
-    Log -Level "[ERROR]" -Message $Message -Color "Red"
+    Log -Level "[ERROR]" -Message $Message
 }
 
 function SuccessMessage {
     param ([string]$Message)
-    Log -Level "[SUCCESS]" -Message $Message -Color "Green"
+    Log -Level "[SUCCESS]" -Message $Message
 }
 
 function PrintStep {
@@ -38,7 +37,7 @@ function PrintStep {
         [int]$StepNumber,
         [string]$Message
     )
-    Log -Level "[STEP]" -Message "Step ${StepNumber}: $Message" -Color "White"
+    Log -Level "[STEP]" -Message "Step ${StepNumber}: $Message"
 }
 
 function ErrorExit {
@@ -85,7 +84,7 @@ function Test-Checksum {
 }
 
 function Get-File {
-    [CmdletBinding(SupportsShouldProcess=$true)]
+    [CmdletBinding()]
     param(
         [string]$Url,
         [string]$Destination,
@@ -119,7 +118,8 @@ function Get-File {
 }
 
 function Get-And-VerifyFile {
-    [CmdletBinding(SupportsShouldProcess=$true)]
+    [CmdletBinding()]
+    [OutputType([System.Boolean])]
     param(
         [string]$Url,
         [string]$Destination,

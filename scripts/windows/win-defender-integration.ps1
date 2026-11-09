@@ -76,7 +76,6 @@ function Uninstall-YARA {
 
 # Function to add a <file_limit> node to the syscheck configuration if missing
 function Add-FileLimitMonitoring {
-    [CmdletBinding(SupportsShouldProcess=$true)]
     param(
         [xml]$ConfigXml,
         [string]$ConfigFilePath
@@ -109,7 +108,7 @@ function Add-FileLimitMonitoring {
 
 # Function to add Windows Defender log monitoring
 function Add-DefenderMonitoring {
-    [CmdletBinding(SupportsShouldProcess=$true)]
+    [OutputType([System.Boolean])]
     param()
     $configFilePath = "C:\Program Files (x86)\ossec-agent\ossec.conf"
 
@@ -168,7 +167,7 @@ function Add-DefenderMonitoring {
 
 # Function to restart Wazuh service
 function Restart-WazuhService {
-    [CmdletBinding(SupportsShouldProcess=$true)]
+    [OutputType([System.Boolean])]
     param()
     try {
         $service = Get-Service -Name WazuhSvc -ErrorAction Stop
