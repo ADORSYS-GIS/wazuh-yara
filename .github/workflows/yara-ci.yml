@@ -82,7 +82,7 @@ jobs:
         # Install dependencies
         sudo apt-get update
         sudo apt-get install -y curl gnupg2 
-        pip install pytest pytest-testinfra
+        pip install --only-binary :all: pytest==8.2.2 pytest-testinfra==10.1.1
         
     - name: Install Wazuh agent
       run: |
@@ -117,7 +117,7 @@ jobs:
       run: |
         brew update
         brew install python3 coreutils gnu-sed
-        pip3 install pytest pytest-testinfra
+        pip3 install --only-binary :all: pytest==8.2.2 pytest-testinfra==10.1.1
         
     - name: Install Wazuh agent
       run: |

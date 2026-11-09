@@ -60,7 +60,8 @@ print_step() {
 }
 
 error_exit() {
-    error_message "$1"
+    local message="$1"
+    error_message "$message"
     exit 1
 }
 

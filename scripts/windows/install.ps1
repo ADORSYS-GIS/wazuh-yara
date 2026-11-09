@@ -121,6 +121,61 @@ function Install-YARA {
     }
 }
 
+# Function to add the Downloads directory and <file_limit> to the syscheck config
+function Update-SyscheckConfig {
+    param(
+        [xml]$ConfigXml,
+        [string]$ConfigFilePath,
+        [string]$UserName
+    )
+    $syscheckNode = $ConfigXml.ossec_config.syscheck
+    if ($null -eq $syscheckNode) {
+        ErrorMessage "<syscheck> node not found in the configuration file." 
+        return
+    }
+
+    $existingNode = $syscheckNode.directories | Where-Object { $_.InnerText -eq "C:\Users\$UserName\Downloads" }
+    if ($null -eq $existingNode) {
+        $newDirectoryNode = $ConfigXml.CreateElement("directories")
+        $newDirectoryNode.SetAttribute("realtime", "yes")
+        $newDirectoryNode.InnerText = "C:\Users\$UserName\Downloads"
+        $syscheckNode.AppendChild($newDirectoryNode) | Out-Null
+        $ConfigXml.Save($ConfigFilePath)
+        InfoMessage "Directory C:\Users\$UserName\Downloads added to syscheck configuration."
+    } else {
+        InfoMessage "Directory C:\Users\$UserName\Downloads is already in the syscheck configuration."
+    }
+
+    Add-FileLimitToSyscheck -ConfigXml $ConfigXml -ConfigFilePath $ConfigFilePath -SyscheckNode $syscheckNode
+}
+
+# Function to add a <file_limit> node to the syscheck configuration if missing
+function Add-FileLimitToSyscheck {
+    param(
+        [xml]$ConfigXml,
+        [string]$ConfigFilePath,
+        $SyscheckNode
+    )
+    $existingFileLimitNode = $SyscheckNode.SelectSingleNode("file_limit") 
+    if ($null -eq $existingFileLimitNode) {
+        InfoMessage "Adding file_limit to Wazuh agent configuration..." 
+        try {
+            $fileLimitNode = $ConfigXml.CreateElement("file_limit")
+            $enabledNode = $ConfigXml.CreateElement("enabled")
+            $enabledNode.InnerText = "no"
+            $fileLimitNode.AppendChild($enabledNode) | Out-Null
+            $SyscheckNode.AppendChild($fileLimitNode) | Out-Null
+            $ConfigXml.Save($ConfigFilePath)
+            InfoMessage "file_limit added to syscheck configuration." 
+        } catch {
+            WarnMessage "Failed to add file_limit to syscheck configuration: $_" 
+            exit 1
+        }
+    } else {
+        InfoMessage "file_limit is already in the syscheck configuration." 
+    }
+}
+
 # Function to update Wazuh agent configuration
 function Update-WazuhConfig {
     $userName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name.Split('\')[1]
@@ -128,48 +183,10 @@ function Update-WazuhConfig {
 
     [xml]$configXml = Get-Content -Path $configFilePath
 
-    $syscheckNode = $configXml.ossec_config.syscheck
-
-    if ($null -ne $syscheckNode) {
-        $existingNode = $syscheckNode.directories | Where-Object { $_.InnerText -eq "C:\Users\$userName\Downloads" }
-
-        if ($null -eq $existingNode) {
-            $newDirectoryNode = $configXml.CreateElement("directories")
-            $newDirectoryNode.SetAttribute("realtime", "yes")
-            $newDirectoryNode.InnerText = "C:\Users\$userName\Downloads"
-            $syscheckNode.AppendChild($newDirectoryNode) | Out-Null
-            $configXml.Save($configFilePath)
-            InfoMessage "Directory C:\Users\$userName\Downloads added to syscheck configuration."
-        } else {
-            InfoMessage "Directory C:\Users\$userName\Downloads is already in the syscheck configuration."
-        }
-
-        $existingFileLimitNode = $syscheckNode.SelectSingleNode("file_limit") 
-
-        if ($existingFileLimitNode -eq $null) {
-            InfoMessage "Adding file_limit to Wazuh agent configuration..." 
-            try {
-                $fileLimitNode = $configXml.CreateElement("file_limit")
-                $enabledNode = $configXml.CreateElement("enabled")
-                $enabledNode.InnerText = "no"
-                $fileLimitNode.AppendChild($enabledNode) | Out-Null
-                $syscheckNode.AppendChild($fileLimitNode) | Out-Null
-                $configXml.Save($configFilePath)
-                InfoMessage "file_limit added to syscheck configuration." 
-            } catch {
-                WarnMessage "Failed to add file_limit to syscheck configuration: $_" 
-                exit 1
-            }
-        } else {
-            InfoMessage "file_limit is already in the syscheck configuration." 
-        }
-    } else {
-        ErrorMessage "<syscheck> node not found in the configuration file." 
-    }
+    Update-SyscheckConfig -ConfigXml $configXml -ConfigFilePath $configFilePath -UserName $userName
 
      # Update frequency value in the configuration file
-    $configFilePath = "C:\Program Files (x86)\ossec-agent\ossec.conf"
-    if (-Not (Test-Path $configFilePath)) { ErrorMessage "Config file not found." }
+    if (-not (Test-Path $configFilePath)) { ErrorMessage "Config file not found." }
 
     [xml]$configXml = Get-Content -Path $configFilePath
     $frequencyNode = $configXml.ossec_config.SelectSingleNode("//frequency")
@@ -186,7 +203,6 @@ function Update-WazuhConfig {
 
     # Save the modified XML file
     $configXml.Save($configFilePath)
-
 
     Restart-Service -Name WazuhSvc
     SuccessMessage "Configuration completed successfully." 

@@ -72,11 +72,14 @@ fi
 # shellcheck disable=SC1091
 . "$TMP_DIR/utils.sh"
 
+# Installation type constants
+readonly INSTALLATION_TYPE_DESKTOP="desktop"
+
 # Prompt user for installation type
 prompt_installation_type() {
     # Check if installation type is already set via environment variable or argument
     if [[ -n "${INSTALLATION_TYPE:-}" ]]; then
-        if [[ "$INSTALLATION_TYPE" == "desktop" ]]; then
+        if [[ "$INSTALLATION_TYPE" == "$INSTALLATION_TYPE_DESKTOP" ]]; then
             YARA_SOURCE_URL="${WAZUH_YARA_REPO_URL}/scripts/linux/yara.sh"
             info_message "Using Desktop/Workstation installation (interactive mode)"
             return 0
@@ -97,7 +100,7 @@ prompt_installation_type() {
         choice=${choice:-1}
         case "$choice" in
             1)
-                INSTALLATION_TYPE="desktop"
+                INSTALLATION_TYPE="$INSTALLATION_TYPE_DESKTOP"
                 YARA_SOURCE_URL="${WAZUH_YARA_REPO_URL}/scripts/linux/yara.sh"
                 info_message "Selected: Desktop/Workstation installation"
                 return 0
@@ -350,7 +353,7 @@ install_dependencies() {
             maybe_sudo apt-get install -y jq 2>/dev/null || \
             warn_message "Could not install jq, continuing without it"
 
-            if [[ "${INSTALLATION_TYPE:-}" == "desktop" ]]; then
+            if [[ "${INSTALLATION_TYPE:-}" == "$INSTALLATION_TYPE_DESKTOP" ]]; then
                 ensure_notify_send_version
                 ensure_zenity_is_installed
             fi
@@ -526,7 +529,7 @@ setup_yara_components() {
         exit 1
     fi
 
-    if [[ "$INSTALLATION_TYPE" = "desktop" ]]; then
+    if [[ "$INSTALLATION_TYPE" = "$INSTALLATION_TYPE_DESKTOP" ]]; then
         sed_inplace 's|YARA_PATH="/usr/local/bin"|YARA_PATH="/opt/wazuh/yara/bin"|g' "$yara_script_path"
         sed_inplace 's|YARA_PATH="/opt/yara/bin"|YARA_PATH="/opt/wazuh/yara/bin"|g' "$yara_script_path"
     fi

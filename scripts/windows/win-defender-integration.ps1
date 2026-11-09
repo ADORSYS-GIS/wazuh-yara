@@ -74,6 +74,38 @@ function Uninstall-YARA {
     }
 }
 
+# Function to add a <file_limit> node to the syscheck configuration if missing
+function Add-FileLimitMonitoring {
+    param(
+        [xml]$ConfigXml,
+        [string]$ConfigFilePath
+    )
+    $syscheckNode = $ConfigXml.ossec_config.syscheck
+    if ($null -eq $syscheckNode) {
+        ErrorMessage "<syscheck> node not found in the configuration file." 
+        return
+    }
+
+    $existingFileLimitNode = $syscheckNode.SelectSingleNode("file_limit") 
+    if ($null -eq $existingFileLimitNode) {
+        InfoMessage "Adding file_limit to Wazuh agent configuration..." 
+        try {
+            $fileLimitNode = $ConfigXml.CreateElement("file_limit")
+            $enabledNode = $ConfigXml.CreateElement("enabled")
+            $enabledNode.InnerText = "no"
+            $fileLimitNode.AppendChild($enabledNode) | Out-Null
+            $syscheckNode.AppendChild($fileLimitNode) | Out-Null
+            $ConfigXml.Save($ConfigFilePath)
+            InfoMessage "file_limit added to syscheck configuration." 
+        } catch {
+            WarnMessage "Failed to add file_limit to syscheck configuration: $_" 
+            exit 1
+        }
+    } else {
+        InfoMessage "file_limit is already in the syscheck configuration." 
+    }
+}
+
 # Function to add Windows Defender log monitoring
 function Add-DefenderMonitoring {
     $configFilePath = "C:\Program Files (x86)\ossec-agent\ossec.conf"
@@ -93,29 +125,7 @@ function Add-DefenderMonitoring {
     }
     
     # Check if <syscheck> node exists and add file_limit if not present
-    $syscheckNode = $configXml.ossec_config.syscheck
-    if ($null -ne $syscheckNode) {
-        $existingFileLimitNode = $syscheckNode.SelectSingleNode("file_limit") 
-        if ($existingFileLimitNode -eq $null) {
-            InfoMessage "Adding file_limit to Wazuh agent configuration..." 
-            try {
-                $fileLimitNode = $configXml.CreateElement("file_limit")
-                $enabledNode = $configXml.CreateElement("enabled")
-                $enabledNode.InnerText = "no"
-                $fileLimitNode.AppendChild($enabledNode) | Out-Null
-                $syscheckNode.AppendChild($fileLimitNode) | Out-Null
-                $configXml.Save($configFilePath)
-                InfoMessage "file_limit added to syscheck configuration." 
-            } catch {
-                WarnMessage "Failed to add file_limit to syscheck configuration: $_" 
-                exit 1
-            }
-        } else {
-            InfoMessage "file_limit is already in the syscheck configuration." 
-        }
-    } else {
-        ErrorMessage "<syscheck> node not found in the configuration file." 
-    }
+    Add-FileLimitMonitoring -ConfigXml $configXml -ConfigFilePath $configFilePath
 
     # Check if Windows Defender monitoring already exists
     $defenderExists = $false
