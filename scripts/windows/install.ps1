@@ -123,6 +123,7 @@ function Install-YARA {
 
 # Function to add the Downloads directory and <file_limit> to the syscheck config
 function Update-SyscheckConfig {
+    [CmdletBinding(SupportsShouldProcess=$true)]
     param(
         [xml]$ConfigXml,
         [string]$ConfigFilePath,
@@ -136,12 +137,14 @@ function Update-SyscheckConfig {
 
     $existingNode = $syscheckNode.directories | Where-Object { $_.InnerText -eq "C:\Users\$UserName\Downloads" }
     if ($null -eq $existingNode) {
-        $newDirectoryNode = $ConfigXml.CreateElement("directories")
-        $newDirectoryNode.SetAttribute("realtime", "yes")
-        $newDirectoryNode.InnerText = "C:\Users\$UserName\Downloads"
-        $syscheckNode.AppendChild($newDirectoryNode) | Out-Null
-        $ConfigXml.Save($ConfigFilePath)
-        InfoMessage -Message "Directory C:\Users\$UserName\Downloads added to syscheck configuration."
+        if ($PSCmdlet.ShouldProcess("$ConfigFilePath", "Add Downloads directory to syscheck configuration")) {
+            $newDirectoryNode = $ConfigXml.CreateElement("directories")
+            $newDirectoryNode.SetAttribute("realtime", "yes")
+            $newDirectoryNode.InnerText = "C:\Users\$UserName\Downloads"
+            $syscheckNode.AppendChild($newDirectoryNode) | Out-Null
+            $ConfigXml.Save($ConfigFilePath)
+            InfoMessage -Message "Directory C:\Users\$UserName\Downloads added to syscheck configuration."
+        }
     } else {
         InfoMessage -Message "Directory C:\Users\$UserName\Downloads is already in the syscheck configuration."
     }
@@ -178,6 +181,7 @@ function Add-FileLimitToSyscheck {
 
 # Function to update Wazuh agent configuration
 function Update-WazuhConfig {
+    [CmdletBinding(SupportsShouldProcess=$true)]
     param()
     $userName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name.Split('\')[1]
     $configFilePath = "C:\Program Files (x86)\ossec-agent\ossec.conf"
@@ -193,19 +197,25 @@ function Update-WazuhConfig {
     $frequencyNode = $configXml.ossec_config.SelectSingleNode("//frequency")
 
     if ($frequencyNode) {
-        if ($frequencyNode.InnerText -in "300", "43200") { $frequencyNode.InnerText = "21600" }
-        SuccessMessage -Message "Frequency updated successfully in Wazuh agent configuration file."
+        if ($PSCmdlet.ShouldProcess("$configFilePath", "Update frequency value")) {
+            if ($frequencyNode.InnerText -in "300", "43200") { $frequencyNode.InnerText = "21600" }
+            SuccessMessage -Message "Frequency updated successfully in Wazuh agent configuration file."
+        }
     } else {
         InfoMessage -Message "No frequency updates were necessary."
-        $newNode = $configXml.CreateElement("frequency")
-        $newNode.InnerText = "21600"
-        $configXml.ossec_config.AppendChild($newNode) | Out-Null
+        if ($PSCmdlet.ShouldProcess("$configFilePath", "Add frequency node")) {
+            $newNode = $configXml.CreateElement("frequency")
+            $newNode.InnerText = "21600"
+            $configXml.ossec_config.AppendChild($newNode) | Out-Null
+        }
     }
 
     # Save the modified XML file
     $configXml.Save($configFilePath)
 
-    Restart-Service -Name WazuhSvc
+    if ($PSCmdlet.ShouldProcess("WazuhSvc", "Restart service")) {
+        Restart-Service -Name WazuhSvc
+    }
     SuccessMessage -Message "Configuration completed successfully."
 }
 

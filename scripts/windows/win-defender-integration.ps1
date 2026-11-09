@@ -167,22 +167,25 @@ function Add-DefenderMonitoring {
 
 # Function to restart Wazuh service
 function Restart-WazuhService {
+    [CmdletBinding(SupportsShouldProcess=$true)]
     [OutputType([System.Boolean])]
     param()
     try {
         $service = Get-Service -Name WazuhSvc -ErrorAction Stop
         if ($service.Status -eq 'Running') {
-            InfoMessage -Message "Restarting Wazuh service..."
-            Restart-Service -Name WazuhSvc -Force
-            # Wait for service to stabilize
-            Start-Sleep -Seconds 10
-            $newStatus = (Get-Service -Name WazuhSvc).Status
-            if ($newStatus -eq 'Running') {
-                SuccessMessage -Message "Wazuh service restarted successfully."
-                return $true
-            } else {
-                WarnMessage -Message "Wazuh service is in unexpected state: $newStatus"
-                return $false
+            if ($PSCmdlet.ShouldProcess("WazuhSvc", "Restart service")) {
+                InfoMessage -Message "Restarting Wazuh service..."
+                Restart-Service -Name WazuhSvc -Force
+                # Wait for service to stabilize
+                Start-Sleep -Seconds 10
+                $newStatus = (Get-Service -Name WazuhSvc).Status
+                if ($newStatus -eq 'Running') {
+                    SuccessMessage -Message "Wazuh service restarted successfully."
+                    return $true
+                } else {
+                    WarnMessage -Message "Wazuh service is in unexpected state: $newStatus"
+                    return $false
+                }
             }
         } else {
             WarnMessage -Message "Wazuh service is not running. Current state: $($service.Status)"
