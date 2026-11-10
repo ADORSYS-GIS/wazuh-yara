@@ -62,7 +62,7 @@ jobs:
           fi
 
   run-pytest-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: update-changelog-and-checksums
     env:
       INSTALLATION_TYPE: server          
