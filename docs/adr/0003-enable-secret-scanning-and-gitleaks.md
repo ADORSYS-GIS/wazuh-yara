@@ -61,7 +61,7 @@ The deciding forces are:
 
 ### Done when
 
-- [ ] Secret scanning and Push protection enabled in the repository security settings (requires repository admin).
+- [x] Secret scanning and Push protection enabled in the repository security settings.
 - [x] `secret-scan` job present in `.github/workflows/sast.yml`, pinned to a commit SHA of the shared workflow.
 - [x] ADR-0003 is documented and indexed in `docs/adr/README.md`.
 
