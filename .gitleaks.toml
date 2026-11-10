@@ -1,0 +1,8 @@
+title = "gitleaks config"
+
+[allowlist]
+  description = "YARA rule files: secret-like hex/base64 string patterns are malware detection signatures, not credentials"
+  paths = [
+    "rules/malware_rules.yar",
+    "rules/yara_rules.yar",
+  ]
