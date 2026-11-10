@@ -6,31 +6,30 @@ $ErrorActionPreference = "Stop"
 function Log {
     param (
         [string]$Level,
-        [string]$Message,
-        [string]$Color = "White"
+        [string]$Message
     )
     $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Write-Host "$Timestamp $Level $Message" -ForegroundColor $Color
+    Write-Output "$Timestamp $Level $Message"
 }
 
 function InfoMessage {
     param ([string]$Message)
-    Log "[INFO]" $Message "White"
+    Log -Level "[INFO]" -Message $Message
 }
 
 function WarnMessage {
     param ([string]$Message)
-    Log "[WARNING]" $Message "Yellow"
+    Log -Level "[WARNING]" -Message $Message
 }
 
 function ErrorMessage {
     param ([string]$Message)
-    Log "[ERROR]" $Message "Red"
+    Log -Level "[ERROR]" -Message $Message
 }
 
 function SuccessMessage {
     param ([string]$Message)
-    Log "[SUCCESS]" $Message "Green"
+    Log -Level "[SUCCESS]" -Message $Message
 }
 
 function PrintStep {
@@ -38,17 +37,17 @@ function PrintStep {
         [int]$StepNumber,
         [string]$Message
     )
-    Log "[STEP]" "Step ${StepNumber}: $Message" "White"
+    Log -Level "[STEP]" -Message "Step ${StepNumber}: $Message"
 }
 
 function ErrorExit {
     param ([string]$Message)
-    ErrorMessage $Message
+    ErrorMessage -Message $Message
     exit 1
 }
 
-function Ensure-Admin {
-    if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+function Assert-AdminPrivilege {
+    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
         ErrorExit "This script requires administrative privileges. Please run it as Administrator."
     }
 }
@@ -76,15 +75,16 @@ function Test-Checksum {
     )
     $actualHash = Get-FileChecksum -FilePath $FilePath
     if ($actualHash -ne $ExpectedHash.ToLower()) {
-        ErrorMessage "Checksum verification FAILED for $FilePath!"
-        ErrorMessage "  Expected: $ExpectedHash"
-        ErrorMessage "  Got:      $actualHash"
+        ErrorMessage -Message "Checksum verification FAILED for $FilePath!"
+        ErrorMessage -Message "  Expected: $ExpectedHash"
+        ErrorMessage -Message "  Got:      $actualHash"
         return $false
     }
     return $true
 }
 
-function Download-File {
+function Get-File {
+    [CmdletBinding()]
     param(
         [string]$Url,
         [string]$Destination,
@@ -92,7 +92,7 @@ function Download-File {
         [int]$MaxRetries = 3
     )
 
-    InfoMessage "Downloading $Description..."
+    InfoMessage -Message "Downloading $Description..."
 
     $destDir = Split-Path -Parent $Destination
     if (-not (Test-Path $destDir)) {
@@ -103,12 +103,12 @@ function Download-File {
     while ($attempt -lt $MaxRetries) {
         try {
             Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing
-            SuccessMessage "$Description downloaded successfully"
+            SuccessMessage -Message "$Description downloaded successfully"
             return
         } catch {
             $attempt++
             if ($attempt -lt $MaxRetries) {
-                WarnMessage "Download failed, retrying ($attempt/$MaxRetries)..."
+                WarnMessage -Message "Download failed, retrying ($attempt/$MaxRetries)..."
                 Start-Sleep -Seconds 2
             }
         }
@@ -117,36 +117,38 @@ function Download-File {
     ErrorExit "Failed to download $Description from $Url after $MaxRetries attempts"
 }
 
-function Download-And-VerifyFile {
+function Get-And-VerifyFile {
+    [CmdletBinding()]
+    [OutputType([System.Boolean])]
     param(
         [string]$Url,
         [string]$Destination,
         [string]$ChecksumPattern,
         [string]$FileName = "Unknown file",
-        [string]$ChecksumFile = $global:ChecksumsPath,
+        [string]$ChecksumFile = $script:ChecksumsPath,
         [string]$ChecksumUrl = $null
     )
-    
-    Download-File -Url $Url -Destination $Destination -Description $FileName
-    
+
+    Get-File -Url $Url -Destination $Destination -Description $FileName
+
     # If a direct checksum URL is provided, download it and use it as the source of truth
     if (-not [string]::IsNullOrWhiteSpace($ChecksumUrl)) {
         $tempChecksumFile = Join-Path ([System.IO.Path]::GetTempPath()) "checksums-$([System.Guid]::NewGuid().ToString()).sha256"
-        Download-File -Url $ChecksumUrl -Destination $tempChecksumFile -Description "checksum file"
+        Get-File -Url $ChecksumUrl -Destination $tempChecksumFile -Description "checksum file"
         $ChecksumFile = $tempChecksumFile
     }
-    
+
     if (-not [string]::IsNullOrWhiteSpace($ChecksumFile) -and (Test-Path -Path $ChecksumFile)) {
         $expectedHash = (Select-String -Path $ChecksumFile -Pattern $ChecksumPattern).Line.Split(" ")[0]
         if (-not [string]::IsNullOrWhiteSpace($expectedHash)) {
             if (-not (Test-Checksum -FilePath $Destination -ExpectedHash $expectedHash)) {
                 ErrorExit "$FileName checksum verification failed"
             }
-            InfoMessage "$FileName checksum verification passed."
+            InfoMessage -Message "$FileName checksum verification passed."
         } else {
             ErrorExit "No checksum found for $FileName in $ChecksumFile using pattern $ChecksumPattern"
         }
-        
+
         # Cleanup temporary checksum file if it was downloaded from a URL
         if (-not [string]::IsNullOrWhiteSpace($ChecksumUrl) -and (Test-Path -Path $ChecksumFile)) {
             Remove-Item -Path $ChecksumFile -Force -ErrorAction SilentlyContinue
@@ -154,7 +156,7 @@ function Download-And-VerifyFile {
     } else {
         ErrorExit "Checksum file not found at $ChecksumFile, cannot verify $FileName"
     }
-    
-    SuccessMessage "$FileName downloaded and verified successfully."
+
+    SuccessMessage -Message "$FileName downloaded and verified successfully."
     return $true
 }

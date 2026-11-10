@@ -75,14 +75,14 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
       with:
-        python-version: '3.9'
+        python-version: '3.11'
 
     - name: Install dependencies and Wazuh agent
       run: |
         # Install dependencies
         sudo apt-get update
         sudo apt-get install -y curl gnupg2 
-        pip install pytest pytest-testinfra
+        pip install --only-binary :all: pytest==8.2.2 pytest-testinfra==10.1.1
         
     - name: Install Wazuh agent
       run: |
@@ -111,13 +111,13 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
       with:
-        python-version: '3.9'
+        python-version: '3.11'
 
     - name: Install dependencies
       run: |
         brew update
         brew install python3 coreutils gnu-sed
-        pip3 install pytest pytest-testinfra
+        pip3 install --only-binary :all: pytest==8.2.2 pytest-testinfra==10.1.1
         
     - name: Install Wazuh agent
       run: |
