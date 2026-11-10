@@ -4,11 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-[aa3b53f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/aa3b53fdd058c8409fc39a9f64a4274270573f3e)...[7ded4bd](https://github.com/ADORSYS-GIS/wazuh-yara/commit/7ded4bd951bbfdef35408a95b4a8f04889044173)
+[aa3b53f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/aa3b53fdd058c8409fc39a9f64a4274270573f3e)...[4e73a8e](https://github.com/ADORSYS-GIS/wazuh-yara/commit/4e73a8e92568fa95eb0dbe4230f71838cf7e5cc6)
 
 ### Bug Fixes
 
 - Drop sonar exclusions quotes and test real maybe_sudo directly ([`6db14d8`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6db14d890f84881e56c6a167ed82c1afaa412914))
+- Allowlist false positives in YARA rule files ([`f5eb244`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/f5eb2444e73be6b5c51f435a8a5804a22f7f679d))
 
 ### Documentation
 
@@ -22,16 +23,30 @@ All notable changes to this project will be documented in this file.
 - Make SAST status badge clickable in ADR-0001 ([`6cf0ca1`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6cf0ca1867a4682bf43a25fe4c5d52fa12e43029))
 - Move SAST status badge to Evidence section in ADR-0001 ([`82cda9a`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/82cda9ae2772ed1d39e6e12e9872cf2f0475013a))
 - Move SAST status badge to README, remove from ADR Evidence ([`c473cae`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/c473cae0d75c9d563e304a8f47f2524739f6c99c))
+- Update CHANGELOG.md and checksums [skip ci] ([`1ad4b36`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/1ad4b362ceb71368c1bd74d2b71c36b559905a80))
+- Mark ADR-0001 as accepted after merge ([`9b94ecc`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/9b94ecc0f7a79852120a963011b5e4d7510dde31))
+- Standardize docs folder to SDLC-based structure ([`f02ee70`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/f02ee7028f30438cc27c5ed463ef8bce6c0f5c83))
+- Add architecture, installation, and reference documentation ([`39eca74`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/39eca74866410cfcf751b50ea9683d8f8a4fb6a8))
+- Address review feedback on yara documentation ([`83089c3`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/83089c373d19efd69842f5eeeacd369881b88d6a))
+- Align ADR-0002 with central specification template ([`6ab5c5d`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6ab5c5d4b97a0a3eb30286ba7624f5ba70dff592))
+- Add Dependabot status badge to README ([`2efbae4`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/2efbae405fe0d9e7226dd5e385dc505cb579d409))
+- Update ADR-0002 implementation status to Closed and Merged ([`7c4cc72`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/7c4cc72c2b5d400d4b0e4b1c4cc0813991dd3b0a))
+- Record solution implementation for ADR-0003 ([`7bd13cc`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/7bd13cc71f46be1b871e6eb4c2fb1c690ffc3a71))
+- Mark secret scanning and push protection enabled ([`2a658b0`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/2a658b0c883923ccf33e41105d57780cc303b4c7))
 
 ### Features
 
 - Add SAST workflow ([`43ec78d`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/43ec78d4ad37f09792f23e77f3f5a00eb819338c))
 - Generate CycloneDX SBOM in CI ([`bb23841`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/bb238415ff97cb8a9babb20b309bb258b0316152))
+- Add gitleaks secret scanning and CI job ([`ceae7e3`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/ceae7e3e6056f53346a550d94165f7bd4fe30096))
 
 ### Miscellaneous Tasks
 
 - Remove shellcheck check (moved to SAST) ([`5f7d633`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/5f7d633bd06f1a18c1b3d3f4904b62a74004f893))
 - Add issue and PR templates ([`26be5a0`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/26be5a07da37547225ed65ffb551eab122a71590))
+- Configure dependabot updates and document ADR-0002 ([`5f319aa`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/5f319aae4a512a517c807de005efee703f647c44))
+- Align dependabot.yml with org convention ([`45625d3`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/45625d3429b458fee74bda193b058241ff87abb4))
+- Pin pytest-linux runner to ubuntu-24.04 ([`02b50c6`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/02b50c60b1f782b0f35b6b2e9ecca6318b92e5b5))
 
 ### Testing
 
