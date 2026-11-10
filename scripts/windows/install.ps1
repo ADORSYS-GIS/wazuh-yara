@@ -72,7 +72,7 @@ function Get-YARA {
 
 # Function to install YARA
 function Install-YARA {
-    Test-AdminPrivilege
+    Assert-AdminPrivilege
 
     # Download and extract YARA
     Get-YARA
@@ -97,8 +97,7 @@ function Install-YARA {
         Copy-Item -Path $yaraRulesPath -Destination $rulesDir -Force
         InfoMessage -Message "YARA rules downloaded and copied to $rulesDir."
     } else {
-        ErrorMessage -Message "Failed to download YARA rules. The file $yaraRulesPath does not exist." -ForegroundColor Red
-        exit 1
+        ErrorExit -Message "Failed to download YARA rules. The file $yaraRulesPath does not exist."
     }
 
     #Download the yara.bat script
@@ -154,6 +153,7 @@ function Update-SyscheckConfig {
 
 # Function to add a <file_limit> node to the syscheck configuration if missing
 function Add-FileLimitToSyscheck {
+    [CmdletBinding(SupportsShouldProcess=$true)]
     param(
         [xml]$ConfigXml,
         [string]$ConfigFilePath,
@@ -161,18 +161,20 @@ function Add-FileLimitToSyscheck {
     )
     $existingFileLimitNode = $SyscheckNode.SelectSingleNode("file_limit")
     if ($null -eq $existingFileLimitNode) {
-        InfoMessage -Message "Adding file_limit to Wazuh agent configuration..."
-        try {
-            $fileLimitNode = $ConfigXml.CreateElement("file_limit")
-            $enabledNode = $ConfigXml.CreateElement("enabled")
-            $enabledNode.InnerText = "no"
-            $fileLimitNode.AppendChild($enabledNode) | Out-Null
-            $SyscheckNode.AppendChild($fileLimitNode) | Out-Null
-            $ConfigXml.Save($ConfigFilePath)
-            InfoMessage -Message "file_limit added to syscheck configuration."
-        } catch {
-            WarnMessage -Message "Failed to add file_limit to syscheck configuration: $_"
-            exit 1
+        if ($PSCmdlet.ShouldProcess("$ConfigFilePath", "Add file_limit to syscheck configuration")) {
+            InfoMessage -Message "Adding file_limit to Wazuh agent configuration..."
+            try {
+                $fileLimitNode = $ConfigXml.CreateElement("file_limit")
+                $enabledNode = $ConfigXml.CreateElement("enabled")
+                $enabledNode.InnerText = "no"
+                $fileLimitNode.AppendChild($enabledNode) | Out-Null
+                $SyscheckNode.AppendChild($fileLimitNode) | Out-Null
+                $ConfigXml.Save($ConfigFilePath)
+                InfoMessage -Message "file_limit added to syscheck configuration."
+            } catch {
+                WarnMessage -Message "Failed to add file_limit to syscheck configuration: $_"
+                exit 1
+            }
         }
     } else {
         InfoMessage -Message "file_limit is already in the syscheck configuration."
@@ -211,7 +213,9 @@ function Update-WazuhConfig {
     }
 
     # Save the modified XML file
-    $configXml.Save($configFilePath)
+    if ($PSCmdlet.ShouldProcess("$configFilePath", "Save configuration changes")) {
+        $configXml.Save($configFilePath)
+    }
 
     if ($PSCmdlet.ShouldProcess("WazuhSvc", "Restart service")) {
         Restart-Service -Name WazuhSvc

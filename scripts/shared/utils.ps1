@@ -46,7 +46,7 @@ function ErrorExit {
     exit 1
 }
 
-function Test-AdminPrivilege {
+function Assert-AdminPrivilege {
     if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
         ErrorExit "This script requires administrative privileges. Please run it as Administrator."
     }

@@ -198,7 +198,7 @@ function Restart-WazuhService {
 }
 
 # Main script execution
-Test-AdminPrivilege
+Assert-AdminPrivilege
 
 # Step 1: Uninstall YARA
 $yaraRemoved = Uninstall-YARA
