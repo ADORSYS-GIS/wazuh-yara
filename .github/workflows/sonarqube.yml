@@ -34,7 +34,7 @@ jobs:
         run: ./tests/run-coverage.sh
 
       - name: Upload Coverage Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: yara-coverage-report
           path: coverage/sonar-coverage.xml
