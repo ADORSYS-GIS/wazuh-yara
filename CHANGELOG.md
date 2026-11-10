@@ -4,12 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-[aa3b53f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/aa3b53fdd058c8409fc39a9f64a4274270573f3e)...[4e73a8e](https://github.com/ADORSYS-GIS/wazuh-yara/commit/4e73a8e92568fa95eb0dbe4230f71838cf7e5cc6)
+[aa3b53f](https://github.com/ADORSYS-GIS/wazuh-yara/commit/aa3b53fdd058c8409fc39a9f64a4274270573f3e)...[68e4002](https://github.com/ADORSYS-GIS/wazuh-yara/commit/68e4002b9482255b6d1a3b5eddec4ea948d07b65)
 
 ### Bug Fixes
 
 - Drop sonar exclusions quotes and test real maybe_sudo directly ([`6db14d8`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/6db14d890f84881e56c6a167ed82c1afaa412914))
 - Allowlist false positives in YARA rule files ([`f5eb244`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/f5eb2444e73be6b5c51f435a8a5804a22f7f679d))
+- Address PR review feedback ([`d5ea79e`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/d5ea79e85ab90ff19810e8fdbf2dc472a44c3054)), Refs:#117
 
 ### Documentation
 
@@ -33,6 +34,7 @@ All notable changes to this project will be documented in this file.
 - Update ADR-0002 implementation status to Closed and Merged ([`7c4cc72`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/7c4cc72c2b5d400d4b0e4b1c4cc0813991dd3b0a))
 - Record solution implementation for ADR-0003 ([`7bd13cc`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/7bd13cc71f46be1b871e6eb4c2fb1c690ffc3a71))
 - Mark secret scanning and push protection enabled ([`2a658b0`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/2a658b0c883923ccf33e41105d57780cc303b4c7))
+- Update CHANGELOG.md and checksums [skip ci] ([`3379c45`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/3379c4510b266842285fc33379638f6406b42ebe))
 
 ### Features
 
@@ -47,6 +49,11 @@ All notable changes to this project will be documented in this file.
 - Configure dependabot updates and document ADR-0002 ([`5f319aa`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/5f319aae4a512a517c807de005efee703f647c44))
 - Align dependabot.yml with org convention ([`45625d3`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/45625d3429b458fee74bda193b058241ff87abb4))
 - Pin pytest-linux runner to ubuntu-24.04 ([`02b50c6`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/02b50c60b1f782b0f35b6b2e9ecca6318b92e5b5))
+- Fix SonarQube vulnerabilities and code smells ([`9e26c0e`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/9e26c0e5804cfa1cc6adb86e90aea7309285381a)), Refs:#116
+- Fix CI failures and PSScriptAnalyzer warnings ([`4af8d13`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/4af8d13f06174c5ca32d10ae8e5a7f4127f24eff)), Fixes #116
+- Fix PSScriptAnalyzer warnings and regenerate checksums ([`aa57925`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/aa5792582da0a57fab5a2d665a64a721341be820)), Fixes #116
+- Implement ShouldProcess support for state-changing functions ([`a583199`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/a5831991aecbf31a8ed40ae127973b64182c6e07)), Fixes #116
+- Update checksums after ShouldProcess implementation ([`65ac04e`](https://github.com/ADORSYS-GIS/wazuh-yara/commit/65ac04e163c68391b278496528daf57698c6e137))
 
 ### Testing
 
