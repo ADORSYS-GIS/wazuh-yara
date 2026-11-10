@@ -8,10 +8,11 @@ decision. The canonical writing guidance is the central ADR guide:
 
 ## Index
 
-| ID                                         | Title                         | Status     | Date       | Relations | Formerly |
-| :----------------------------------------- | :---------------------------- | :--------- | :--------- | :-------- | :------- |
-| [ADR-0001](0001-generate-sbom-in-ci.md) | Generate CycloneDX SBOM in CI | `Accepted` | 2026-10-28 | N/A       | N/A      |
+| ID                                                              | Title                                       | Status     | Date       | Relations | Formerly |
+| :-------------------------------------------------------------- | :------------------------------------------ | :--------- | :--------- | :-------- | :------- |
+| [ADR-0001](0001-generate-sbom-in-ci.md)                         | Generate CycloneDX SBOM in CI               | `Accepted` | 2026-10-28 | N/A       | N/A      |
 | [ADR-0002](0002-automate-dependency-updates-with-dependabot.md) | Automate Dependency Updates with Dependabot | `Accepted` | 2026-11-06 | N/A       | N/A      |
+| [ADR-0003](0003-enable-secret-scanning-and-gitleaks.md)         | Enable Secret Scanning and Gitleaks in CI   | `Accepted` | 2026-11-09 | N/A       | N/A      |
 
 ---
 
