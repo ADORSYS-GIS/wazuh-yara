@@ -1,5 +1,8 @@
 title = "gitleaks config"
 
+[extend]
+  useDefault = true
+
 [allowlist]
   description = "YARA rule files: secret-like hex/base64 string patterns are malware detection signatures, not credentials"
   paths = [
