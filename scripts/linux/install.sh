@@ -566,11 +566,14 @@ validate_installation() {
 
     local yara_found=0 actual_version=""
 
-    if command_exists yara; then
-        actual_version=$(yara --version 2>&1 || echo "")
-        yara_found=1
-    elif [[ -f "$YARA_MODERN_BIN_PATH" ]]; then
+    if [[ -f "$YARA_MODERN_BIN_PATH" ]]; then
         actual_version=$("$YARA_MODERN_BIN_PATH" --version 2>&1 || echo "")
+        yara_found=1
+    elif [[ -f "$YARA_BIN_PATH" ]] || [[ -L "$YARA_BIN_PATH" ]]; then
+        actual_version=$("$YARA_BIN_PATH" --version 2>&1 || echo "")
+        yara_found=1
+    elif command_exists yara; then
+        actual_version=$(yara --version 2>&1 || echo "")
         yara_found=1
     fi
 

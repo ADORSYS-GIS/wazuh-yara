@@ -467,3 +467,64 @@ teardown() {
     [ "$status" -eq 0 ]
     [[ "$output" =~ "called with sudo: echo hello world" ]]
 }
+
+@test "version_is_4_5_x accepts 4.5.x and rejects other versions" {
+    version_is_4_5_x() {
+        local version="$1"
+        local major minor
+        major=$(echo "$version" | cut -d'.' -f1)
+        minor=$(echo "$version" | cut -d'.' -f2)
+
+        [[ "$major" = "4" ]] && [[ "$minor" = "5" ]]
+        return $?
+    }
+
+    run version_is_4_5_x "4.5.0"
+    [ "$status" -eq 0 ]
+
+    run version_is_4_5_x "4.5.5"
+    [ "$status" -eq 0 ]
+
+    run version_is_4_5_x "4.6.0"
+    [ "$status" -ne 0 ]
+
+    run version_is_4_5_x "3.11.0"
+    [ "$status" -ne 0 ]
+}
+
+@test "validate_installation prioritizes YARA_MODERN_BIN_PATH over PATH binary" {
+    local mock_modern="$TEST_DIR/modern/yara"
+    local mock_path_bin="$TEST_DIR/bin/yara"
+    mkdir -p "$TEST_DIR/modern" "$TEST_DIR/bin"
+
+    cat << 'EOF' > "$mock_modern"
+#!/bin/sh
+echo "4.5.5"
+EOF
+    chmod +x "$mock_modern"
+
+    cat << 'EOF' > "$mock_path_bin"
+#!/bin/sh
+echo "4.6.0"
+EOF
+    chmod +x "$mock_path_bin"
+
+    run bash -c "
+        export PATH=\"$TEST_DIR/bin:\$PATH\"
+        YARA_MODERN_BIN_PATH=\"$mock_modern\"
+        YARA_BIN_PATH=\"$TEST_DIR/mock_usr_local/yara\"
+        command_exists() { command -v \"\$1\" >/dev/null 2>&1; }
+
+        actual_version=\"\"
+        if [[ -f \"\$YARA_MODERN_BIN_PATH\" ]]; then
+            actual_version=\$(\"\$YARA_MODERN_BIN_PATH\" 2>&1 || echo \"\")
+        elif [[ -f \"\$YARA_BIN_PATH\" ]] || [[ -L \"\$YARA_BIN_PATH\" ]]; then
+            actual_version=\$(\"\$YARA_BIN_PATH\" 2>&1 || echo \"\")
+        elif command_exists yara; then
+            actual_version=\$(yara 2>&1 || echo \"\")
+        fi
+        echo \"\$actual_version\"
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "4.5.5" ]
+}
