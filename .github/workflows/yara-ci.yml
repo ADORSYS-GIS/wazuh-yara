@@ -45,7 +45,7 @@ jobs:
           cat checksums.sha256
           
       - name: Generate full CHANGELOG.md
-        uses: orhun/git-cliff-action@c93ef52f3d0ddcdcc9bd5447d98d458a11cd4f72
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff
         with:
           config: cliff.toml
           args: --output CHANGELOG.md
@@ -154,7 +154,7 @@ jobs:
           
       - name: Generate release notes (latest only)
         id: git_cliff
-        uses: orhun/git-cliff-action@c93ef52f3d0ddcdcc9bd5447d98d458a11cd4f72
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff
         with:
           config: cliff.toml
           args: --latest --strip header
